@@ -10,7 +10,6 @@ const Contact = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle form submission
     console.log('Form submitted:', formData);
   };
 
@@ -23,55 +22,50 @@ const Contact = () => {
 
   const contactInfo = [
     {
-      icon: "📍",
-      title: "Address",
-      details: ["123 Tech Street", "Innovation City, IC 12345", "United States"]
+      icon: "🏢",
+      title: "Headquarters",
+      details: ["WIREEO Technologies", "Industrial District, Building 5", "Tech City, TC 12345"]
     },
     {
       icon: "📞",
       title: "Phone",
-      details: ["+1 (555) 123-4567", "+1 (555) 987-6543"]
+      details: ["+1 (555) 123-4567", "+1 (555) 987-6543 (Technical)"]
     },
     {
-      icon: "✉️",
+      icon: "📧",
       title: "Email",
-      details: ["info@wireeo.com", "support@wireeo.com"]
+      details: ["info@wireeo.com", "technical@wireeo.com"]
     },
     {
-      icon: "🕒",
-      title: "Support Hours",
-      details: ["Mon - Fri: 9:00 AM - 6:00 PM", "Sat: 10:00 AM - 4:00 PM", "Sun: Closed"]
+      icon: "🕰️",
+      title: "Business Hours",
+      details: ["Mon - Fri: 8:00 AM - 6:00 PM", "Sat: 9:00 AM - 2:00 PM", "24/7 Emergency Support"]
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-20"></div>
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-10 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"
-        ></div>
+      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-black opacity-40"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
         <div className="relative container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
-            Get in <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Touch</span>
+          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            Contact <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Us</span>
           </h1>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto animate-fade-in-up animation-delay-200">
-            Have questions about smart home automation? We&apos;re here to help.
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Get in touch with our electrical automation experts for technical consultation and project support.
           </p>
         </div>
-        {/* Decorative elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-green-400 rounded-full opacity-20 animate-float"></div>
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-emerald-400 rounded-full opacity-20 animate-float animation-delay-1000"></div>
       </section>
 
       {/* Contact Section */}
-      <section className="py-20">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
             {/* Contact Form */}
-            <div className="animate-fade-in-left">
-              <div className="bg-white rounded-2xl shadow-premium-lg p-8">
+            <div>
+              <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Send us a Message</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -86,7 +80,7 @@ const Contact = () => {
                         required
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                         placeholder="Your full name"
                       />
                     </div>
@@ -101,7 +95,7 @@ const Contact = () => {
                         required
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
                         placeholder="your@email.com"
                       />
                     </div>
@@ -109,7 +103,7 @@ const Contact = () => {
 
                   <div>
                     <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
-                      Home setup (optional)
+                      Company/Organization
                     </label>
                     <input
                       type="text"
@@ -117,14 +111,14 @@ const Contact = () => {
                       name="company"
                       value={formData.company}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300"
-                      placeholder="Apartment / House / New build / Renovation"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                      placeholder="Your company or organization"
                     />
                   </div>
 
                   <div>
                     <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                      Message *
+                      Project Details *
                     </label>
                     <textarea
                       id="message"
@@ -133,14 +127,14 @@ const Contact = () => {
                       rows={6}
                       value={formData.message}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 resize-none"
-                      placeholder="Tell us about your smart home needs..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none"
+                      placeholder="Tell us about your electrical automation project requirements..."
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Send Message
                   </button>
@@ -149,21 +143,19 @@ const Contact = () => {
             </div>
 
             {/* Contact Information */}
-            <div className="animate-fade-in-right">
+            <div>
               <div className="space-y-8">
                 <div>
                   <h2 className="text-3xl font-bold text-gray-900 mb-6">Contact Information</h2>
                   <p className="text-gray-600 mb-8">
-                    We&apos;re here to help. Reach out through any channel below, and we&apos;ll respond quickly.
+                    Our technical team is ready to assist with your electrical automation needs. 
+                    Contact us for project consultation, technical support, or product information.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {contactInfo.map((info, index) => (
-                    <div
-                      key={index}
-                      className={`bg-white p-6 rounded-xl shadow-premium hover-lift animate-scale-in animation-delay-[${index * 0.1}s]`}
-                    >
+                    <div key={index} className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
                       <div className="text-3xl mb-4">{info.icon}</div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-3">{info.title}</h3>
                       <div className="space-y-1">
@@ -175,13 +167,25 @@ const Contact = () => {
                   ))}
                 </div>
 
-                {/* Map Placeholder */}
-                <div className="bg-white rounded-xl shadow-premium-lg p-6 animate-fade-in-up animation-delay-600">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Find Us</h3>
-                  <div className="bg-gray-200 rounded-lg h-64 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-4xl mb-2">🗺️</div>
-                      <p className="text-gray-600">Interactive map would be displayed here</p>
+                {/* Service Areas */}
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Service Areas</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>
+                      <h4 className="font-semibold text-gray-800 mb-2">Residential</h4>
+                      <ul className="space-y-1">
+                        <li>• Smart Home Systems</li>
+                        <li>• Home Automation</li>
+                        <li>• Energy Management</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-800 mb-2">Commercial</h4>
+                      <ul className="space-y-1">
+                        <li>• Building Automation</li>
+                        <li>• Industrial Control</li>
+                        <li>• Power Distribution</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
@@ -192,18 +196,18 @@ const Contact = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-gray-900 to-black text-white">
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6 animate-fade-in-up">Get in Touch</h2>
-          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto animate-fade-in-up animation-delay-200">
-            Questions about our products? Need support? We&apos;re here to help.
+          <h2 className="text-4xl font-bold mb-6">Ready to Start Your Project?</h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            Our electrical automation experts are here to help you design and implement the perfect solution for your needs.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up animation-delay-400">
-            <button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-              Download Apps
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+              Schedule Consultation
             </button>
-            <button className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105">
-              Get Support
+            <button className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300">
+              Download Catalog
             </button>
           </div>
         </div>

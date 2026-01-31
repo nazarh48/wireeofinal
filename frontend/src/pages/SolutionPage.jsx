@@ -1,9 +1,10 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const FeatureCard = ({ icon, title, description }) => {
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-      <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mb-6">
+      <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mb-6">
         {icon}
       </div>
       <h3 className="text-2xl font-semibold text-gray-900 mb-3">{title}</h3>
@@ -14,10 +15,10 @@ const FeatureCard = ({ icon, title, description }) => {
 
 const FunctionsCategory = ({ title, items }) => {
   return (
-    <div className="bg-white rounded-2xl shadow-premium hover-lift p-6">
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl p-6 transition-all duration-300">
       <div className="flex items-start justify-between gap-4 mb-4">
         <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-100">
+        <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
           {items.length} items
         </span>
       </div>
@@ -25,7 +26,7 @@ const FunctionsCategory = ({ title, items }) => {
         {items.map((item) => (
           <li key={item} className="flex items-start text-sm text-gray-700">
             <svg
-              className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5"
+              className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0 mt-0.5"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -46,76 +47,73 @@ const FunctionsCategory = ({ title, items }) => {
 const SolutionPage = () => {
   const features = [
     {
-      title: "Lighting",
+      title: "Control Systems",
       description:
-        "Set scenes, adjust brightness, and control zones with quick actions that fit your routine.",
+        "Advanced control panels and switching systems for comprehensive electrical management and automation.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M12 2a7 7 0 00-4 12.74V17a2 2 0 002 2h4a2 2 0 002-2v-2.26A7 7 0 0012 2zm-2 20h4"
+            d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
           />
         </svg>
       ),
     },
     {
-      title: "Shading systems",
+      title: "Protection Devices",
       description:
-        "Open, close, and schedule blinds or curtains for comfort, privacy, and daylight control.",
+        "Circuit breakers, surge protectors, and safety devices ensuring maximum electrical protection and reliability.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16v16H4V4z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4v16M12 4v16M16 4v16" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       ),
     },
     {
-      title: "Heating / Cooling",
+      title: "Power Distribution",
       description:
-        "Manage temperature by room, set targets, and keep your home comfortable throughout the day.",
+        "Reliable power distribution systems with advanced monitoring and load management capabilities.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M10 14a2 2 0 104 0V7a2 2 0 10-4 0v7z"
+            d="M13 10V3L4 14h7v7l9-11h-7z"
           />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v2m0 16v2" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6l1.5 1.5M16.5 16.5L18 18" />
         </svg>
       ),
     },
     {
-      title: "Parameters Views",
+      title: "Monitoring Systems",
       description:
-        "See key values at a glance—status, modes, sensors, and room-by-room summaries in one place.",
+        "Real-time monitoring and diagnostics for electrical systems with comprehensive data analytics and reporting.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h8V3H3v10zM13 21h8V11h-8v10zM13 3h8v6h-8V3zM3 17h8v4H3v-4z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
     },
     {
-      title: "Universal orders",
+      title: "Automation Solutions",
       description:
-        "Trigger common actions fast: all off, away mode, night mode, and custom global commands.",
+        "Intelligent automation systems for building management, energy optimization, and operational efficiency.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7h16M4 12h16M4 17h16" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
     {
-      title: "Ventilation systems",
+      title: "Communication Systems",
       description:
-        "Control airflow and quality settings, run timers, and manage ventilation based on comfort needs.",
+        "Advanced communication protocols and networking solutions for integrated electrical system management.",
       icon: (
         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h10a4 4 0 110 8H7" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h8" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
         </svg>
       ),
     },
@@ -123,72 +121,68 @@ const SolutionPage = () => {
 
   const functionsByCategory = [
     {
-      title: "LIGHTING",
-      items: ["Turn on/off by room", "Dim level control", "Scene presets (e.g., Relax/Work)", "All lights off"],
+      title: "CONTROL SYSTEMS",
+      items: ["Panel Configuration", "Switch Management", "Load Control", "System Integration"],
     },
     {
-      title: "HEATING / COOLING",
-      items: ["Set target temperature", "Switch mode (Heat/Cool/Auto)", "Schedule by time", "Eco mode toggle"],
+      title: "PROTECTION & SAFETY",
+      items: ["Circuit Protection", "Fault Detection", "Emergency Systems", "Safety Monitoring"],
     },
     {
-      title: "VENTILATION SYSTEM",
-      items: ["Fan speed control", "Timer run (15/30/60 min)", "Air quality boost", "Night quiet mode"],
+      title: "POWER MANAGEMENT",
+      items: ["Load Balancing", "Energy Monitoring", "Peak Demand Control", "Power Quality Analysis"],
     },
     {
-      title: "GENERAL ACTIONS",
-      items: ["Away mode", "Night mode", "All devices off", "Quick favorites"],
+      title: "AUTOMATION",
+      items: ["Scheduled Operations", "Sensor Integration", "Remote Control", "Predictive Maintenance"],
     },
     {
-      title: "SCENARIOS",
-      items: ["Morning routine", "Arrive home routine", "Movie night scene", "Sleep scene"],
+      title: "MONITORING & ANALYTICS",
+      items: ["Real-time Data", "Performance Reports", "Trend Analysis", "Alert Systems"],
     },
     {
-      title: "INFO AND WARNINGS",
-      items: ["Open window detected", "Device offline notice", "Low battery warning", "System status overview"],
+      title: "COMMUNICATION",
+      items: ["Network Integration", "Protocol Support", "Remote Access", "Data Exchange"],
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-20"></div>
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-10 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"
-        ></div>
+      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-black opacity-40"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
         <div className="relative container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
-            What can <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Wireeo</span> do
+          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+            What <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">WIREEO</span> Can Do
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
-            Wireeo will become the ideal interface for you!
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            WIREEO provides comprehensive electrical automation solutions for modern infrastructure needs.
           </p>
         </div>
-        <div className="absolute top-20 left-10 w-20 h-20 bg-green-400 rounded-full opacity-20 animate-float"></div>
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-emerald-400 rounded-full opacity-20 animate-float animation-delay-1000"></div>
       </section>
 
       {/* Description */}
-      <section className="py-20">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6 animate-fade-in-up">A smart interface for daily life</h2>
-            <p className="text-xl text-gray-600 leading-relaxed animate-fade-in-up animation-delay-200">
-              Wireeo is designed to simplify how you control and monitor home systems. It brings key actions,
-              device status, and automation into one clean experience—so you can manage comfort, lighting, and
-              airflow quickly, whether you&apos;re at home or away.
+            <h2 className="text-4xl font-bold text-gray-900 mb-6">Professional Electrical Automation</h2>
+            <p className="text-xl text-gray-600 leading-relaxed">
+              WIREEO is engineered to provide reliable, efficient, and intelligent electrical automation solutions. 
+              Our systems integrate seamlessly with existing infrastructure while providing advanced control, 
+              monitoring, and protection capabilities for residential, commercial, and industrial applications.
             </p>
           </div>
         </div>
       </section>
 
       {/* Features Grid 2x3 */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Capabilities</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Core Capabilities</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Short, direct controls for the systems you use most.
+              Advanced electrical systems designed for reliability, efficiency, and intelligent operation.
             </p>
           </div>
 
@@ -201,26 +195,27 @@ const SolutionPage = () => {
       </section>
 
       {/* Additional Paragraph */}
-      <section className="py-20">
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-premium-lg p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Communication objects</h3>
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">System Architecture</h3>
             <p className="text-gray-600 leading-relaxed">
-              Wireeo organizes devices and controls as communication objects—simple building blocks that represent
-              rooms, zones, sensors, and actions. This structure helps keep the interface clear while still supporting
-              powerful automation: quick commands, grouped actions, and scenario-based control.
+              WIREEO systems are built on a modular architecture that supports scalable deployment and easy integration. 
+              Our communication protocols ensure seamless data exchange between devices, while advanced analytics provide 
+              insights for optimized performance. The system supports both centralized and distributed control strategies, 
+              making it suitable for applications ranging from single buildings to large industrial complexes.
             </p>
           </div>
         </div>
       </section>
 
       {/* Functions Table / Structured List */}
-      <section className="py-20 bg-gradient-to-r from-green-50 to-emerald-50">
+      <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Functions</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">System Functions</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Example actions and controls (placeholders you can replace later).
+              Comprehensive functionality across all aspects of electrical system management and automation.
             </p>
           </div>
 
@@ -233,25 +228,26 @@ const SolutionPage = () => {
       </section>
 
       {/* Footer Note */}
-      <section className="py-20 bg-gradient-to-r from-gray-900 to-black text-white">
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6 animate-fade-in-up">Note</h2>
-          <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
-            Some advanced functions may be available only in Wireeo Pro. Availability can also depend on the devices
-            installed in your home and the selected app version.
+          <h2 className="text-4xl font-bold mb-6">Professional Support</h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
+            Advanced features and enterprise-level support are available through WIREEO Professional. 
+            System capabilities may vary based on specific hardware configurations and installation requirements. 
+            Contact our technical team for detailed specifications and custom solutions.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up animation-delay-400">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/products"
-              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
               View Products
             </Link>
             <Link
               to="/contact"
-              className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105"
+              className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300"
             >
-              Ask a Question
+              Contact Technical Team
             </Link>
           </div>
         </div>
