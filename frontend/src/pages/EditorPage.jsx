@@ -1,5 +1,5 @@
 // src/pages/EditorPage.jsx
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useCatalog } from '../hooks/useCatalog';
 import useStore from '../store/useStore';
@@ -7,9 +7,12 @@ import Configurator from '../components/configurator/Configurator';
 
 const EditorPage = () => {
   const { productId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { getConfigurableProductById, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
   const setProduct = useStore((s) => s.setProduct);
+
+  const instanceId = searchParams.get('instanceId') || null;
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
@@ -18,15 +21,13 @@ const EditorPage = () => {
   const product = getConfigurableProductById(productId);
   const range = product ? getRangeById(product.rangeId) : null;
 
-  // Check if we're coming from projects tab
   const isFromProjects = window.location.search.includes('from=projects');
 
   useEffect(() => {
     if (product) {
-      // setProduct will load existing edits if available
-      setProduct(product);
+      setProduct(product, instanceId);
     }
-  }, [product, setProduct, productId]);
+  }, [product, setProduct, productId, instanceId]);
 
   if (loading && !loaded) {
     return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
@@ -61,7 +62,7 @@ const EditorPage = () => {
       </div>
 
       <div className="flex-1 min-h-0">
-        <Configurator navigate={navigate} isFromProjects={isFromProjects} />
+        <Configurator navigate={navigate} isFromProjects={isFromProjects} instanceId={instanceId} />
       </div>
     </div>
   );

@@ -2,7 +2,19 @@ import { useState } from 'react';
 import useStore from '../../store/useStore';
 
 const LayerPanel = () => {
-  const { configurator, selectElement, deleteElement, bringToFront, sendToBack, bringForward, sendBackward } = useStore();
+  const {
+    configurator,
+    selectElement,
+    addToSelection,
+    removeFromSelection,
+    setSelectedElements,
+    deleteSelected,
+    bringToFront,
+    sendToBack,
+    bringForward,
+    sendBackward,
+  } = useStore();
+  const selectedIds = configurator.selectedElementIds || [];
   const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   const toggleGroup = (groupId) => {
@@ -103,8 +115,20 @@ const LayerPanel = () => {
     return acc;
   }, { groups: {}, grouped: {}, ungrouped: [] });
 
+  const handleLayerClick = (e, element) => {
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      if (selectedIds.includes(element.id)) {
+        removeFromSelection(element.id);
+      } else {
+        addToSelection(element.id);
+      }
+    } else {
+      selectElement(element.id);
+    }
+  };
+
   const renderElement = (element, index) => {
-    const isSelected = element.id === configurator.selectedElementId;
+    const isSelected = selectedIds.includes(element.id);
     const isGroup = element.type === 'group';
     const children = isGroup ? groupedElements.grouped[element.id] || [] : null;
     const isExpanded = isGroup && expandedGroups.has(element.id);
@@ -117,7 +141,7 @@ const LayerPanel = () => {
               ? 'bg-blue-100 border-2 border-blue-500'
               : 'bg-gray-50 hover:bg-gray-100 border border-transparent'
           }`}
-          onClick={() => selectElement(element.id)}
+          onClick={(e) => handleLayerClick(e, element)}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {isGroup && (
@@ -150,7 +174,7 @@ const LayerPanel = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    bringToFront(element.id);
+                    selectedIds.forEach((id) => bringToFront(id));
                   }}
                   className="p-1 hover:bg-gray-200 rounded"
                   title="Bring to Front"
@@ -162,7 +186,7 @@ const LayerPanel = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    sendToBack(element.id);
+                    selectedIds.forEach((id) => sendToBack(id));
                   }}
                   className="p-1 hover:bg-gray-200 rounded"
                   title="Send to Back"
@@ -174,7 +198,7 @@ const LayerPanel = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteElement(element.id);
+                    deleteSelected();
                   }}
                   className="p-1 hover:bg-red-100 text-red-600 rounded"
                   title="Delete"
@@ -193,13 +217,11 @@ const LayerPanel = () => {
               <div
                 key={child.id}
                 className={`flex items-center gap-2 p-1.5 rounded text-xs ${
-                  child.id === configurator.selectedElementId
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600'
+                  selectedIds.includes(child.id) ? 'bg-blue-50 text-blue-700' : 'text-gray-600'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  selectElement(child.id);
+                  handleLayerClick(e, child);
                 }}
               >
                 <div className="text-gray-400">{getElementIcon(child.type)}</div>

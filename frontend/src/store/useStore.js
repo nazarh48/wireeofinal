@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { apiService, USER_TOKEN_KEY, API_ORIGIN } from "../services/api";
+import { normalizeElements } from "../utils/editorMigration";
 
 const normalizeImageUrl = (url) => {
   if (!url) return "";
@@ -72,20 +73,12 @@ const useStore = create((set, get) => ({
       } catch (e) {
         // Ignore debug errors
       }
-      const instanceId = Date.now() + Math.random();
+      // Each add creates a NEW instance; do NOT copy product-level edits so instances stay independent.
+      const instanceId = `inst_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
       const productWithInstance = {
         ...product,
         _instanceId: instanceId,
       };
-
-      // Capture any existing edits for this product
-      const productEdits = state.productEdits[product.id];
-      if (productEdits) {
-        state.pendingEdits[instanceId] = {
-          elements: productEdits.elements || [],
-          configuration: productEdits.configuration || {},
-        };
-      }
 
       const updatedPending = [...state.pendingCollection, productWithInstance];
       try {
@@ -98,7 +91,6 @@ const useStore = create((set, get) => ({
       }
       set({
         pendingCollection: updatedPending,
-        pendingEdits: state.pendingEdits,
         toast: {
           open: true,
           message:
@@ -111,40 +103,35 @@ const useStore = create((set, get) => ({
       });
       return {
         pendingCollection: updatedPending,
-        pendingEdits: state.pendingEdits,
       };
     });
   },
   savePendingAsPdf: () => {
     const state = get();
-    let products = Array.isArray(state.pendingPdfCollection)
-      ? state.pendingPdfCollection.filter(Boolean)
+    const entries = Array.isArray(state.pendingPdfCollection)
+      ? state.pendingPdfCollection.filter((e) => e && e.product)
       : [];
+    let products = entries.map((e) => e.product);
     if (products.length === 0) {
       get().showToast("No products available for PDF export.");
       return;
     }
-    try {
-      console.debug(
-        "savePendingAsPdf called, products:",
-        products && products.length,
-      );
-    } catch (e) {
-      // Ignore debug errors
-    }
+    console.info("[PDF] savePendingAsPdf: selected count =", products.length, "instanceIds =", products.map((p) => p._instanceId || p.id).join(", "));
 
-    // Enhance products with their edits from productEdits store
+    // Enhance each product INSTANCE with its own edits and editedImage (from editsByInstanceId); fallback to product-level edits.
     products = products.map((product) => {
-      const edits = state.productEdits[product.id] || product.edits || null;
+      const instanceId = product._instanceId;
+      const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
+      const edits = instanceEdits
+        ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
+        : state.productEdits[product.id] || product.edits || null;
+      const editedImage = instanceEdits?.editedImage || product.editedImage || null;
       const normalized = normalizeProduct(product, edits);
       return {
         ...normalized,
-        edits: edits
-          ? {
-              elements: edits.elements || [],
-              configuration: edits.configuration || {},
-            }
-          : null,
+        _instanceId: instanceId || product._instanceId,
+        edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
+        editedImage: editedImage || null,
       };
     });
 
@@ -206,9 +193,22 @@ const useStore = create((set, get) => ({
         };
       });
 
-      // Fetch canvas edits for each product in collection
+      // Fetch canvas edits for each product in collection (API is per-product; we overlay instance-level from editsByInstanceId)
+      const state = get();
       const collectWithEdits = await Promise.all(
         collection.map(async (product) => {
+          const instanceId = product._instanceId;
+          const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
+          if (instanceEdits) {
+            return {
+              ...product,
+              edits: {
+                elements: instanceEdits.elements || [],
+                configuration: instanceEdits.configuration || {},
+              },
+              editedImage: instanceEdits.editedImage || null,
+            };
+          }
           try {
             const editRes = await apiService.canvas.getByProduct(product.id);
             if (editRes?.edit?.canvasData) {
@@ -251,7 +251,8 @@ const useStore = create((set, get) => ({
       const res = await apiService.projects.list();
       const raw = res?.projects ?? [];
 
-      // Fetch canvas edits for all products in all projects
+      const state = get();
+      // Fetch canvas edits for all products in all projects; overlay instance-level edits from editsByInstanceId
       const projects = await Promise.all(
         raw.map(async (proj) => ({
           id: proj._id,
@@ -259,9 +260,22 @@ const useStore = create((set, get) => ({
           products: await Promise.all(
             (proj.products || []).map(async (item) => {
               const p = item.product;
+              const instanceId = item.instanceId;
+              const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
+              if (instanceEdits) {
+                const normalized = normalizeProduct(p, instanceEdits);
+                return {
+                  ...(typeof p === "object" ? normalized : {}),
+                  id: p?._id ?? p?.id ?? p,
+                  _instanceId: instanceId,
+                  edits: {
+                    elements: instanceEdits.elements || [],
+                    configuration: instanceEdits.configuration || {},
+                  },
+                  editedImage: instanceEdits.editedImage || null,
+                };
+              }
               const normalized = normalizeProduct(p, item.edits || {});
-
-              // Fetch canvas edits if not already present
               let canvasEdits = item.edits || {};
               if (!canvasEdits.elements) {
                 try {
@@ -281,11 +295,10 @@ const useStore = create((set, get) => ({
                   );
                 }
               }
-
               return {
                 ...(typeof p === "object" ? normalized : {}),
                 id: p?._id ?? p?.id ?? p,
-                _instanceId: item.instanceId,
+                _instanceId: instanceId,
                 edits: canvasEdits,
               };
             }),
@@ -328,13 +341,15 @@ const useStore = create((set, get) => ({
       return;
     }
     try {
-      // Save all pending edits before adding to collection
-      const pendingItemsWithEdits = state.pendingCollection.filter(
-        (item) => state.pendingEdits[item._instanceId],
-      );
+      // Save all pending edits before adding to collection (from editsByInstanceId or pendingEdits)
+      const pendingItemsWithEdits = state.pendingCollection.filter((item) => {
+        const instId = item._instanceId;
+        const edits = state.editsByInstanceId[instId] || state.pendingEdits[instId];
+        return edits && edits.elements && edits.elements.length > 0;
+      });
 
       for (const item of pendingItemsWithEdits) {
-        const edits = state.pendingEdits[item._instanceId];
+        const edits = state.editsByInstanceId[item._instanceId] || state.pendingEdits[item._instanceId];
         if (edits && edits.elements && edits.elements.length > 0) {
           await apiService.canvas.save({
             productId: item.id,
@@ -419,21 +434,18 @@ const useStore = create((set, get) => ({
     }
     try {
       const state = get();
-      // Get original edits before adding to collection
+      // Get original edits from instance (editsByInstanceId) or product-level fallback
       const originalEdits = instanceId
-        ? state.productEdits[instanceId] || product.edits || null
+        ? state.editsByInstanceId[instanceId] || product.edits || null
         : product.edits || null;
 
       // Add product to collection (creates new instance via API)
       await apiService.collections.add([product.id]);
 
-      // Wait a bit for the API to process
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Fetch updated collection
       const updatedCollection = await get().fetchCollection();
 
-      // Find the newly created instance - get all instances of this product and find the newest
       const productInstances = updatedCollection.filter(
         (item) => item.id === product.id,
       );
@@ -442,7 +454,6 @@ const useStore = create((set, get) => ({
         return false;
       }
 
-      // Sort by instanceId (newest should have highest timestamp)
       const sortedInstances = productInstances.sort((a, b) => {
         const aId = a._instanceId || "";
         const bId = b._instanceId || "";
@@ -450,7 +461,7 @@ const useStore = create((set, get) => ({
       });
       const newInstance = sortedInstances[0];
 
-      // Copy edits to new instance if original had edits
+      // Copy edits to new instance in editsByInstanceId (per-instance) so duplicate has its own copy
       if (newInstance && originalEdits && originalEdits.elements) {
         const deepCopiedEdits = {
           elements: JSON.parse(JSON.stringify(originalEdits.elements || [])),
@@ -459,10 +470,13 @@ const useStore = create((set, get) => ({
           ),
           lastSaved: new Date().toISOString(),
         };
+        if (originalEdits.editedImage) {
+          deepCopiedEdits.editedImage = { ...originalEdits.editedImage };
+        }
 
         set((s) => ({
-          productEdits: {
-            ...s.productEdits,
+          editsByInstanceId: {
+            ...s.editsByInstanceId,
             [newInstance._instanceId]: deepCopiedEdits,
           },
         }));
@@ -648,6 +662,12 @@ const useStore = create((set, get) => ({
   deleteProject: async (projectId) => {
     try {
       await apiService.projects.remove(projectId);
+      set((state) => ({
+        projects: state.projects.filter((p) => p.id !== projectId),
+        pendingPdfCollection: (state.pendingPdfCollection || []).filter(
+          (e) => e.projectId !== projectId,
+        ),
+      }));
       await get().fetchProjects();
       set({
         toast: {
@@ -690,14 +710,17 @@ const useStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  // Configurator state - isolated per product
+  // Configurator state - isolated per product (Konva node schema: id, type, attrs, zIndex, locked, visible)
   configurator: {
     isOpen: false,
     product: null,
-    elements: [], // Canvas elements: {id, type, x, y, width, height, rotation, text, fontSize, color, src, strokeWidth, opacity, fill, stroke, points, ...}
+    editingInstanceId: null, // When set, edits are stored in editsByInstanceId[editingInstanceId], not productEdits
+    elements: [],
     selectedElementId: null,
-    activeTool: "select", // 'select', 'text', 'rectangle', 'circle', 'line', 'pen', 'image', 'icon'
-    history: [[]], // For undo/redo - start with empty state
+    selectedElementIds: [], // Multi-select; primary selection is first
+    copyBuffer: [], // For ctrl+c / ctrl+v
+    activeTool: "select",
+    history: [[]],
     historyIndex: 0,
     configuration: {
       id: null,
@@ -708,8 +731,12 @@ const useStore = create((set, get) => ({
     validationErrors: [],
   },
 
-  // Store edited product configurations per product ID
+  // Store edited product configurations per product ID (legacy: when editing from selection, no instanceId)
   productEdits: {}, // { [productId]: { elements: [], configuration: {}, lastSaved: timestamp } }
+
+  // Store edits per product INSTANCE so same product added multiple times has independent edits.
+  // Key = instanceId (e.g. _instanceId from collection/project/pending). Never key by productId for instances.
+  editsByInstanceId: {}, // { [instanceId]: { elements: [], configuration: {}, lastSaved?, editedImage?: { type:'base64'|'url', value, updatedAt } } }
 
   // Store pending edits for products being added to collection
   pendingEdits: {}, // { [instanceId]: { elements: [], configuration: {} } }
@@ -751,21 +778,27 @@ const useStore = create((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  // Configurator actions
-  setProduct: (product) =>
+  // Configurator actions. When instanceId is provided, edits are stored per instance (editsByInstanceId); otherwise per product (productEdits).
+  setProduct: (product, instanceId = null) =>
     set((state) => {
-      // Load existing edits for this product if available
-      const existingEdits = state.productEdits[product?.id];
-      const elements = existingEdits?.elements || [];
+      let existingEdits = null;
+      if (instanceId) {
+        existingEdits = state.editsByInstanceId[instanceId] || state.pendingEdits[instanceId] || null;
+      }
+      if (!existingEdits) {
+        existingEdits = state.productEdits[product?.id] || null;
+      }
+      const rawElements = existingEdits?.elements || [];
+      const elements = normalizeElements(rawElements);
       return {
         configurator: {
           ...state.configurator,
           product,
-          // Reset or load product-specific state
+          editingInstanceId: instanceId || null,
           elements,
           selectedElementId: null,
+          selectedElementIds: [],
           activeTool: "select",
-          // Initialize history with current state
           history: [JSON.parse(JSON.stringify(elements))],
           historyIndex: 0,
           configuration: {
@@ -782,8 +815,9 @@ const useStore = create((set, get) => ({
       };
     }),
 
-  // Save product edits (isolated per product)
-  saveProductEdits: (productId) =>
+  // Save product edits. When instanceId is provided, save to editsByInstanceId (per-instance); otherwise to productEdits (per-product).
+  // editedImageDataURL: optional base64 data URL from Konva stage export; stored so PDF uses exact edited image.
+  saveProductEdits: (productId, instanceId = null, editedImageDataURL = null) =>
     set((state) => {
       if (!productId || !state.configurator.product) return state;
 
@@ -792,8 +826,35 @@ const useStore = create((set, get) => ({
         configuration: { ...state.configurator.configuration },
         lastSaved: new Date().toISOString(),
       };
+      if (editedImageDataURL) {
+        edits.editedImage = {
+          type: "base64",
+          value: editedImageDataURL,
+          updatedAt: edits.lastSaved,
+        };
+      }
 
-      // Save to backend via API
+      if (instanceId) {
+        // Per-instance: store in editsByInstanceId; do NOT overwrite product-level so other instances stay independent.
+        const nextEditsByInstanceId = {
+          ...state.editsByInstanceId,
+          [instanceId]: edits,
+        };
+        // Optionally persist to backend by productId (backend may not support per-instance yet)
+        apiService.canvas
+          .save({
+            productId,
+            canvasData: edits.elements,
+            textOverlays: edits.elements.filter((el) => el.type === "text"),
+            layoutConfig: edits.configuration,
+          })
+          .catch((err) => {
+            console.error("Failed to save product edits to backend:", err);
+          });
+        return { editsByInstanceId: nextEditsByInstanceId };
+      }
+
+      // Legacy: per-product (no instanceId)
       apiService.canvas
         .save({
           productId,
@@ -804,7 +865,6 @@ const useStore = create((set, get) => ({
         .catch((err) => {
           console.error("Failed to save product edits to backend:", err);
         });
-
       return {
         productEdits: {
           ...state.productEdits,
@@ -861,6 +921,7 @@ const useStore = create((set, get) => ({
             elements: JSON.parse(JSON.stringify(history[historyIndex - 1])),
             historyIndex: historyIndex - 1,
             selectedElementId: null,
+            selectedElementIds: [],
           },
         };
       }
@@ -877,6 +938,7 @@ const useStore = create((set, get) => ({
             elements: JSON.parse(JSON.stringify(history[historyIndex + 1])),
             historyIndex: historyIndex + 1,
             selectedElementId: null,
+            selectedElementIds: [],
           },
         };
       }
@@ -887,7 +949,8 @@ const useStore = create((set, get) => ({
       configurator: {
         ...state.configurator,
         activeTool: tool,
-        selectedElementId: null, // Clear selection when switching tools
+        selectedElementId: null,
+        selectedElementIds: [],
       },
     })),
   // Layer management
@@ -991,31 +1054,122 @@ const useStore = create((set, get) => ({
   },
   deleteElement: (id) => {
     get().saveToHistory();
-    return set((state) => ({
-      configurator: {
-        ...state.configurator,
-        elements: state.configurator.elements.filter((elem) => elem.id !== id),
-        selectedElementId:
-          state.configurator.selectedElementId === id
-            ? null
-            : state.configurator.selectedElementId,
-      },
-    }));
+    return set((state) => {
+      const nextIds = (state.configurator.selectedElementIds || []).filter((x) => x !== id);
+      return {
+        configurator: {
+          ...state.configurator,
+          elements: state.configurator.elements.filter((elem) => elem.id !== id),
+          selectedElementId: state.configurator.selectedElementId === id ? (nextIds[0] || null) : state.configurator.selectedElementId,
+          selectedElementIds: nextIds,
+        },
+      };
+    });
   },
   selectElement: (id) =>
     set((state) => ({
       configurator: {
         ...state.configurator,
         selectedElementId: id,
+        selectedElementIds: id ? [id] : [],
       },
     })),
+  setSelectedElements: (ids) =>
+    set((state) => ({
+      configurator: {
+        ...state.configurator,
+        selectedElementIds: Array.isArray(ids) ? ids : [],
+        selectedElementId: Array.isArray(ids) && ids.length > 0 ? ids[0] : null,
+      },
+    })),
+  addToSelection: (id) =>
+    set((state) => {
+      const ids = state.configurator.selectedElementIds || [];
+      if (!id || ids.includes(id)) return state;
+      const next = [...ids, id];
+      return {
+        configurator: {
+          ...state.configurator,
+          selectedElementIds: next,
+          selectedElementId: next[0],
+        },
+      };
+    }),
+  removeFromSelection: (id) =>
+    set((state) => {
+      const ids = (state.configurator.selectedElementIds || []).filter((x) => x !== id);
+      return {
+        configurator: {
+          ...state.configurator,
+          selectedElementIds: ids,
+          selectedElementId: ids.length > 0 ? ids[0] : null,
+        },
+      };
+    }),
   clearSelection: () =>
     set((state) => ({
       configurator: {
         ...state.configurator,
         selectedElementId: null,
+        selectedElementIds: [],
       },
     })),
+  copyElements: () =>
+    set((state) => {
+      const ids = state.configurator.selectedElementIds || [];
+      if (ids.length === 0) return state;
+      const elements = state.configurator.elements.filter((el) => ids.includes(el.id));
+      return {
+        configurator: {
+          ...state.configurator,
+          copyBuffer: JSON.parse(JSON.stringify(elements)),
+        },
+      };
+    }),
+  pasteElements: () =>
+    get().pasteElementsAt(null, null),
+  pasteElementsAt: (offsetX = 20, offsetY = 20) =>
+    set((state) => {
+      const buffer = state.configurator.copyBuffer || [];
+      if (buffer.length === 0) return state;
+      get().saveToHistory();
+      const baseX = offsetX != null ? offsetX : 20;
+      const baseY = offsetY != null ? offsetY : 20;
+      const minX = Math.min(...buffer.map((e) => e.x ?? 0));
+      const minY = Math.min(...buffer.map((e) => e.y ?? 0));
+      const newElements = buffer.map((el, i) => {
+        const { id: _id, ...rest } = el;
+        return {
+          ...rest,
+          id: `elem_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
+          x: (el.x ?? 0) - minX + baseX,
+          y: (el.y ?? 0) - minY + baseY,
+        };
+      });
+      const newIds = newElements.map((e) => e.id);
+      return {
+        configurator: {
+          ...state.configurator,
+          elements: [...state.configurator.elements, ...newElements],
+          selectedElementIds: newIds,
+          selectedElementId: newIds[0],
+        },
+      };
+    }),
+  deleteSelected: () =>
+    set((state) => {
+      const ids = state.configurator.selectedElementIds || [];
+      if (ids.length === 0) return state;
+      get().saveToHistory();
+      return {
+        configurator: {
+          ...state.configurator,
+          elements: state.configurator.elements.filter((el) => !ids.includes(el.id)),
+          selectedElementId: null,
+          selectedElementIds: [],
+        },
+      };
+    }),
   validateConfiguration: () => {
     const state = get();
     const { configuration, compatibilityRules, textElements } =
@@ -1189,7 +1343,8 @@ const useStore = create((set, get) => ({
     set((state) => ({
       configurator: {
         ...state.configurator,
-        selectedElementIds: elementIds,
+        selectedElementIds: Array.isArray(elementIds) ? elementIds : [],
+        selectedElementId: Array.isArray(elementIds) && elementIds.length > 0 ? elementIds[0] : null,
       },
     })),
 
@@ -1242,8 +1397,8 @@ const useStore = create((set, get) => ({
         notifications: state.ui.notifications.filter((n) => n.id !== id),
       },
     })),
-  // UI helpers for PDF button visibility
-  addProductsToPdf: (products, projectName = null) => {
+  // PDF collection: array of { entryId, projectId?, projectName?, product } so same product can appear multiple times and we can remove by entry.
+  addProductsToPdf: (products, projectName = null, projectId = null) => {
     const state = get();
     const list = Array.isArray(products) ? products.filter(Boolean) : [];
     if (list.length === 0) {
@@ -1260,20 +1415,25 @@ const useStore = create((set, get) => ({
       get().showToast("Only configurable products can be added to PDF.");
       return 0;
     }
-    const existingIds = new Set(
-      (state.pendingPdfCollection || []).map((p) => p.id),
-    );
-    const toAdd = eligible.filter((p) => p.id && !existingIds.has(p.id));
-    if (toAdd.length === 0) {
-      get().showToast("Selected products are already in PDF configuration.");
-      return 0;
-    }
+    const entries = eligible.map((product) => ({
+      entryId: `pdf_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+      projectId: projectId || null,
+      projectName: projectName || null,
+      product,
+    }));
     set({
-      pendingPdfCollection: [...state.pendingPdfCollection, ...toAdd],
+      pendingPdfCollection: [...(state.pendingPdfCollection || []), ...entries],
       pendingPdfCollectionProjectName:
         projectName || state.pendingPdfCollectionProjectName,
     });
-    return toAdd.length;
+    return entries.length;
+  },
+  removeFromPdfCollection: (entryId) => {
+    set((state) => ({
+      pendingPdfCollection: (state.pendingPdfCollection || []).filter(
+        (e) => e.entryId !== entryId,
+      ),
+    }));
   },
   showPdfButton: (product) => {
     get().addProductsToPdf([product]);
@@ -1287,6 +1447,32 @@ const useStore = create((set, get) => ({
       pendingPdfCollection: [],
       pendingPdfCollectionProjectName: null,
     })),
+
+  duplicateProject: async (project) => {
+    if (!project || !project.products || project.products.length === 0) {
+      get().showToast("Project has no products to duplicate.");
+      return false;
+    }
+    const instanceIds = project.products
+      .map((p) => p._instanceId || p.id)
+      .filter(Boolean);
+    if (instanceIds.length === 0) {
+      get().showToast("Could not get product instances for duplicate.");
+      return false;
+    }
+    try {
+      await apiService.projects.addFromCollection({
+        projectName: `${project.name || "Project"} (Copy)`,
+        instanceIds,
+      });
+      await get().fetchProjects();
+      get().showToast("Project duplicated successfully.");
+      return true;
+    } catch (e) {
+      get().showToast(e?.message || "Failed to duplicate project.");
+      return false;
+    }
+  },
 
   addProductsToProject: async (products, projectId, projectName = null) => {
     const instanceIds = (products || [])

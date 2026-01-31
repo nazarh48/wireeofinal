@@ -2,13 +2,14 @@ import { useState } from 'react';
 import useStore from '../../store/useStore';
 import { STICKERS, getStickersByCategory, getAllCategories } from './utils/stickers';
 import { exportAsPNG, exportAsJPG, exportAsSVG, exportAsJSON, importFromJSON } from './utils/exportUtils';
+import { exportCanvasToPDF } from '../../services/canvasPdfExport';
 
 const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) => {
   const {
     configurator,
     addElement,
     updateElement,
-    deleteElement,
+    deleteSelected,
     selectElement,
     setActiveTool,
     undo,
@@ -30,9 +31,18 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
   const [stickerCategory, setStickerCategory] = useState('all');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [pdfExportProgress, setPdfExportProgress] = useState('');
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   const activeTool = configurator.activeTool || 'select';
-  const selectedElement = configurator.elements.find((el) => el.id === configurator.selectedElementId);
+  const selectedIds = configurator.selectedElementIds || [];
+  const selectedElement = selectedIds.length === 1
+    ? configurator.elements.find((el) => el.id === selectedIds[0])
+    : null;
+  const firstSelectedForDisplay = selectedIds.length > 0
+    ? configurator.elements.find((el) => el.id === selectedIds[0])
+    : null;
+  const multiSelected = selectedIds.length > 1;
 
   const history = configurator.history || [];
   const historyIndex = configurator.historyIndex ?? -1;
@@ -145,7 +155,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
       return;
     }
 
-    const productName = configurator.product?.name || 'canvas';
+    const productName = (configurator.product?.name || 'canvas').replace(/\s+/g, '-');
     const timestamp = new Date().toISOString().split('T')[0];
 
     switch (format) {
@@ -160,6 +170,29 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
         break;
       case 'json':
         exportAsJSON(configurator.elements, configurator.configuration, `${productName}-${timestamp}.json`);
+        break;
+      case 'pdf':
+        setPdfExporting(true);
+        setPdfExportProgress('Rendering...');
+        exportCanvasToPDF(stageRef, {
+          filename: `${productName}-${timestamp}.pdf`,
+          paperSize: 'A4',
+          orientation: 'portrait',
+          pixelRatio: 2,
+          onProgress: setPdfExportProgress,
+        })
+          .then(() => {
+            setPdfExportProgress('');
+            setShowExportMenu(false);
+          })
+          .catch((err) => {
+            console.error(err);
+            setPdfExportProgress('');
+            alert('PDF export failed: ' + (err?.message || 'Unknown error'));
+          })
+          .finally(() => setPdfExporting(false));
+        return;
+      default:
         break;
     }
     setShowExportMenu(false);
@@ -447,17 +480,17 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
         )}
 
         {/* Properties Tab */}
-        {selectedTab === 'properties' && selectedElement && (
+        {selectedTab === 'properties' && (selectedElement || multiSelected) && (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-200 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-bold text-gray-900">Edit Selected</h4>
               <span className="text-xs px-2 py-1 bg-blue-200 text-blue-800 rounded-full font-medium">
-                {selectedElement.type}
+                {multiSelected ? `${selectedIds.length} selected` : selectedElement?.type}
               </span>
             </div>
 
-            {/* Text Element Controls */}
-            {selectedElement.type === 'text' && (
+            {/* Text Element Controls - single selection only for type-specific fields */}
+            {selectedElement && !multiSelected && selectedElement.type === 'text' && (
               <div className="space-y-3">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block font-medium">Text Content</label>
@@ -508,7 +541,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
             )}
 
             {/* Shape Element Controls */}
-            {(selectedElement.type === 'rectangle' ||
+            {selectedElement && !multiSelected && (selectedElement.type === 'rectangle' ||
               selectedElement.type === 'circle' ||
               selectedElement.type === 'line' ||
               selectedElement.type === 'arrow') && (
@@ -561,7 +594,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
               </div>
             )}
 
-            {/* Position Controls */}
+            {/* Position Controls - use first selected for display when multi */}
             <div className="mt-3 pt-3 border-t border-blue-200">
               <label className="text-xs text-gray-600 mb-2 block font-medium">Position</label>
               <div className="grid grid-cols-2 gap-2">
@@ -569,7 +602,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
                   <label className="text-xs text-gray-500 mb-1 block">X</label>
                   <input
                     type="number"
-                    value={Math.round(selectedElement.x || 0)}
+                    value={Math.round((firstSelectedForDisplay?.x ?? selectedElement?.x ?? 0))}
                     onChange={(e) => handleUpdateSelected({ x: Number(e.target.value) })}
                     className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
                   />
@@ -578,7 +611,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
                   <label className="text-xs text-gray-500 mb-1 block">Y</label>
                   <input
                     type="number"
-                    value={Math.round(selectedElement.y || 0)}
+                    value={Math.round((firstSelectedForDisplay?.y ?? selectedElement?.y ?? 0))}
                     onChange={(e) => handleUpdateSelected({ y: Number(e.target.value) })}
                     className="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
                   />
@@ -594,13 +627,13 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
                   type="range"
                   min="0"
                   max="360"
-                  value={selectedElement.rotation || 0}
+                  value={firstSelectedForDisplay?.rotation ?? selectedElement?.rotation ?? 0}
                   onChange={(e) => handleUpdateSelected({ rotation: Number(e.target.value) })}
                   className="flex-1"
                 />
                 <input
                   type="number"
-                  value={selectedElement.rotation || 0}
+                  value={firstSelectedForDisplay?.rotation ?? selectedElement?.rotation ?? 0}
                   onChange={(e) => handleUpdateSelected({ rotation: Number(e.target.value) })}
                   className="w-16 px-2 py-1 border border-gray-300 rounded text-sm bg-white"
                   min="0"
@@ -653,6 +686,22 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                   </svg>
                   Export as JSON Template
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={pdfExporting}
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {pdfExporting ? (
+                    <span>{pdfExportProgress || 'Exporting...'}</span>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Export as PDF
+                    </>
+                  )}
                 </button>
               </div>
             </div>

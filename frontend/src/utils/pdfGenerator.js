@@ -8,749 +8,637 @@ export const generateProjectPDF = async (project, options = {}) => {
 };
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import {
+  ensureCanvasReady,
+  waitForRender,
+  waitForImagesInElement,
+  ensureNoZeroSizeCanvases,
+} from "./canvasPatternUtils.js";
 
-// Helper function to load image
+const FALLBACK_CANVAS_WIDTH = 200;
+const FALLBACK_CANVAS_HEIGHT = 150;
+
+// Helper function to load image; throws clear error with path if image is missing/fails.
+// Fallback placeholder uses a canvas with guaranteed non-zero dimensions to avoid createPattern errors.
 const loadImage = (src) => {
+  if (!src || typeof src !== "string") {
+    const err = new Error(`[PDF] Image path is missing or invalid: ${String(src)}`);
+    if (process.env.NODE_ENV !== "production") console.error("[PDF]", err.message);
+    return Promise.reject(err);
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => {
-      // Fallback for failed images
-      const fallback = new Image();
-      fallback.width = 200;
-      fallback.height = 150;
+      const err = new Error(`[PDF] Image failed to load: ${src}`);
+      if (process.env.NODE_ENV !== "production") console.error("[PDF]", err.message);
       const canvas = document.createElement("canvas");
-      canvas.width = 200;
-      canvas.height = 150;
+      canvas.width = Math.max(FALLBACK_CANVAS_WIDTH, 1);
+      canvas.height = Math.max(FALLBACK_CANVAS_HEIGHT, 1);
+      if (!ensureCanvasReady(canvas)) {
+        reject(err);
+        return;
+      }
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#f3f4f6";
-      ctx.fillRect(0, 0, 200, 150);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#9ca3af";
       ctx.font = "14px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("Image not available", 100, 75);
+      ctx.fillText("Image not available", canvas.width / 2, canvas.height / 2);
+      let dataUrl;
+      try {
+        dataUrl = canvas.toDataURL("image/png");
+      } catch (e) {
+        reject(err);
+        return;
+      }
       const fallbackImg = new Image();
-      fallbackImg.src = canvas.toDataURL();
       fallbackImg.onload = () => resolve(fallbackImg);
-      fallbackImg.onerror = reject;
+      fallbackImg.onerror = () => reject(err);
+      fallbackImg.src = dataUrl;
     };
     img.src = src;
   });
 };
 
-// Helper function to render edited product on canvas
+// Stroke style for shapes: visible on all backgrounds (red, 4px)
+const SHAPE_STROKE = "#ff0000";
+const SHAPE_STROKE_WIDTH = 4;
+
+// Helper: draw one element on 2D context (including rectangle, circle, line, arrow, pen)
+function drawElementOnContext(ctx, element, loadedImages, imageElements) {
+  const x = element.x ?? 0;
+  const y = element.y ?? 0;
+  const w = element.width ?? 100;
+  const h = element.height ?? 100;
+  const rot = ((element.rotation ?? 0) * Math.PI) / 180;
+  const stroke = element.stroke ?? element.fill ?? SHAPE_STROKE;
+  const fill = element.fill ?? "transparent";
+  const strokeWidth = element.strokeWidth ?? 2;
+
+  const drawWithRotation = (draw) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.translate(-x, -y);
+    draw();
+    ctx.restore();
+  };
+
+  if (element.type === "text") {
+    drawWithRotation(() => {
+      ctx.font = `${element.fontWeight || "normal"} ${element.fontSize || 24}px ${element.fontFamily || "Arial"}`;
+      ctx.fillStyle = element.color || "#000000";
+      ctx.textBaseline = "top";
+      ctx.fillText(element.text || "", x, y);
+    });
+  } else if (element.type === "icon" || element.type === "sticker") {
+    drawWithRotation(() => {
+      ctx.font = `${element.fontSize || 48}px Arial`;
+      ctx.fillStyle = element.color || "#000000";
+      ctx.textBaseline = "top";
+      ctx.fillText(element.text || element.emoji || "", x, y);
+    });
+  } else if (element.type === "image" && element.src) {
+    const imgIndex = imageElements.indexOf(element);
+    if (imgIndex >= 0 && loadedImages[imgIndex]) {
+      drawWithRotation(() => {
+        ctx.drawImage(loadedImages[imgIndex], x, y, w, h);
+      });
+    }
+  } else if (element.type === "rectangle") {
+    drawWithRotation(() => {
+      if (fill && fill !== "transparent") {
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, w, h);
+      }
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, strokeWidth);
+      ctx.strokeRect(x, y, w, h);
+    });
+  } else if (element.type === "circle") {
+    const r = Math.min(w, h) / 2;
+    const cx = x + r;
+    const cy = y + r;
+    drawWithRotation(() => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, strokeWidth);
+      ctx.stroke();
+      if (fill && fill !== "transparent") {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+    });
+  } else if (element.type === "line") {
+    drawWithRotation(() => {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w, y + h);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, strokeWidth);
+      ctx.stroke();
+    });
+  } else if (element.type === "arrow" && element.points && element.points.length >= 4) {
+    const pts = element.points;
+    drawWithRotation(() => {
+      ctx.beginPath();
+      ctx.moveTo(pts[0], pts[1]);
+      for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+      ctx.closePath();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, strokeWidth);
+      ctx.stroke();
+      if (fill && fill !== "transparent") {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+    });
+  } else if ((element.type === "pen" || element.type === "path") && (element.points || element.data)) {
+    const raw = element.points || element.data;
+    const str = Array.isArray(raw) ? raw.join(" ") : String(raw);
+    drawWithRotation(() => {
+      const commands = str.trim().split(/\s+/);
+      let i = 0;
+      ctx.beginPath();
+      while (i < commands.length) {
+        const cmd = commands[i];
+        if (cmd === "M" && i + 2 < commands.length) {
+          ctx.moveTo(Number(commands[i + 1]), Number(commands[i + 2]));
+          i += 3;
+        } else if (cmd === "L" && i + 2 < commands.length) {
+          ctx.lineTo(Number(commands[i + 1]), Number(commands[i + 2]));
+          i += 3;
+        } else {
+          i++;
+        }
+      }
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, strokeWidth);
+      ctx.stroke();
+    });
+  }
+}
+
+// Thumbnail size for product images in PDF (smaller = less memory and file size)
+const PDF_PRODUCT_THUMB_WIDTH = 120;
+const PDF_PRODUCT_THUMB_HEIGHT = 90;
+// JPEG quality for embedded images (0.75–0.85 balances size and quality)
+const PDF_JPEG_QUALITY = 0.82;
+
+// Must match KonvaCanvasEditor CANVAS_WIDTH / CANVAS_HEIGHT so element coordinates (x, y, width, height) map correctly.
+const EDITOR_CANVAS_WIDTH = 800;
+const EDITOR_CANVAS_HEIGHT = 600;
+
+// Helper function to render edited product on canvas (base image + all overlays).
+// Element coordinates are in editor space (EDITOR_CANVAS_WIDTH x EDITOR_CANVAS_HEIGHT). When output size differs (e.g. thumbnail 120x90), we scale so the rectangle/overlays appear in the same relative position as in the web view.
 const renderEditedProduct = async (
   product,
   canvasWidth = 800,
   canvasHeight = 600,
+  asJpeg = false,
+  jpegQuality = PDF_JPEG_QUALITY,
 ) => {
+  const w = Math.max(1, canvasWidth || 800);
+  const h = Math.max(1, canvasHeight || 600);
   const canvas = document.createElement("canvas");
-  canvas.width = canvasWidth;
-  canvas.height = canvasHeight;
+  canvas.width = w;
+  canvas.height = h;
+  if (!ensureCanvasReady(canvas)) throw new Error("[PDF] Canvas initialization failed");
   const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("[PDF] Canvas context creation failed");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, w, h);
 
+  const originalImageUrl = product.baseImageUrl || product.image;
   try {
-    // Load base image
-    const baseImg = await loadImage(product.baseImageUrl || product.image);
-    ctx.drawImage(baseImg, 0, 0, canvasWidth, canvasHeight);
-
-    // Load and render all edited elements
-    if (
-      product.edits &&
-      product.edits.elements &&
-      product.edits.elements.length > 0
-    ) {
-      const imageElements = product.edits.elements.filter(
-        (el) => el.type === "image" && el.src,
-      );
-
-      // Load all images first
-      const imagePromises = imageElements.map((element) =>
-        loadImage(element.src),
-      );
-      const loadedImages = await Promise.all(imagePromises);
-
-      // Render all elements
-      product.edits.elements.forEach((element, idx) => {
-        if (element.type === "text") {
-          ctx.save();
-          ctx.translate(element.x || 0, element.y || 0);
-          ctx.rotate(((element.rotation || 0) * Math.PI) / 180);
-          ctx.font = `${element.fontWeight || "normal"} ${element.fontSize || 24}px ${element.fontFamily || "Arial"}`;
-          ctx.fillStyle = element.color || "#000000";
-          ctx.textBaseline = "top";
-          ctx.fillText(element.text || "", 0, 0);
-          ctx.restore();
-        } else if (element.type === "icon") {
-          ctx.save();
-          ctx.translate(element.x || 0, element.y || 0);
-          ctx.rotate(((element.rotation || 0) * Math.PI) / 180);
-          ctx.font = `${element.fontSize || 48}px Arial`;
-          ctx.fillStyle = element.color || "#000000";
-          ctx.textBaseline = "top";
-          ctx.fillText(element.text || "", 0, 0);
-          ctx.restore();
-        } else if (element.type === "image" && element.src) {
-          const imgIndex = imageElements.indexOf(element);
-          if (imgIndex >= 0 && loadedImages[imgIndex]) {
-            ctx.save();
-            ctx.translate(element.x || 0, element.y || 0);
-            ctx.rotate(((element.rotation || 0) * Math.PI) / 180);
-            ctx.drawImage(
-              loadedImages[imgIndex],
-              0,
-              0,
-              element.width || 100,
-              element.height || 100,
-            );
-            ctx.restore();
-          }
-        }
+    const baseImg = await loadImage(originalImageUrl);
+    ctx.drawImage(baseImg, 0, 0, w, h);
+    if (product.edits?.elements?.length > 0) {
+      const imageElements = product.edits.elements.filter((el) => el.type === "image" && el.src);
+      const loadedImages = await Promise.all(imageElements.map((el) => loadImage(el.src)));
+      const scaleX = w / EDITOR_CANVAS_WIDTH;
+      const scaleY = h / EDITOR_CANVAS_HEIGHT;
+      ctx.save();
+      ctx.scale(scaleX, scaleY);
+      product.edits.elements.forEach((element) => {
+        drawElementOnContext(ctx, element, loadedImages, imageElements);
       });
+      ctx.restore();
     }
-
-    return canvas.toDataURL("image/png");
+    if (!ensureCanvasReady(canvas)) throw new Error("[PDF] Edited product canvas has invalid dimensions");
+    const mimeType = asJpeg ? "image/jpeg" : "image/png";
+    const dataUrl = asJpeg ? canvas.toDataURL(mimeType, jpegQuality) : canvas.toDataURL(mimeType);
+    return dataUrl;
   } catch (error) {
-    console.error("Error rendering edited product:", error);
-    // Return a placeholder
+    console.error("[PDF] Error rendering edited product:", error);
     ctx.fillStyle = "#f3f4f6";
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#9ca3af";
     ctx.font = "16px Arial";
     ctx.textAlign = "center";
-    ctx.fillText("Preview not available", canvasWidth / 2, canvasHeight / 2);
-    return canvas.toDataURL("image/png");
+    ctx.fillText("Preview not available", w / 2, h / 2);
+    if (!ensureCanvasReady(canvas)) return "";
+    return asJpeg ? canvas.toDataURL("image/jpeg", jpegQuality) : canvas.toDataURL("image/png");
   }
 };
+
+// A4 dimensions: 210mm x 297mm. Fixed page width in px for consistent capture (~210mm at 96dpi).
+const PDF_PAGE_WIDTH_PX = 794;
+const PDF_A4_WIDTH_MM = 210;
+const PDF_A4_HEIGHT_MM = 297;
+
+/** Wrapper for one PDF "page" so html2canvas captures without exceeding canvas limits */
+function createPageWrapper() {
+  const div = document.createElement("div");
+  div.style.position = "absolute";
+  div.style.left = "-9999px";
+  div.style.top = "0";
+  div.style.width = `${PDF_PAGE_WIDTH_PX}px`;
+  div.style.minHeight = "1122px";
+  div.style.backgroundColor = "#ffffff";
+  div.style.fontFamily = "'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif";
+  div.style.color = "#1f2937";
+  div.style.padding = "0";
+  div.style.boxSizing = "border-box";
+  div.style.lineHeight = "1.6";
+  return div;
+}
+
+/**
+ * Strip gradients and background-image from cloned DOM so html2canvas never calls
+ * createPattern with a 0-size canvas (renderBackgroundImage bug).
+ * Replaces gradients with solid backgroundColor.
+ */
+function stripBackgroundsForClone(clonedElement) {
+  if (!clonedElement) return;
+  const walk = (el) => {
+    if (!el || !el.style) return;
+    const style = el.style;
+    if (style.backgroundImage && style.backgroundImage !== "none") {
+      style.backgroundImage = "none";
+    }
+    if (style.background && (String(style.background).includes("gradient") || String(style.background).includes("url("))) {
+      const bg = String(style.background);
+      if (bg.includes("#667eea") || bg.includes("667eea")) {
+        style.background = "none";
+        style.backgroundColor = "#667eea";
+      } else if (bg.includes("#764ba2") || bg.includes("764ba2")) {
+        style.background = "none";
+        style.backgroundColor = "#764ba2";
+      } else if (bg.includes("#10b981") || bg.includes("10b981")) {
+        style.background = "none";
+        style.backgroundColor = "#10b981";
+      } else if (bg.includes("rgba(") || bg.includes("rgb(")) {
+        style.background = "none";
+        style.backgroundColor = "#e5e7eb";
+      } else {
+        style.background = "none";
+        style.backgroundColor = "transparent";
+      }
+    }
+    if (el.children && el.children.length) {
+      Array.from(el.children).forEach(walk);
+    }
+  };
+  walk(clonedElement);
+}
+
+// Use scale 1.25 and JPEG to reduce PDF size and memory (was scale 2 + PNG).
+async function capturePageAndAddToPdf(pdf, pageDiv, isFirstPage) {
+  document.body.appendChild(pageDiv);
+  await waitForRender(2);
+  await waitForImagesInElement(pageDiv, 10000);
+  try {
+    const width = Math.max(1, pageDiv.offsetWidth || PDF_PAGE_WIDTH_PX);
+    const height = Math.max(1, pageDiv.offsetHeight || 1122);
+    const canvas = await html2canvas(pageDiv, {
+      scale: 1.25,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      width,
+      height,
+      ignoreElements: (el) => el.tagName === "CANVAS",
+      onclone(clonedDoc, clonedElement) {
+        stripBackgroundsForClone(clonedElement);
+        const canvases = clonedElement.querySelectorAll?.("canvas") || [];
+        canvases.forEach((el) => el.parentNode?.removeChild(el));
+        const imgs = clonedElement.querySelectorAll?.("img") || [];
+        imgs.forEach((img) => {
+          if (img && (img.naturalWidth === 0 || img.naturalHeight === 0)) img.style.display = "none";
+        });
+        if (clonedElement.style) {
+          clonedElement.style.width = `${width}px`;
+          clonedElement.style.minHeight = `${height}px`;
+        }
+      },
+    });
+    if (!ensureCanvasReady(canvas)) throw new Error("[PDF] Captured canvas has invalid dimensions");
+    const imgData = canvas.toDataURL("image/jpeg", PDF_JPEG_QUALITY);
+    const imgWidthMm = PDF_A4_WIDTH_MM;
+    let imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
+    if (imgHeightMm > PDF_A4_HEIGHT_MM) imgHeightMm = PDF_A4_HEIGHT_MM;
+    if (!isFirstPage) pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 0, 0, imgWidthMm, imgHeightMm);
+  } catch (error) {
+    console.error("[PDF] Error capturing page:", error);
+    throw error;
+  } finally {
+    pageDiv.parentNode?.removeChild(pageDiv);
+  }
+}
 
 export const generateProductPDF = async (products, options = {}) => {
   const safeProducts = Array.isArray(products) ? products.filter(Boolean) : [];
   if (safeProducts.length === 0) {
-    throw new Error("No products available for PDF export.");
+    const err = new Error("[PDF] No products available for PDF export. Received: " + (Array.isArray(products) ? products.length : "non-array"));
+    console.error(err.message);
+    throw err;
   }
-  const {
-    reportTitle: reportTitleText = "Customer Product Report",
-    projectName,
-    user,
-    filenamePrefix = "Wireeo-Customer-Report",
-  } = options || {};
+  console.info("[PDF] Generating PDF for", safeProducts.length, "product(s). IDs:", safeProducts.map((p) => p.id || p._id).join(", "));
 
-  // Create a temporary container for the PDF content
-  const container = document.createElement("div");
-  container.style.position = "absolute";
-  container.style.left = "-9999px";
-  container.style.top = "-9999px";
-  container.style.width = "100%";
-  container.style.maxWidth = "900px";
-  container.style.backgroundColor = "#ffffff";
-  container.style.fontFamily = "'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif";
-  container.style.color = "#1f2937";
-  container.style.padding = "0";
-  container.style.boxSizing = "border-box";
-  container.style.lineHeight = "1.6";
-
-  // ===== BEAUTIFUL HEADER SECTION =====
-  const header = document.createElement("div");
-  header.style.position = "relative";
-  header.style.display = "flex";
-  header.style.alignItems = "center";
-  header.style.justifyContent = "space-between";
-  header.style.padding = "60px 50px";
-  header.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-  header.style.color = "white";
-  header.style.boxShadow = "0 20px 60px rgba(102, 126, 234, 0.4)";
-  header.style.overflow = "hidden";
-  header.style.pageBreakInside = "avoid";
-
-  // Decorative background circles
-  const headerDecoLeft = document.createElement("div");
-  headerDecoLeft.style.position = "absolute";
-  headerDecoLeft.style.top = "-50px";
-  headerDecoLeft.style.left = "-50px";
-  headerDecoLeft.style.width = "200px";
-  headerDecoLeft.style.height = "200px";
-  headerDecoLeft.style.background = "rgba(255,255,255,0.1)";
-  headerDecoLeft.style.borderRadius = "50%";
-  header.appendChild(headerDecoLeft);
-
-  const headerDecoRight = document.createElement("div");
-  headerDecoRight.style.position = "absolute";
-  headerDecoRight.style.bottom = "-30px";
-  headerDecoRight.style.right = "-50px";
-  headerDecoRight.style.width = "150px";
-  headerDecoRight.style.height = "150px";
-  headerDecoRight.style.background = "rgba(255,255,255,0.08)";
-  headerDecoRight.style.borderRadius = "50%";
-  header.appendChild(headerDecoRight);
-
-  // Premium logo
-  const logo = document.createElement("div");
-  logo.style.width = "110px";
-  logo.style.height = "110px";
-  logo.style.backgroundColor = "rgba(255,255,255,0.25)";
-  logo.style.borderRadius = "16px";
-  logo.style.display = "flex";
-  logo.style.alignItems = "center";
-  logo.style.justifyContent = "center";
-  logo.style.color = "white";
-  logo.style.fontSize = "50px";
-  logo.style.fontWeight = "bold";
-  logo.style.letterSpacing = "3px";
-  logo.style.border = "3px solid rgba(255,255,255,0.4)";
-  logo.style.position = "relative";
-  logo.style.zIndex = "1";
-  logo.style.boxShadow = "0 8px 32px rgba(0,0,0,0.15)";
-  logo.textContent = "⚡";
-  header.appendChild(logo);
-
-  // Company info section
-  const companyInfo = document.createElement("div");
-  companyInfo.style.flex = "1";
-  companyInfo.style.marginLeft = "50px";
-  companyInfo.style.marginRight = "50px";
-  companyInfo.style.position = "relative";
-  companyInfo.style.zIndex = "1";
-
-  const companyName = document.createElement("h1");
-  companyName.textContent = "WIREEO";
-  companyName.style.color = "#ffffff";
-  companyName.style.margin = "0";
-  companyName.style.fontSize = "56px";
-  companyName.style.fontWeight = "900";
-  companyName.style.letterSpacing = "4px";
-  companyName.style.textShadow = "0 2px 10px rgba(0,0,0,0.2)";
-  companyInfo.appendChild(companyName);
-
-  const tagline = document.createElement("p");
-  tagline.textContent = "Professional Product Configuration & Design Report";
-  tagline.style.color = "rgba(255,255,255,0.95)";
-  tagline.style.margin = "10px 0 0 0";
-  tagline.style.fontSize = "14px";
-  tagline.style.letterSpacing = "1.5px";
-  tagline.style.fontWeight = "300";
-  tagline.style.textTransform = "uppercase";
-  companyInfo.appendChild(tagline);
-
-  const reportTitle = document.createElement("h2");
-  reportTitle.textContent = reportTitleText;
-  reportTitle.style.color = "#fbbf24";
-  reportTitle.style.margin = "16px 0 0 0";
-  reportTitle.style.fontSize = "18px";
-  reportTitle.style.fontWeight = "600";
-  reportTitle.style.letterSpacing = "1px";
-  companyInfo.appendChild(reportTitle);
-
-  if (projectName) {
-    const projectTitle = document.createElement("h3");
-    projectTitle.textContent = `📋 Project: ${projectName}`;
-    projectTitle.style.color = "#c7d2fe";
-    projectTitle.style.margin = "14px 0 0 0";
-    projectTitle.style.fontSize = "16px";
-    projectTitle.style.fontWeight = "600";
-    projectTitle.style.letterSpacing = "0.5px";
-    companyInfo.appendChild(projectTitle);
-  }
-
-  header.appendChild(companyInfo);
-
-  // Header stats - right side
-  const headerStats = document.createElement("div");
-  headerStats.style.display = "flex";
-  headerStats.style.flexDirection = "column";
-  headerStats.style.gap = "16px";
-  headerStats.style.position = "relative";
-  headerStats.style.zIndex = "1";
-
-  const dateBox = document.createElement("div");
-  dateBox.style.backgroundColor = "rgba(255,255,255,0.18)";
-  dateBox.style.padding = "14px 24px";
-  dateBox.style.borderRadius = "10px";
-  dateBox.style.border = "1px solid rgba(255,255,255,0.3)";
-  dateBox.style.boxShadow = "0 8px 32px rgba(0,0,0,0.1)";
-  dateBox.style.backdropFilter = "blur(10px)";
-  dateBox.textContent = "GENERATED\n" + new Date().toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  dateBox.style.fontSize = "13px";
-  dateBox.style.fontWeight = "600";
-  dateBox.style.textAlign = "center";
-  headerStats.appendChild(dateBox);
-
-  const countBox = document.createElement("div");
-  countBox.style.backgroundColor = "rgba(255,255,255,0.18)";
-  countBox.style.padding = "14px 24px";
-  countBox.style.borderRadius = "10px";
-  countBox.style.border = "1px solid rgba(255,255,255,0.3)";
-  countBox.style.boxShadow = "0 8px 32px rgba(0,0,0,0.1)";
-  countBox.style.backdropFilter = "blur(10px)";
-  countBox.style.fontSize = "13px";
-  countBox.style.fontWeight = "600";
-  countBox.style.textAlign = "center";
-  countBox.textContent = "TOTAL PRODUCTS\n" + safeProducts.length;
-  headerStats.appendChild(countBox);
-
-  header.appendChild(headerStats);
-  container.appendChild(header);
-
-  // ===== BEAUTIFUL INFO SECTION =====
-  const reportInfo = document.createElement("div");
-  reportInfo.style.display = "flex";
-  reportInfo.style.justifyContent = "space-between";
-  reportInfo.style.padding = "30px 50px";
-  reportInfo.style.backgroundColor = "#f8fafc";
-  reportInfo.style.borderBottom = "2px solid #e5e7eb";
-  reportInfo.style.pageBreakInside = "avoid";
-
-  const leftInfo = document.createElement("div");
-  leftInfo.style.flex = "1";
-
-  const timeInfo = document.createElement("div");
-  timeInfo.style.fontSize = "13px";
-  timeInfo.style.color = "#6b7280";
-  timeInfo.style.marginBottom = "8px";
-  timeInfo.textContent = `⏰ Generated: ${new Date().toLocaleTimeString()}`;
-  leftInfo.appendChild(timeInfo);
-
-  if (user && (user.name || user.email)) {
-    const userLine = document.createElement("div");
-    userLine.style.fontSize = "13px";
-    userLine.style.color = "#374151";
-    userLine.style.fontWeight = "500";
-    userLine.textContent = `👤 ${user.name || "User"}${user.email ? ` • ${user.email}` : ""}`;
-    leftInfo.appendChild(userLine);
-  }
-
-  const rightInfo = document.createElement("div");
-  rightInfo.style.textAlign = "right";
-  const statusBox = document.createElement("div");
-  statusBox.style.backgroundColor = "#dcfce7";
-  statusBox.style.padding = "10px 18px";
-  statusBox.style.borderRadius = "8px";
-  statusBox.style.border = "1px solid #86efac";
-  statusBox.style.display = "inline-block";
-  statusBox.style.fontSize = "13px";
-  statusBox.style.fontWeight = "600";
-  statusBox.style.color = "#16a34a";
-  statusBox.textContent = `✓ ${safeProducts.length} Product${safeProducts.length !== 1 ? "s" : ""} Configured`;
-  rightInfo.appendChild(statusBox);
-
-  reportInfo.appendChild(leftInfo);
-  reportInfo.appendChild(rightInfo);
-  container.appendChild(reportInfo);
-
-  // ===== BEAUTIFUL PRODUCTS SECTION =====
-  for (let index = 0; index < safeProducts.length; index++) {
-    const product = safeProducts[index];
-    const productEdits = Array.isArray(product?.edits?.elements) ? product.edits.elements : [];
-    const hasEdits = productEdits.length > 0;
-
-    const productDiv = document.createElement("div");
-    productDiv.style.margin = "20px 40px 0 40px";
-    productDiv.style.border = "2px solid #e5e7eb";
-    productDiv.style.borderRadius = "12px";
-    productDiv.style.padding = "20px";
-    productDiv.style.backgroundColor = "#ffffff";
-    productDiv.style.boxShadow = "0 2px 12px rgba(0,0,0,0.06)";
-    productDiv.style.pageBreakInside = "avoid";
-
-    // Gradient top border accent
-    const topAccent = document.createElement("div");
-    topAccent.style.position = "absolute";
-    topAccent.style.top = "0";
-    topAccent.style.left = "0";
-    topAccent.style.width = "100%";
-    topAccent.style.height = "6px";
-    topAccent.style.background = "linear-gradient(90deg, #667eea 0%, #764ba2 100%)";
-    topAccent.style.borderRadius = "16px 16px 0 0";
-    productDiv.style.position = "relative";
-    productDiv.appendChild(topAccent);
-
-    // Product header with number badge
-    const productHeader = document.createElement("div");
-    productHeader.style.display = "flex";
-    productHeader.style.alignItems = "center";
-    productHeader.style.marginBottom = "25px";
-    productHeader.style.marginTop = "10px";
-    productHeader.style.paddingBottom = "20px";
-    productHeader.style.borderBottom = "2px solid #f3f4f6";
-    productHeader.style.gap = "20px";
-
-    // Beautiful product number badge
-    const productNumber = document.createElement("div");
-    productNumber.style.width = "60px";
-    productNumber.style.height = "60px";
-    productNumber.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-    productNumber.style.borderRadius = "12px";
-    productNumber.style.display = "flex";
-    productNumber.style.alignItems = "center";
-    productNumber.style.justifyContent = "center";
-    productNumber.style.color = "white";
-    productNumber.style.fontSize = "24px";
-    productNumber.style.fontWeight = "bold";
-    productNumber.style.flexShrink = "0";
-    productNumber.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.35)";
-    productNumber.textContent = index + 1;
-    productHeader.appendChild(productNumber);
-
-    // Product details
-    const headerContent = document.createElement("div");
-    headerContent.style.flex = "1";
-
-    const productNameEl = document.createElement("h2");
-    productNameEl.textContent = product?.name || "Product";
-    productNameEl.style.color = "#1f2937";
-    productNameEl.style.margin = "0 0 4px 0";
-    productNameEl.style.fontSize = "18px";
-    productNameEl.style.fontWeight = "700";
-    productNameEl.style.letterSpacing = "-0.5px";
-    headerContent.appendChild(productNameEl);
-
-    const productSku = document.createElement("p");
-    productSku.textContent = `SKU: ${product?.sku || "N/A"} • Category: ${product?.category || "General"}`;
-    productSku.style.color = "#6b7280";
-    productSku.style.margin = "0";
-    productSku.style.fontSize = "13px";
-    productSku.style.fontWeight = "500";
-    headerContent.appendChild(productSku);
-
-    productHeader.appendChild(headerContent);
-
-    // Edit badge
-    if (hasEdits) {
-      const editBadge = document.createElement("div");
-      editBadge.style.backgroundColor = "#fef3c7";
-      editBadge.style.color = "#d97706";
-      editBadge.style.padding = "8px 14px";
-      editBadge.style.borderRadius = "8px";
-      editBadge.style.border = "1px solid #fcd34d";
-      editBadge.style.fontSize = "12px";
-      editBadge.style.fontWeight = "600";
-      editBadge.style.whiteSpace = "nowrap";
-      editBadge.textContent = `✏️ ${productEdits.length} Customization${productEdits.length !== 1 ? "s" : ""}`;
-      productHeader.appendChild(editBadge);
-    }
-
-    productDiv.appendChild(productHeader);
-
-    // Description
-    if (product?.description) {
-      const descEl = document.createElement("p");
-      descEl.textContent = product.description;
-      descEl.style.color = "#4b5563";
-      descEl.style.margin = "0 0 12px 0";
-      descEl.style.fontSize = "12px";
-      descEl.style.lineHeight = "1.5";
-      productDiv.appendChild(descEl);
-    }
-
-    // Product details in a grid
-    const detailsGrid = document.createElement("div");
-    detailsGrid.style.display = "grid";
-    detailsGrid.style.gridTemplateColumns = "1fr 1fr";
-    detailsGrid.style.gap = "20px";
-    detailsGrid.style.marginBottom = "25px";
-    detailsGrid.style.padding = "20px";
-    detailsGrid.style.backgroundColor = "#f9fafb";
-    detailsGrid.style.borderRadius = "12px";
-
-    const detailItems = [
-      { label: "Price", value: product?.price ? `$${product.price}` : "N/A" },
-      { label: "Stock", value: product?.stock !== undefined ? product.stock : "N/A" },
-      { label: "Rating", value: product?.rating ? `⭐ ${product.rating}/5` : "N/A" },
-      { label: "Status", value: product?.status || "Available" },
-    ];
-
-    detailItems.forEach((item) => {
-      const detailItem = document.createElement("div");
-      const label = document.createElement("div");
-      label.textContent = item.label;
-      label.style.fontSize = "11px";
-      label.style.color = "#9ca3af";
-      label.style.fontWeight = "600";
-      label.style.textTransform = "uppercase";
-      label.style.letterSpacing = "0.5px";
-      label.style.marginBottom = "5px";
-      detailItem.appendChild(label);
-
-      const value = document.createElement("div");
-      value.textContent = item.value;
-      value.style.fontSize = "15px";
-      value.style.color = "#1f2937";
-      value.style.fontWeight = "600";
-      detailItem.appendChild(value);
-
-      detailsGrid.appendChild(detailItem);
-    });
-
-    productDiv.appendChild(detailsGrid);
-
-    // Product image
-    if (product?.image) {
-      const imageContainer = document.createElement("div");
-      imageContainer.style.marginBottom = "12px";
-      imageContainer.style.borderRadius = "10px";
-      imageContainer.style.overflow = "hidden";
-      imageContainer.style.boxShadow = "0 2px 10px rgba(0,0,0,0.08)";
-      imageContainer.style.backgroundColor = "#f3f4f6";
-      imageContainer.style.display = "flex";
-      imageContainer.style.alignItems = "center";
-      imageContainer.style.justifyContent = "center";
-      imageContainer.style.minHeight = "200px";
-
-      const img = document.createElement("img");
-      img.src = product.image;
-      img.style.maxWidth = "100%";
-      img.style.maxHeight = "200px";
-      img.style.objectFit = "contain";
-      img.style.padding = "10px";
-      imageContainer.appendChild(img);
-      productDiv.appendChild(imageContainer);
-    }
-
-    // Customizations section
-    if (hasEdits) {
-      const customizationsSection = document.createElement("div");
-      customizationsSection.style.marginTop = "25px";
-      customizationsSection.style.paddingTop = "25px";
-      customizationsSection.style.borderTop = "2px solid #f3f4f6";
-
-      const customTitle = document.createElement("h3");
-      customTitle.textContent = "✏️ Customizations Applied";
-      customTitle.style.color = "#1f2937";
-      customTitle.style.margin = "0 0 15px 0";
-      customTitle.style.fontSize = "16px";
-      customTitle.style.fontWeight = "700";
-      customizationsSection.appendChild(customTitle);
-
-      const customList = document.createElement("ul");
-      customList.style.margin = "0";
-      customList.style.paddingLeft = "20px";
-      customList.style.listStyle = "none";
-
-      productEdits.forEach((edit) => {
-        const li = document.createElement("li");
-        li.style.padding = "10px 0";
-        li.style.fontSize = "13px";
-        li.style.color = "#4b5563";
-        li.style.borderBottom = "1px solid #f3f4f6";
-        li.style.display = "flex";
-        li.style.alignItems = "center";
-        li.style.gap = "10px";
-
-        const icon = document.createElement("span");
-        icon.textContent = edit.type === "text" ? "📝" : edit.type === "image" ? "🖼️" : "✨";
-        icon.style.fontSize = "14px";
-        li.appendChild(icon);
-
-        const content = document.createElement("span");
-        if (edit.type === "text") {
-          content.textContent = `Text: "${edit.text}" (${edit.fontSize}px, ${edit.color})`;
-        } else if (edit.type === "image") {
-          content.textContent = `Image added (${edit.width}x${edit.height}px)`;
-        } else {
-          content.textContent = `${edit.type}: ${edit.text || "Updated"}`;
-        }
-        li.appendChild(content);
-
-        customList.appendChild(li);
+  // NUCLEAR OPTION: Completely remove all canvases from the document during PDF generation
+  const allCanvases = document.querySelectorAll("canvas");
+  const canvasBackup = [];
+  
+  console.info("[PDF] Removing", allCanvases.length, "canvases from document for safe PDF generation");
+  
+  allCanvases.forEach((canvas, index) => {
+    if (canvas.parentNode) {
+      canvasBackup.push({
+        canvas,
+        parent: canvas.parentNode,
+        nextSibling: canvas.nextSibling,
+        index
       });
-
-      customizationsSection.appendChild(customList);
-      productDiv.appendChild(customizationsSection);
+      canvas.parentNode.removeChild(canvas);
     }
-
-    container.appendChild(productDiv);
-  }
-
-  // ===== IMPORTANT INFORMATION SECTION =====
-  const infoSection = document.createElement("div");
-  infoSection.style.margin = "30px 40px";
-  infoSection.style.padding = "20px";
-  infoSection.style.backgroundColor = "#ecfdf5";
-  infoSection.style.border = "3px solid #10b981";
-  infoSection.style.borderRadius = "10px";
-  infoSection.style.pageBreakInside = "avoid";
-  infoSection.style.pageBreakAfter = "always";
-
-  const infoTitle = document.createElement("h3");
-  infoTitle.textContent = "🔧 Important Information";
-  infoTitle.style.color = "#065f46";
-  infoTitle.style.margin = "0 0 10px 0";
-  infoTitle.style.fontSize = "15px";
-  infoTitle.style.fontWeight = "700";
-  infoSection.appendChild(infoTitle);
-
-  const infoContent = document.createElement("p");
-  infoContent.textContent =
-    "This product is designed for professional electrical installations. Please ensure proper certification and safety standards are followed during installation. Contact our technical support team for detailed installation guides and specifications.";
-  infoContent.style.color = "#047857";
-  infoContent.style.margin = "0";
-  infoContent.style.fontSize = "12px";
-  infoContent.style.lineHeight = "1.6";
-  infoSection.appendChild(infoContent);
-
-  container.appendChild(infoSection);
-
-  // ===== BEAUTIFUL FOOTER SECTION WITH CONTACT =====
-  const footer = document.createElement("div");
-  footer.style.padding = "40px 40px";
-  footer.style.backgroundColor = "#1f2937";
-  footer.style.color = "white";
-  footer.style.pageBreakInside = "avoid";
-
-  // Footer Header
-  const footerHeader = document.createElement("div");
-  footerHeader.style.textAlign = "center";
-  footerHeader.style.marginBottom = "25px";
-
-  const footerTitle = document.createElement("h2");
-  footerTitle.textContent = "📞 Contact Information";
-  footerTitle.style.margin = "0 0 8px 0";
-  footerTitle.style.fontSize = "20px";
-  footerTitle.style.fontWeight = "900";
-  footerTitle.style.letterSpacing = "1px";
-  footerTitle.style.color = "#ffffff";
-  footerHeader.appendChild(footerTitle);
-
-  const footerSubtitle = document.createElement("p");
-  footerSubtitle.textContent = "Get in Touch With WIREEO Professional Solutions";
-  footerSubtitle.style.color = "rgba(255,255,255,0.7)";
-  footerSubtitle.style.margin = "0";
-  footerSubtitle.style.fontSize = "12px";
-  footerSubtitle.style.letterSpacing = "0.5px";
-  footerHeader.appendChild(footerSubtitle);
-
-  footer.appendChild(footerHeader);
-
-  // Contact Cards Grid
-  const contactGrid = document.createElement("div");
-  contactGrid.style.display = "grid";
-  contactGrid.style.gridTemplateColumns = "1fr 1fr 1fr";
-  contactGrid.style.gap = "20px";
-  contactGrid.style.marginBottom = "25px";
-
-  const contactCards = [
-    {
-      icon: "📱",
-      title: "PHONE",
-      value: "+1 (555) 123-4567",
-    },
-    {
-      icon: "📧",
-      title: "EMAIL",
-      value: "info@wireeo.com",
-    },
-    {
-      icon: "🌐",
-      title: "WEBSITE",
-      value: "www.wireeo.com",
-    },
-  ];
-
-  contactCards.forEach((card) => {
-    const cardDiv = document.createElement("div");
-    cardDiv.style.padding = "18px";
-    cardDiv.style.backgroundColor = "#374151";
-    cardDiv.style.borderRadius = "10px";
-    cardDiv.style.textAlign = "center";
-    cardDiv.style.border = "1px solid #4b5563";
-    cardDiv.style.transition = "all 0.3s ease";
-
-    const iconEl = document.createElement("div");
-    iconEl.textContent = card.icon;
-    iconEl.style.fontSize = "28px";
-    iconEl.style.marginBottom = "8px";
-    cardDiv.appendChild(iconEl);
-
-    const titleEl = document.createElement("h4");
-    titleEl.textContent = card.title;
-    titleEl.style.margin = "0 0 6px 0";
-    titleEl.style.fontSize = "11px";
-    titleEl.style.fontWeight = "700";
-    titleEl.style.letterSpacing = "1px";
-    titleEl.style.textTransform = "uppercase";
-    titleEl.style.color = "rgba(255,255,255,0.8)";
-    cardDiv.appendChild(titleEl);
-
-    const valueEl = document.createElement("p");
-    valueEl.textContent = card.value;
-    valueEl.style.margin = "0";
-    valueEl.style.fontSize = "12px";
-    valueEl.style.fontWeight = "600";
-    valueEl.style.color = "#ffffff";
-    cardDiv.appendChild(valueEl);
-
-    contactGrid.appendChild(cardDiv);
   });
-
-  footer.appendChild(contactGrid);
-
-  // Divider
-  const footerDivider = document.createElement("div");
-  footerDivider.style.margin = "20px 0";
-  footerDivider.style.height = "1px";
-  footerDivider.style.background = "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)";
-  footer.appendChild(footerDivider);
-
-  // Footer Info
-  const footerInfo = document.createElement("div");
-  footerInfo.style.textAlign = "center";
-
-
-  const footerCompanyInfo = document.createElement("p");
-  footerCompanyInfo.textContent = "WIREEO - Professional Electrical Configuration Systems";
-  footerCompanyInfo.style.margin = "0 0 8px 0";
-  footerCompanyInfo.style.fontSize = "12px";
-  footerCompanyInfo.style.fontWeight = "600";
-  footerCompanyInfo.style.color = "#ffffff";
-  footerInfo.appendChild(footerCompanyInfo);
-
-  const disclaimer = document.createElement("p");
-  disclaimer.textContent =
-    "© 2026 WIREEO. All rights reserved. This is a confidential document. All specifications and customizations are subject to terms and conditions. For technical support, contact: support@wireeo.com";
-  disclaimer.style.margin = "0";
-  disclaimer.style.fontSize = "10px";
-  disclaimer.style.color = "rgba(255,255,255,0.6)";
-  disclaimer.style.lineHeight = "1.5";
-  footerInfo.appendChild(disclaimer);
-
-  footer.appendChild(footerInfo);
-
-  container.appendChild(footer);
-
-  // ===== GENERATE PDF =====
-  document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-    });
+    const {
+      projectName,
+      user,
+      filenamePrefix = "Wireeo-Customer-Report",
+      companyName: companyNameOption = "WIREEO",
+    } = options || {};
 
-    const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
       format: "a4",
     });
 
-    const imgWidth = 210; // A4 width in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const configNumber = `CFG-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
+    const reportDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    const totalPages = 2;
 
-    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+    const addText = (parent, text, fontSize = 11, color = "#1f2937", marginBottom = 4) => {
+      const el = document.createElement("div");
+      el.textContent = text;
+      el.style.fontSize = `${fontSize}px`;
+      el.style.color = color;
+      el.style.marginBottom = `${marginBottom}px`;
+      el.style.lineHeight = "1.4";
+      parent.appendChild(el);
+      return el;
+    };
+
+    const footerLegal = "The current terms and conditions of sale and delivery can always be found on our website at: wireeo.com/terms";
+    const footerCompany = "WIREEO • Professional Electrical Configuration Systems • www.wireeo.com • MADE WITH PRECISION";
+
+    // Pre-render product thumbnails: use editedImage.value (exact edited bitmap) when present, else render from base + edits
+    const productThumbUrls = await Promise.all(
+      safeProducts.map((product, idx) => {
+        if (product?.editedImage?.value) {
+          const value = product.editedImage.value;
+          if (value.startsWith("data:image")) {
+            if (process.env.NODE_ENV !== "production") {
+              console.info("[PDF] Item", idx, "instanceId:", product._instanceId, "productId:", product.id, "using editedImage (base64)");
+            }
+            return Promise.resolve(value);
+          }
+          return loadImage(value).then((img) => {
+            const c = document.createElement("canvas");
+            c.width = PDF_PRODUCT_THUMB_WIDTH;
+            c.height = PDF_PRODUCT_THUMB_HEIGHT;
+            const ctx = c.getContext("2d");
+            if (ctx) ctx.drawImage(img, 0, 0, c.width, c.height);
+            return c.toDataURL("image/jpeg", 0.8);
+          }).catch(() => renderEditedProduct(product, PDF_PRODUCT_THUMB_WIDTH, PDF_PRODUCT_THUMB_HEIGHT, true, 0.8));
+        }
+        const hasImage = product?.baseImageUrl || product?.image;
+        if (!hasImage) return Promise.resolve(null);
+        if (process.env.NODE_ENV !== "production") {
+          console.info("[PDF] Item", idx, "instanceId:", product._instanceId, "productId:", product.id, "using renderEditedProduct (no editedImage)");
+        }
+        return renderEditedProduct(product, PDF_PRODUCT_THUMB_WIDTH, PDF_PRODUCT_THUMB_HEIGHT, true, 0.8).catch(() => null);
+      }),
+    );
+
+    // ========== PAGE 1: Customer Report (company, customer, config, items table with images) ==========
+    const page1 = createPageWrapper();
+    page1.style.padding = "40px 50px 50px";
+
+    addText(page1, companyNameOption, 18, "#1f2937", 20);
+    addText(page1, "Customer:", 10, "#6b7280", 2);
+    addText(page1, user?.name || user?.companyName || "—", 12, "#1f2937", 2);
+    if (user?.companyName && user?.name) addText(page1, user.companyName, 11, "#374151", 2);
+    addText(page1, `Customer Nr.: ${user?.customerNumber || user?.id || "—"}`, 11, "#374151", 2);
+    addText(page1, `Tel.: ${user?.phone || user?.tel || "—"}`, 11, "#374151", 2);
+    addText(page1, `E-Mail: ${user?.email || "—"}`, 11, "#374151", 2);
+    if (user?.address) addText(page1, user.address, 11, "#374151", 16);
+    else addText(page1, "—", 11, "#374151", 16);
+
+    addText(page1, "Please give this printout to your specialist partner with your order.", 11, "#1f2937", 20);
+    addText(page1, `Configuration number: ${configNumber}`, 11, "#1f2937", 2);
+    addText(page1, `Project name: ${projectName || "—"}`, 11, "#1f2937", 2);
+    addText(page1, `Date: ${reportDate}`, 11, "#1f2937", 20);
+
+    const table1 = document.createElement("table");
+    table1.style.width = "100%";
+    table1.style.borderCollapse = "collapse";
+    table1.style.fontSize = "11px";
+    table1.style.marginBottom = "24px";
+    const thead1 = document.createElement("thead");
+    const headerRow1 = document.createElement("tr");
+    ["Image", "Item No./Items", "Description", "Piece"].forEach((thText) => {
+      const th = document.createElement("th");
+      th.textContent = thText;
+      th.style.textAlign = "left";
+      th.style.padding = "10px 12px";
+      th.style.borderBottom = "2px solid #1f2937";
+      th.style.color = "#1f2937";
+      th.style.fontWeight = "700";
+      headerRow1.appendChild(th);
+    });
+    thead1.appendChild(headerRow1);
+    table1.appendChild(thead1);
+    const tbody1 = document.createElement("tbody");
+    safeProducts.forEach((product, idx) => {
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid #e5e7eb";
+      const imgTd = document.createElement("td");
+      imgTd.style.padding = "8px";
+      imgTd.style.verticalAlign = "middle";
+      imgTd.style.width = "72px";
+      const thumbUrl = productThumbUrls[idx];
+      if (thumbUrl) {
+        const img = document.createElement("img");
+        img.src = thumbUrl;
+        img.alt = product?.name || "";
+        img.loading = "eager";
+        img.style.width = "64px";
+        img.style.height = "48px";
+        img.style.objectFit = "contain";
+        img.style.display = "block";
+        img.style.backgroundColor = "#f3f4f6";
+        imgTd.appendChild(img);
+      } else {
+        const placeholder = document.createElement("div");
+        placeholder.style.width = "64px";
+        placeholder.style.height = "48px";
+        placeholder.style.backgroundColor = "#f3f4f6";
+        placeholder.style.display = "flex";
+        placeholder.style.alignItems = "center";
+        placeholder.style.justifyContent = "center";
+        placeholder.style.fontSize = "9px";
+        placeholder.style.color = "#9ca3af";
+        placeholder.textContent = "No image";
+        imgTd.appendChild(placeholder);
+      }
+      tr.appendChild(imgTd);
+      const itemNo = document.createElement("td");
+      itemNo.style.padding = "12px";
+      itemNo.style.verticalAlign = "top";
+      itemNo.textContent = product?.name || product?.sku || "—";
+      tr.appendChild(itemNo);
+      const desc = document.createElement("td");
+      desc.style.padding = "12px";
+      desc.style.verticalAlign = "top";
+      const descLines = [
+        product?.name || "—",
+        product?.description || "",
+        "Individual labelling:",
+        "Floor:",
+        "Room:",
+        "Processing: Print",
+        "1x incl. Processing fee",
+        `Filename: ${product?.sku || product?.id || "—"}`,
+        "1x",
+        "Item",
+        String(idx + 1).padStart(2, "0"),
+      ].filter(Boolean);
+      desc.textContent = descLines.join("\n");
+      desc.style.whiteSpace = "pre-line";
+      desc.style.lineHeight = "1.5";
+      tr.appendChild(desc);
+      const piece = document.createElement("td");
+      piece.style.padding = "12px";
+      piece.style.verticalAlign = "top";
+      piece.textContent = "1x";
+      tr.appendChild(piece);
+      tbody1.appendChild(tr);
+    });
+    table1.appendChild(tbody1);
+    page1.appendChild(table1);
+
+    addText(page1, footerLegal, 9, "#6b7280", 8);
+    addText(page1, footerCompany, 8, "#9ca3af", 16);
+    const pageNum1 = document.createElement("div");
+    pageNum1.style.textAlign = "center";
+    pageNum1.style.fontSize = "10px";
+    pageNum1.style.color = "#9ca3af";
+    pageNum1.textContent = `-- 1 of ${totalPages} --`;
+    page1.appendChild(pageNum1);
+
+    await capturePageAndAddToPdf(pdf, page1, true);
+
+    // ========== PAGE 2: Summary table (Item No. | Item | Price Group | Quantity | Single Quantity | File) ==========
+    const page2 = createPageWrapper();
+    page2.style.padding = "40px 50px 50px";
+
+    addText(page2, companyNameOption, 18, "#1f2937", 20);
+    addText(page2, `Configuration number: ${configNumber}`, 11, "#1f2937", 2);
+    addText(page2, `Project name: ${projectName || "—"}`, 11, "#1f2937", 2);
+    addText(page2, `Date: ${reportDate}`, 11, "#1f2937", 20);
+
+    const table2 = document.createElement("table");
+    table2.style.width = "100%";
+    table2.style.borderCollapse = "collapse";
+    table2.style.fontSize = "11px";
+    table2.style.marginBottom = "24px";
+    const thead2 = document.createElement("thead");
+    const headerRow2 = document.createElement("tr");
+    ["Item No.", "Item", "Price Group", "Quantity", "Single Quantity", "File"].forEach((thText) => {
+      const th = document.createElement("th");
+      th.textContent = thText;
+      th.style.textAlign = "left";
+      th.style.padding = "10px 12px";
+      th.style.borderBottom = "2px solid #1f2937";
+      th.style.color = "#1f2937";
+      th.style.fontWeight = "700";
+      headerRow2.appendChild(th);
+    });
+    thead2.appendChild(headerRow2);
+    table2.appendChild(thead2);
+    const tbody2 = document.createElement("tbody");
+    safeProducts.forEach((product, idx) => {
+      const tr = document.createElement("tr");
+      tr.style.borderBottom = "1px solid #e5e7eb";
+      const cells = [
+        product?.name || product?.sku || "—",
+        String(idx + 1).padStart(2, "0"),
+        product?.category || "—",
+        "1x",
+        "1x",
+        product?.sku || product?.id || "—",
+      ];
+      cells.forEach((cellText) => {
+        const td = document.createElement("td");
+        td.textContent = cellText;
+        td.style.padding = "10px 12px";
+        tr.appendChild(td);
+      });
+      tbody2.appendChild(tr);
+    });
+    table2.appendChild(tbody2);
+    page2.appendChild(table2);
+
+    addText(page2, footerLegal, 9, "#6b7280", 8);
+    addText(page2, footerCompany, 8, "#9ca3af", 16);
+    const pageNum2 = document.createElement("div");
+    pageNum2.style.textAlign = "center";
+    pageNum2.style.fontSize = "10px";
+    pageNum2.style.color = "#9ca3af";
+    pageNum2.textContent = `-- 2 of ${totalPages} --`;
+    page2.appendChild(pageNum2);
+
+    await capturePageAndAddToPdf(pdf, page2, false);
 
     const fileName = `${filenamePrefix}_${new Date().getTime()}.pdf`;
     pdf.save(fileName);
-
-    document.body.removeChild(container);
+    console.info("[PDF] Saved:", fileName, "pages:", totalPages);
   } catch (error) {
-    console.error("PDF generation error:", error);
-    document.body.removeChild(container);
+    console.error("[PDF] PDF generation failed:", error);
     throw error;
+  } finally {
+    // RESTORE ALL CANVASES
+    console.info("[PDF] Restoring", canvasBackup.length, "canvases to document");
+    canvasBackup.forEach(({ canvas, parent, nextSibling }) => {
+      try {
+        if (nextSibling && nextSibling.parentNode === parent) {
+          parent.insertBefore(canvas, nextSibling);
+        } else {
+          parent.appendChild(canvas);
+        }
+      } catch (e) {
+        console.warn("[PDF] Failed to restore canvas:", e);
+      }
+    });
   }
 };

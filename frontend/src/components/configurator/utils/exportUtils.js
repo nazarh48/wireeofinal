@@ -4,6 +4,19 @@
  */
 
 /**
+ * Get canvas as base64 data URL (for PDF export / editedImage storage).
+ * Uses pixelRatio 2 for sharp output. Returns null if stage ref invalid.
+ */
+export const getStageDataURL = (stageRef, options = {}) => {
+  if (!stageRef?.current || typeof stageRef.current.toDataURL !== 'function') return null;
+  return stageRef.current.toDataURL({
+    mimeType: options.mimeType || 'image/png',
+    quality: options.quality ?? 0.92,
+    pixelRatio: options.pixelRatio ?? 2,
+  });
+};
+
+/**
  * Export canvas as PNG
  */
 export const exportAsPNG = (stageRef, filename = 'canvas.png') => {

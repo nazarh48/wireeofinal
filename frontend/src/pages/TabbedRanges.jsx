@@ -83,7 +83,14 @@ const TabbedRanges = () => {
           />
         );
       case 'projects':
-        return <ProjectsContent loading={projectsLoading} error={projectsError} onRetry={fetchProjects} />;
+        return (
+          <ProjectsContent
+            loading={projectsLoading}
+            error={projectsError}
+            onRetry={fetchProjects}
+            setActiveTab={setActiveTab}
+          />
+        );
       case 'pdf-configurations':
         return <PDFConfigurationsContent />;
       default:
@@ -160,7 +167,7 @@ const TabbedRanges = () => {
             </button>
           </div>
         )}
-        {pendingPdfCollection.length > 0 && activeTab === 'projects' && (
+        {pendingPdfCollection.length > 0 && (activeTab === 'projects' || activeTab === 'pdf-configurations') && (
           <div className="fixed bottom-6 right-6 z-50">
             <button
               onClick={savePendingAsPdf}
@@ -169,7 +176,7 @@ const TabbedRanges = () => {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <span>Save as PDF ({pendingPdfCollection.length})</span>
+              <span>Export PDF ({pendingPdfCollection.length})</span>
             </button>
           </div>
         )}
@@ -373,7 +380,9 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
   const [productsToAdd, setProductsToAdd] = useState([]);
 
   const handleStartEditing = (item) => {
-    navigate(`/editor/${item.id}?from=collection`);
+    const params = new URLSearchParams({ from: 'collection' });
+    if (item._instanceId) params.set('instanceId', item._instanceId);
+    navigate(`/editor/${item.id}?${params.toString()}`);
   };
 
   const handleToggleSelection = (item) => {
@@ -636,23 +645,45 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
   );
 };
 
-const ProjectsContent = ({ loading, error, onRetry }) => {
-  const { projects, productEdits, addProductsToPdf, savePendingAsPdf, showToast } = useStore();
+const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
+  const { projects, productEdits, addProductsToPdf, savePendingAsPdf, showToast, duplicateProject, deleteProject } = useStore();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [exportingProjectId, setExportingProjectId] = useState(null);
+  const [duplicatingId, setDuplicatingId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   const projectsWithProducts = projects.filter((p) => p.products && p.products.length > 0);
 
   const handleAddProjectToPdf = (project) => {
-    const added = addProductsToPdf(project?.products || [], project?.name);
+    const added = addProductsToPdf(project?.products || [], project?.name, project?.id);
     if (added > 0) {
       showToast(
         `${added} product${added !== 1 ? 's' : ''} added to PDF configuration.`,
-        'Save as PDF',
-        savePendingAsPdf,
+        'Go to PDF Config',
+        () => typeof setActiveTab === 'function' && setActiveTab('pdf-configurations'),
       );
     }
+  };
+
+  const handleDuplicateProject = async (project) => {
+    setDuplicatingId(project.id);
+    try {
+      await duplicateProject(project);
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  const handleDeleteProject = (project) => {
+    setDeleteConfirm(project);
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!deleteConfirm) return;
+    const id = deleteConfirm.id;
+    setDeleteConfirm(null);
+    await deleteProject(id);
   };
 
   const handleAddProductToPdf = (product) => {
@@ -744,7 +775,7 @@ const ProjectsContent = ({ loading, error, onRetry }) => {
                       <h3 className="text-2xl font-bold text-white mb-1">{project.name}</h3>
                       <p className="text-violet-100 text-sm">{project.products.length} product{project.products.length !== 1 ? 's' : ''}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => handleAddProjectToPdf(project)}
                         className="p-2.5 bg-white/90 hover:bg-white text-violet-700 rounded-lg transition-colors"
@@ -753,6 +784,22 @@ const ProjectsContent = ({ loading, error, onRetry }) => {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDuplicateProject(project)}
+                        disabled={duplicatingId === project.id}
+                        className="p-2.5 bg-amber-400/90 hover:bg-amber-400 text-violet-900 rounded-lg transition-colors disabled:opacity-60"
+                        title="Duplicate Project"
+                      >
+                        {duplicatingId === project.id ? (
+                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
                       </button>
                       <button
                         onClick={() => handleExportProjectPdf(project)}
@@ -769,6 +816,15 @@ const ProjectsContent = ({ loading, error, onRetry }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                           </svg>
                         )}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProject(project)}
+                        className="p-2.5 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors"
+                        title="Delete Project"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -802,7 +858,11 @@ const ProjectsContent = ({ loading, error, onRetry }) => {
                           {/* Icon-Based Action Buttons */}
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
                             <button
-                              onClick={() => navigate(`/editor/${product.id}?from=projects`)}
+                              onClick={() => {
+                              const params = new URLSearchParams({ from: 'projects' });
+                              if (product._instanceId) params.set('instanceId', product._instanceId);
+                              navigate(`/editor/${product.id}?${params.toString()}`);
+                            }}
                               className="p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 transition-colors"
                               title="Edit Product"
                             >
@@ -840,35 +900,68 @@ const ProjectsContent = ({ loading, error, onRetry }) => {
           ))}
         </div>
       )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 id="delete-project-title" className="text-xl font-bold text-gray-900 mb-2">Delete project?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete &quot;{deleteConfirm.name}&quot;? This will remove it from your projects and from the PDF configuration list.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteProject}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const PDFConfigurationsContent = () => {
-  const { pdfConfigurations } = useStore();
+  const {
+    pdfConfigurations,
+    pendingPdfCollection,
+    removeFromPdfCollection,
+    clearPendingPdfCollection,
+    savePendingAsPdf,
+    showToast,
+  } = useStore();
+  const handleExportCurrentPdf = () => {
+    savePendingAsPdf();
+  };
 
   const handleDownloadPDF = (pdfConfig) => {
-    // Dispatch PDF generation event for this specific configuration
+    const products = Array.isArray(pdfConfig.products) ? [...pdfConfig.products] : [];
+    if (products.length === 0) {
+      console.warn("[PDF] handleDownloadPDF: no products in config", pdfConfig.id);
+      return;
+    }
+    console.info("[PDF] handleDownloadPDF: config", pdfConfig.id, "product count =", products.length);
     try {
       window.dispatchEvent(
-        new CustomEvent("generatePdf", { detail: { products: pdfConfig.products, projectName: pdfConfig.projectName } }),
+        new CustomEvent("generatePdf", { detail: { products, projectName: pdfConfig.projectName } }),
       );
     } catch (e) {
-      console.error("Error generating PDF:", e);
+      console.error("[PDF] Error dispatching generatePdf:", e);
     }
   };
 
-  const dummyPDFs = [
-    {
-      description: 'test',
-      date: '17.01.2026',
-      amount: '1',
-      actions: 'Configuration PDF',
-    },
-  ];
-
-  // Use real data if available, otherwise show dummy data for demo
-  const displayPDFs = pdfConfigurations.length > 0 ? pdfConfigurations : dummyPDFs;
+  const entries = Array.isArray(pendingPdfCollection) ? pendingPdfCollection.filter((e) => e && e.product) : [];
+  const displayPDFs = pdfConfigurations.length > 0 ? pdfConfigurations : [];
 
   return (
     <div className="animate-fade-in">
@@ -882,11 +975,72 @@ const PDFConfigurationsContent = () => {
           PDF Configurations
         </h2>
         <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-          Manage your PDF export configurations and download your customized product documents.
+          Manage your PDF export list and download your customized product documents.
         </p>
       </div>
 
-      {displayPDFs.length === 0 ? (
+      {/* Current PDF list (cart) – items added via "Add to PDF" */}
+      {entries.length > 0 && (
+        <div className="mb-12">
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 rounded-3xl blur opacity-20" />
+            <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Current PDF list</h3>
+                  <p className="text-blue-100 text-sm mt-1">{entries.length} item{entries.length !== 1 ? 's' : ''} ready to export</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPendingPdfCollection();
+                      showToast("PDF list cleared.");
+                    }}
+                    className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium"
+                  >
+                    Clear list
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportCurrentPdf}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium"
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              </div>
+              <ul className="divide-y divide-gray-200 max-h-80 overflow-y-auto">
+                {entries.map((entry) => (
+                  <li key={entry.entryId} className="flex items-center justify-between gap-4 p-4 hover:bg-gray-50">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-900">{entry.product?.name ?? "Product"}</span>
+                      {entry.projectName && (
+                        <span className="ml-2 text-sm text-gray-500">({entry.projectName})</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeFromPdfCollection(entry.entryId);
+                        showToast("Removed from PDF list.");
+                      }}
+                      className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                      title="Remove from PDF list"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {entries.length === 0 && displayPDFs.length === 0 ? (
         <div className="relative">
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-30"></div>
           <div className="relative text-center py-24 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl border-2 border-dashed border-cyan-200 shadow-2xl">
@@ -898,16 +1052,16 @@ const PDFConfigurationsContent = () => {
             </div>
             <h3 className="text-3xl font-bold text-gray-800 mb-6">No PDF configurations yet</h3>
             <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
-              Generate PDFs from your projects to see them appear here.
+              Add projects or products with &quot;Add to PDF&quot; and they will appear here. Then export your combined PDF.
             </p>
             <div className="flex justify-center">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg border border-white/50">
-                <p className="text-cyan-600 font-semibold text-lg">💡 Tip: Create projects and generate PDFs to manage your configurations!</p>
+                <p className="text-cyan-600 font-semibold text-lg">💡 Tip: Go to Projects tab and click &quot;Add to PDF&quot; on a project or product!</p>
               </div>
             </div>
           </div>
         </div>
-      ) : (
+      ) : displayPDFs.length > 0 ? (
         <div className="relative">
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-25"></div>
           <div className="relative overflow-hidden bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50">
@@ -1016,7 +1170,7 @@ const PDFConfigurationsContent = () => {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

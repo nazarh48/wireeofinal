@@ -1,38 +1,42 @@
 import { useEffect, useState, useRef } from 'react';
 import useStore from '../../store/useStore';
-import EnhancedCanvas from './EnhancedCanvas';
+import KonvaCanvasEditor from './KonvaCanvasEditor';
 import EnhancedToolbar from './EnhancedToolbar';
 import LayerPanel from './LayerPanel';
+import { getStageDataURL } from './utils/exportUtils';
 
-const Configurator = ({ navigate, isFromProjects }) => {
+const Configurator = ({ navigate, isFromProjects, instanceId }) => {
   const { configurator, markProductAsEdited, saveProductEdits, setProduct, fetchCollection, fetchProjects } = useStore();
   const currentProductId = configurator.product?.id;
+  const editingInstanceId = configurator.editingInstanceId || instanceId;
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const stageRef = useRef();
 
-  // Check which tab we're coming from
   const isFromSelection = window.location.search.includes('from=selection');
   const isFromCollection = window.location.search.includes('from=collection');
   
-  // Extract rangeId from URL params if coming from selection
   const getRangeIdFromUrl = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('rangeId');
   };
   const rangeId = getRangeIdFromUrl();
 
-  // Save edits when product changes or component unmounts
+  // Save edits when product changes or component unmounts (per-instance: include editedImage when instanceId)
   useEffect(() => {
     return () => {
       if (currentProductId && configurator.elements.length > 0) {
-        saveProductEdits(currentProductId);
+        let editedImageDataURL = null;
+        if (editingInstanceId && stageRef?.current) {
+          editedImageDataURL = getStageDataURL(stageRef, { mimeType: 'image/png', pixelRatio: 2 });
+        }
+        saveProductEdits(currentProductId, editingInstanceId || undefined, editedImageDataURL);
       }
     };
-  }, [currentProductId, saveProductEdits, configurator.elements.length]);
+  }, [currentProductId, saveProductEdits, configurator.elements.length, editingInstanceId]);
 
-  // Auto-save edits periodically
+  // Auto-save edits periodically (elements/config only; editedImage generated on explicit Save)
   useEffect(() => {
     if (!currentProductId) return;
     
@@ -40,7 +44,7 @@ const Configurator = ({ navigate, isFromProjects }) => {
       if (configurator.elements.length > 0) {
         setIsSaving(true);
         setSaveStatus('Auto-saving...');
-        saveProductEdits(currentProductId);
+        saveProductEdits(currentProductId, editingInstanceId || undefined);
         setTimeout(() => {
           setSaveStatus('✓ Saved');
           setTimeout(() => setSaveStatus(''), 2000);
@@ -50,14 +54,18 @@ const Configurator = ({ navigate, isFromProjects }) => {
     }, 30000);
 
     return () => clearInterval(autoSaveInterval);
-  }, [currentProductId, configurator.elements.length, saveProductEdits]);
+  }, [currentProductId, configurator.elements.length, saveProductEdits, editingInstanceId]);
 
   const handleSave = async () => {
     setIsSaving(true);
     setSaveStatus('Saving...');
     
     if (currentProductId) {
-      saveProductEdits(currentProductId);
+      let editedImageDataURL = null;
+      if (editingInstanceId && stageRef?.current) {
+        editedImageDataURL = getStageDataURL(stageRef, { mimeType: 'image/png', pixelRatio: 2 });
+      }
+      saveProductEdits(currentProductId, editingInstanceId || undefined, editedImageDataURL);
       markProductAsEdited(currentProductId);
     }
     
@@ -162,12 +170,15 @@ const Configurator = ({ navigate, isFromProjects }) => {
         {showShortcuts && (
           <div className="mt-4 bg-indigo-800/30 backdrop-blur-sm rounded-lg p-3 border border-indigo-600/30 max-w-2xl">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-indigo-100">
-              <div><span className="font-semibold text-indigo-300">Delete</span> - Remove</div>
+              <div><span className="font-semibold text-indigo-300">Delete</span> - Remove selected</div>
               <div><span className="font-semibold text-indigo-300">Ctrl+Z</span> - Undo</div>
-              <div><span className="font-semibold text-indigo-300">Ctrl+Y</span> - Redo</div>
-              <div><span className="font-semibold text-indigo-300">Ctrl+A</span> - Select All</div>
-              <div><span className="font-semibold text-indigo-300">Ctrl+D</span> - Duplicate</div>
+              <div><span className="font-semibold text-indigo-300">Ctrl+Shift+Z</span> - Redo</div>
               <div><span className="font-semibold text-indigo-300">Ctrl+C</span> - Copy</div>
+              <div><span className="font-semibold text-indigo-300">Ctrl+V</span> - Paste</div>
+              <div><span className="font-semibold text-indigo-300">Shift+click</span> - Multi-select</div>
+              <div><span className="font-semibold text-indigo-300">Arrows</span> - Move (Shift = 10px)</div>
+              <div><span className="font-semibold text-indigo-300">Ctrl+wheel</span> - Zoom</div>
+              <div><span className="font-semibold text-indigo-300">Space+drag</span> - Pan</div>
             </div>
           </div>
         )}
@@ -183,7 +194,7 @@ const Configurator = ({ navigate, isFromProjects }) => {
         {/* Canvas Section */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="flex-1 overflow-hidden min-h-0 relative">
-            <EnhancedCanvas ref={stageRef} />
+            <KonvaCanvasEditor ref={stageRef} />
             
             {/* Elements Counter */}
             <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-sm font-medium border border-white/10 z-10 pointer-events-none">
@@ -191,9 +202,9 @@ const Configurator = ({ navigate, isFromProjects }) => {
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                 <span>{configurator.elements.length} objects</span>
               </div>
-              {configurator.selectedElementId && (
+              {(configurator.selectedElementIds?.length > 0) && (
                 <div className="text-xs text-indigo-200 mt-1">
-                  Selected: {configurator.selectedElementId.substring(0, 20)}...
+                  {configurator.selectedElementIds.length} selected
                 </div>
               )}
             </div>

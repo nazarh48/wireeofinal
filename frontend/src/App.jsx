@@ -38,19 +38,20 @@ function App() {
 
   useEffect(() => {
     const handleGeneratePdf = async (event) => {
-      const { products, projectName } = event.detail;
+      const { products, projectName } = event.detail || {};
+      const list = Array.isArray(products) ? products.filter(Boolean) : [];
+      console.info("[PDF] Export requested: product count =", list.length, "ids =", list.map((p) => p.id || p._id).join(", "));
       try {
-        if (!Array.isArray(products) || products.length === 0) {
+        if (list.length === 0) {
           showToast("No products available to export.");
           return;
         }
-        await generateProductPDF(products, { user, projectName });
-        // Clear pending collection and close toast after successful PDF generation
+        await generateProductPDF(list, { user, projectName });
         clearPendingCollection();
         clearPendingPdfCollection();
         closeToast();
       } catch (error) {
-        console.error('Failed to generate PDF:', error);
+        console.error("[PDF] Export failed:", error);
         showToast(error?.message || "Failed to generate PDF.");
       }
     };

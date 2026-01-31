@@ -15,14 +15,12 @@ export async function addToCollection(req, res, next) {
       collection = await Collection.create({ name: "My Collection", createdBy: req.user._id, configurableProducts: [] });
     }
 
-    const existing = new Set(collection.configurableProducts.map((p) => p.product.toString()));
+    // Allow same product multiple times: each add gets its own instanceId (independent edits per instance).
     for (const pid of productIds) {
-      if (existing.has(pid)) continue;
       collection.configurableProducts.push({
         product: pid,
         instanceId: `inst_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       });
-      existing.add(pid);
     }
     await collection.save();
     await collection.populate("configurableProducts.product", "name description baseImageUrl isConfigurable productType");

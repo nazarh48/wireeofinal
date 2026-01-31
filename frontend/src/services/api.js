@@ -3,8 +3,12 @@ import axios from "axios";
 export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 
+
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+  import.meta.env.PROD
+    ? (import.meta.env.VITE_API_URL || "/api")
+    : (import.meta.env.VITE_API_URL || "http://localhost:5000/api");
+
 
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
 
