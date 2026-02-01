@@ -21,4 +21,6 @@ const projectSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+projectSchema.index({ "products.instanceId": 1 });
+
 export const Project = mongoose.model("Project", projectSchema);

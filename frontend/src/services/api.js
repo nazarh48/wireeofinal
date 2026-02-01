@@ -117,13 +117,30 @@ export const apiService = {
       ),
     getByProduct: async (productId) =>
       unwrap(await userApi.get(`/canvas/product/${productId}`)),
+    saveInstance: async ({ instanceId, productId, canvasData, textOverlays, layoutConfig, editedImage }) =>
+      unwrap(
+        await userApi.post("/canvas/instance/save", {
+          instanceId,
+          productId,
+          canvasData,
+          textOverlays,
+          layoutConfig,
+          editedImage,
+        })
+      ),
+    getByInstance: async (instanceId) =>
+      unwrap(await userApi.get(`/canvas/instance/${instanceId}`)),
   },
 
   pdf: {
-    create: async ({ projectId, products, pdfSettings }) =>
-      unwrap(await userApi.post("/pdf", { projectId, products, pdfSettings })),
+    create: async ({ projectId, projectName, productCount, products, pdfSettings }) =>
+      unwrap(await userApi.post("/pdf", { projectId, projectName, productCount, products, pdfSettings })),
     list: async () => unwrap(await userApi.get("/pdf")),
     getById: async (id) => unwrap(await userApi.get(`/pdf/${id}`)),
+    updateLastExported: async (id) =>
+      unwrap(await userApi.patch(`/pdf/${id}/last-exported`)),
+    reExport: async (id) =>
+      unwrap(await userApi.put(`/pdf/${id}/re-export`)),
   },
 
   adminDashboard: {

@@ -90,11 +90,18 @@ export const projectValidators = {
 export const canvasValidators = {
   save: [body("productId").custom(objectId).withMessage("Valid productId required")],
   productId: [param("productId").custom(objectId)],
+  saveInstance: [
+    body("instanceId").trim().notEmpty().withMessage("instanceId required"),
+    body("productId").custom(objectId).withMessage("Valid productId required"),
+  ],
+  instanceId: [param("instanceId").trim().notEmpty().withMessage("instanceId required")],
 };
 
 export const pdfValidators = {
   create: [
     body("projectId").optional().custom(objectId),
+    body("projectName").trim().notEmpty().withMessage("projectName required"),
+    body("productCount").isInt({ min: 0 }).withMessage("productCount must be non-negative integer"),
     body("products").optional().isArray(),
     body("pdfSettings").optional().isObject(),
   ],

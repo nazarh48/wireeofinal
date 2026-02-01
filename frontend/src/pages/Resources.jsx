@@ -1,125 +1,125 @@
 const Resources = () => {
   const resources = [
     {
-      title: "Getting Started Guide",
+      title: "Installation Guide",
       type: "Guide",
-      description: "A simple walkthrough to connect devices, set up rooms, and build your first smart-home routines.",
+      description: "Complete installation procedures for electrical automation systems, wiring diagrams, and safety protocols.",
       downloadUrl: "#",
-      icon: "📋",
+      icon: "🔧",
       thumbnail:
-        "https://images.unsplash.com/photo-1555774698-0b77e0d5fac6?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "2.4 MB",
+        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
+      size: "4.2 MB",
       format: "PDF"
     },
     {
-      title: "Smart Home Security Basics",
+      title: "System Configuration Manual",
+      type: "Manual",
+      description: "Detailed configuration procedures for PLCs, HMIs, and industrial control systems.",
+      downloadUrl: "#",
+      icon: "⚙️",
+      thumbnail:
+        "https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
+      size: "6.8 MB",
+      format: "PDF"
+    },
+    {
+      title: "Energy Efficiency Whitepaper",
       type: "Whitepaper",
-      description: "Practical tips for safer device setup, access control, and account protection.",
-      downloadUrl: "#",
-      icon: "🔒",
-      thumbnail:
-        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "1.8 MB",
-      format: "PDF"
-    },
-    {
-      title: "Energy-Saving Checklist",
-      type: "Checklist",
-      description: "Quick actions and settings to reduce power usage with lighting, climate, and scheduling.",
+      description: "Advanced strategies for optimizing energy consumption in industrial and commercial electrical systems.",
       downloadUrl: "#",
       icon: "⚡",
       thumbnail:
         "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "856 KB",
+      size: "2.1 MB",
       format: "PDF"
     },
     {
-      title: "Device Compatibility Guide",
+      title: "Safety Standards Compliance",
       type: "Guide",
-      description: "Understand common device types, pairing steps, and how to plan a reliable smart-home setup.",
+      description: "Essential safety standards, regulations, and compliance requirements for electrical installations.",
       downloadUrl: "#",
-      icon: "🔌",
+      icon: "🛡️",
       thumbnail:
-        "https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "3.2 MB",
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
+      size: "3.5 MB",
       format: "PDF"
     },
     {
-      title: "Automation Templates Pack",
-      type: "Template",
-      description: "Ready-to-use routines for morning, night, away mode, and room-based controls.",
+      title: "Technical Specifications Pack",
+      type: "Datasheet",
+      description: "Comprehensive technical specifications, wiring diagrams, and compatibility matrices for all products.",
       downloadUrl: "#",
-      icon: "🧩",
+      icon: "📊",
       thumbnail:
         "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "4.1 MB",
+      size: "8.3 MB",
       format: "ZIP"
     },
     {
       title: "Troubleshooting Handbook",
       type: "Guide",
-      description: "Common fixes for connectivity, device pairing, and automation rules that don’t trigger.",
+      description: "Common issues, diagnostic procedures, and solutions for electrical automation systems.",
       downloadUrl: "#",
-      icon: "⚙️",
+      icon: "🔍",
       thumbnail:
-        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "2.9 MB",
+        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
+      size: "4.7 MB",
       format: "PDF"
     }
   ];
 
   const webinars = [
     {
-      title: "First Setup Walkthrough",
+      title: "Industrial Automation Fundamentals",
       date: "March 15, 2024",
-      duration: "25 min",
-      description: "Learn how to add devices, create rooms, and set quick actions in minutes.",
-      thumbnail: "https://images.unsplash.com/photo-1555774698-0b77e0d5fac6?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+      duration: "45 min",
+      description: "Learn the basics of PLC programming, HMI design, and industrial communication protocols.",
+      thumbnail: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
     },
     {
-      title: "Scenes & Scheduling",
+      title: "Energy Management Systems",
       date: "March 22, 2024",
-      duration: "35 min",
-      description: "Build routines for lighting, shading, climate, and ventilation using simple triggers.",
-      thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+      duration: "50 min",
+      description: "Advanced techniques for monitoring, analyzing, and optimizing energy consumption in facilities.",
+      thumbnail: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
     },
     {
-      title: "Energy Optimization",
+      title: "Safety Systems Integration",
       date: "March 29, 2024",
-      duration: "30 min",
-      description: "Practical tips to reduce energy usage with automation and smart defaults.",
-      thumbnail: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+      duration: "40 min",
+      description: "Best practices for integrating safety controllers, emergency stops, and protective systems.",
+      thumbnail: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 text-white py-32 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 text-white py-32 overflow-hidden">
         <div className="absolute inset-0 bg-black opacity-20"></div>
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-10 bg-[url('https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&auto=format&fit=crop&w=2092&q=80')]"
+          className="absolute inset-0 bg-cover bg-center opacity-10 bg-[url('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=2092&q=80')]"
         ></div>
         <div className="relative container mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in-up">
-            Resources & <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">Downloads</span>
+            Technical <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Resources</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
-            Guides, templates, and quick tutorials to help you set up and use smart-home automation with confidence.
+            Professional documentation, training materials, and technical support for electrical automation systems.
           </p>
         </div>
         {/* Decorative elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-green-400 rounded-full opacity-20 animate-float"></div>
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-emerald-400 rounded-full opacity-20 animate-float animation-delay-1000"></div>
+        <div className="absolute top-20 left-10 w-20 h-20 bg-blue-400 rounded-full opacity-20 animate-float"></div>
+        <div className="absolute bottom-20 right-10 w-32 h-32 bg-purple-400 rounded-full opacity-20 animate-float animation-delay-1000"></div>
       </section>
 
       {/* Downloads Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in-up">Free Downloads</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in-up">Technical Documentation</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto animate-fade-in-up animation-delay-200">
-              Download starter guides and templates you can customize for your home.
+              Download comprehensive guides, manuals, and technical specifications for professional installations.
             </p>
           </div>
 
@@ -141,7 +141,7 @@ const Resources = () => {
                 )}
                 <div className="flex items-start justify-between mb-4">
                   <div className="text-4xl">{resource.icon}</div>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
                     {resource.type}
                   </span>
                 </div>
@@ -154,7 +154,7 @@ const Resources = () => {
                   <span>{resource.size}</span>
                 </div>
 
-                <button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center">
+                <button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center">
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
@@ -167,12 +167,12 @@ const Resources = () => {
       </section>
 
       {/* Webinars Section */}
-      <section className="py-20 bg-gradient-to-r from-green-50 to-emerald-50">
+      <section className="py-20 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in-up">Quick Tutorials</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4 animate-fade-in-up">Professional Training</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto animate-fade-in-up animation-delay-200">
-              Short sessions that cover the essentials: setup, scenes, and energy savings.
+              Expert-led sessions covering advanced electrical automation topics and industry best practices.
             </p>
           </div>
 
@@ -188,7 +188,7 @@ const Resources = () => {
                     alt={webinar.title}
                     className="w-full h-48 object-cover"
                   />
-                  <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  <div className="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
                     Live
                   </div>
                 </div>
@@ -209,7 +209,7 @@ const Resources = () => {
                   <h3 className="text-xl font-bold text-gray-900 mb-3">{webinar.title}</h3>
                   <p className="text-gray-600 mb-4 leading-relaxed">{webinar.description}</p>
 
-                  <button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                  <button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
                     Register Now
                   </button>
                 </div>
@@ -231,9 +231,9 @@ const Resources = () => {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="flex-1 px-4 py-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
-              <button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+              <button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
                 Subscribe
               </button>
             </div>

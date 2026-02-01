@@ -18,9 +18,9 @@ const normalizeProduct = (product, edits = null) => {
     product.baseImageUrl || product.image || product?.images?.[0]?.url || "";
   const normalizedImages = Array.isArray(product.images)
     ? product.images.map((img) => ({
-        ...img,
-        url: normalizeImageUrl(img.url),
-      }))
+      ...img,
+      url: normalizeImageUrl(img.url),
+    }))
     : product.images;
   const normalized = {
     ...product,
@@ -106,6 +106,19 @@ const useStore = create((set, get) => ({
       };
     });
   },
+  fetchPdfConfigurations: async () => {
+    try {
+      const res = await apiService.pdf.list();
+      const configs = res?.configs ?? [];
+      set({ pdfConfigurations: configs });
+      return configs;
+    } catch (e) {
+      console.error("Failed to fetch PDF configurations:", e);
+      set({ pdfConfigurations: [] });
+      return [];
+    }
+  },
+
   savePendingAsPdf: () => {
     const state = get();
     const entries = Array.isArray(state.pendingPdfCollection)
@@ -135,47 +148,53 @@ const useStore = create((set, get) => ({
       };
     });
 
-    // Get project name if available (from the first product or pending collection metadata)
-    const projectName = state.pendingPdfCollectionProjectName || null;
-
-    // Create PDF configuration entry
-    const pdfConfig = {
-      id: `pdf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      description:
-        products.length === 1
-          ? `${products[0].name} Configuration`
-          : `${products.length} Products Configuration`,
-      date: new Date().toLocaleDateString("en-GB"), // DD.MM.YYYY format
-      amount: products.length.toString(),
-      actions: "Configuration PDF",
-      products: products,
-      projectName: projectName,
-      createdAt: new Date().toISOString(),
-    };
-
-    set((state) => ({
-      pdfConfigurations: [...state.pdfConfigurations, pdfConfig],
-      toast: {
-        open: true,
-        message: `PDF configuration saved successfully! ${products.length} product${products.length !== 1 ? "s" : ""} configured.`,
-        actionLabel: null,
-        onAction: null,
-      },
-    }));
+    const projectName = state.pendingPdfCollectionProjectName || "Ad-hoc export";
+    const projectId = entries[0]?.projectId ?? null;
 
     try {
       window.dispatchEvent(
         new CustomEvent("generatePdf", { detail: { products, projectName } }),
       );
-      try {
-        console.debug("generatePdf event dispatched");
-      } catch (e) {
-        // Ignore debug errors
-      }
     } catch (e) {
       // ignore
     }
-    // Clear the pending PDF collection after dispatching
+
+    // Persist export to backend so it appears in PDF-Configurations tab; then refresh list. Snapshot without editedImage to keep payload small.
+    const snapshot = products.map((p) => ({
+      product: p.id ?? p._id,
+      instanceId: p._instanceId,
+      edits: p.edits || {},
+    }));
+    apiService.pdf
+      .create({
+        projectId,
+        projectName,
+        productCount: products.length,
+        products: snapshot,
+      })
+      .then(() => {
+        get().fetchPdfConfigurations();
+        set({
+          toast: {
+            open: true,
+            message: `PDF exported. ${products.length} product${products.length !== 1 ? "s" : ""} added to PDF-Configurations.`,
+            actionLabel: null,
+            onAction: null,
+          },
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to persist PDF export:", err);
+        set({
+          toast: {
+            open: true,
+            message: "PDF generated but could not save to PDF-Configurations. Check login.",
+            actionLabel: null,
+            onAction: null,
+          },
+        });
+      });
+
     get().clearPendingPdfCollection();
   },
   fetchCollection: async () => {
@@ -840,16 +859,18 @@ const useStore = create((set, get) => ({
           ...state.editsByInstanceId,
           [instanceId]: edits,
         };
-        // Optionally persist to backend by productId (backend may not support per-instance yet)
+        // Persist to backend using instance-level endpoint
         apiService.canvas
-          .save({
+          .saveInstance({
+            instanceId,
             productId,
             canvasData: edits.elements,
             textOverlays: edits.elements.filter((el) => el.type === "text"),
             layoutConfig: edits.configuration,
+            editedImage: edits.editedImage || null,
           })
           .catch((err) => {
-            console.error("Failed to save product edits to backend:", err);
+            console.error("Failed to save instance edits to backend:", err);
           });
         return { editsByInstanceId: nextEditsByInstanceId };
       }
@@ -1602,6 +1623,117 @@ const useStore = create((set, get) => ({
       });
       return null;
     }
+  },
+
+  // Instance configuration management
+  saveInstanceConfiguration: (instanceId, edits) => {
+    set((state) => ({
+      editsByInstanceId: {
+        ...state.editsByInstanceId,
+        [instanceId]: {
+          ...edits,
+          lastSaved: new Date().toISOString(),
+        },
+      },
+    }));
+  },
+
+  getInstanceConfiguration: (instanceId) => {
+    const state = get();
+    return state.editsByInstanceId[instanceId] || null;
+  },
+
+  clearInstanceConfiguration: (instanceId) => {
+    set((state) => {
+      const { [instanceId]: removed, ...rest } = state.editsByInstanceId;
+      return { editsByInstanceId: rest };
+    });
+  },
+
+  // PDF re-export functionality
+  reExportPdf: async (configId) => {
+    try {
+      const res = await apiService.pdf.reExport(configId);
+      await get().fetchPdfConfigurations();
+      get().showToast("PDF re-exported successfully");
+      return res?.config || null;
+    } catch (e) {
+      get().showToast(e?.message || "Failed to re-export PDF");
+      return null;
+    }
+  },
+
+  // Duplicate project
+  duplicateProject: async (project) => {
+    try {
+      const newName = `${project.name} (Copy)`;
+      const res = await apiService.projects.create({
+        name: newName,
+        products: project.products || [],
+      });
+      await get().fetchProjects();
+      get().showToast(`Project "${newName}" created successfully`);
+      return res?.project || null;
+    } catch (e) {
+      get().showToast(e?.message || "Failed to duplicate project");
+      return null;
+    }
+  },
+
+  // Add products to project with instance configurations
+  addProductsToProject: async (products, projectId, projectName = null) => {
+    try {
+      const instanceIds = products.map((p) => p._instanceId).filter(Boolean);
+
+      if (projectId) {
+        // Add to existing project
+        await apiService.projects.addFromCollection({
+          projectId,
+          instanceIds,
+        });
+      } else {
+        // Create new project
+        await apiService.projects.addFromCollection({
+          projectName: projectName || "New Project",
+          instanceIds,
+        });
+      }
+
+      await get().fetchProjects();
+      get().showToast(
+        `${products.length} product${products.length !== 1 ? "s" : ""} added to project successfully`,
+        "Go to Projects",
+        () => window.dispatchEvent(new CustomEvent("navigateToProjectsTab"))
+      );
+      return true;
+    } catch (e) {
+      get().showToast(e?.message || "Failed to add products to project");
+      return false;
+    }
+  },
+
+  // Add products to PDF collection
+  addProductsToPdf: (products, projectName = null, projectId = null) => {
+    const state = get();
+    const entries = products.map((product) => ({
+      product,
+      projectName,
+      projectId,
+    }));
+
+    set({
+      pendingPdfCollection: [...state.pendingPdfCollection, ...entries],
+      pendingPdfCollectionProjectName: projectName || state.pendingPdfCollectionProjectName,
+    });
+
+    return entries.length;
+  },
+
+  clearPendingPdfCollection: () => {
+    set({
+      pendingPdfCollection: [],
+      pendingPdfCollectionProjectName: null,
+    });
   },
 }));
 

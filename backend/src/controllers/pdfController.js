@@ -3,13 +3,17 @@ import { ensureConfigurable } from "../services/productService.js";
 
 export async function create(req, res, next) {
   try {
-    const { projectId, products, pdfSettings } = req.body;
+    const { projectId, projectName, productCount, products, pdfSettings } = req.body;
+    const count = Number(productCount) || 0;
     const productIds = (products || []).map((p) => p.product ?? p.productId ?? p).filter(Boolean);
     if (productIds.length) await ensureConfigurable(productIds);
 
     const config = await PDFConfig.create({
       projectId: projectId || null,
-      products: products || [],
+      projectName: (projectName || "Unnamed Project").trim(),
+      productCount: Math.max(0, count),
+      lastExportedAt: new Date(),
+      products: Array.isArray(products) ? products : [],
       pdfSettings: pdfSettings || {},
       createdBy: req.user._id,
     });
@@ -26,7 +30,6 @@ export async function create(req, res, next) {
 export async function list(req, res, next) {
   try {
     const configs = await PDFConfig.find({ createdBy: req.user._id })
-      .populate("products.product", "name description baseImageUrl")
       .sort({ createdAt: -1 })
       .lean();
     return res.status(200).json({ success: true, configs });
@@ -40,6 +43,44 @@ export async function getById(req, res, next) {
     const config = await PDFConfig.findOne({ _id: req.params.id, createdBy: req.user._id })
       .populate("products.product", "name description baseImageUrl isConfigurable productType")
       .lean();
+    if (!config) {
+      return res.status(404).json({ success: false, message: "PDF configuration not found" });
+    }
+    return res.status(200).json({ success: true, config });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateLastExported(req, res, next) {
+  try {
+    const config = await PDFConfig.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user._id },
+      { $set: { lastExportedAt: new Date() } },
+      { new: true }
+    ).lean();
+    if (!config) {
+      return res.status(404).json({ success: false, message: "PDF configuration not found" });
+    }
+    return res.status(200).json({ success: true, config });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function reExport(req, res, next) {
+  try {
+    const config = await PDFConfig.findOneAndUpdate(
+      { _id: req.params.id, createdBy: req.user._id },
+      {
+        $set: { lastExportedAt: new Date() },
+        $inc: { reExportCount: 1 }
+      },
+      { new: true }
+    )
+      .populate("products.product", "name description baseImageUrl isConfigurable productType")
+      .lean();
+
     if (!config) {
       return res.status(404).json({ success: false, message: "PDF configuration not found" });
     }

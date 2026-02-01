@@ -1,15 +1,12 @@
 import { useMemo, useEffect } from 'react';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useCatalog } from '../../hooks/useCatalog';
-import useStore from '../../store/useStore';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const isProFlow = searchParams.get('pro') === 'true';
   const { getNormalProductById, getConfigurableProductById, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
-  const { setProduct } = useStore();
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
@@ -23,13 +20,6 @@ const ProductDetail = () => {
     () => (product ? getRangeById(product.rangeId) : null),
     [product, getRangeById]
   );
-
-  const handleConfigureProduct = () => {
-    if (product) {
-      setProduct(product);
-      navigate(`/editor/${product.id}`);
-    }
-  };
 
   if (loading && !loaded) return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
@@ -152,15 +142,15 @@ const ProductDetail = () => {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
               {isProFlow && product?.configurable ? (
-                <button
-                  onClick={handleConfigureProduct}
+                <Link
+                  to={`/products/ranges?tab=collection`}
                   className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center text-center"
                 >
                   <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
                   </svg>
-                  Configure Product
-                </button>
+                  Go to Collection to configure (add in Selection first)
+                </Link>
               ) : null}
               <Link
                 to="/contact"

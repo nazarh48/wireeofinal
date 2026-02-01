@@ -54,7 +54,7 @@ const TabbedRanges = () => {
     { id: 'selection', label: 'Selection' },
     { id: 'collection', label: 'Collection' },
     { id: 'projects', label: 'Projects' },
-    { id: 'pdf-configurations', label: 'PDF-Configurations' },
+    { id: 'pdf-configurations', label: 'Exported projects' },
   ];
 
   const duplicateProductInCollection = useStore((state) => state.duplicateProductInCollection);
@@ -129,8 +129,8 @@ const TabbedRanges = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative px-8 py-4 text-xl font-bold rounded-xl transition-all duration-500 transform ${activeTab === tab.id
-                      ? 'text-white bg-gradient-to-r from-indigo-500 to-purple-600 shadow-xl scale-105'
-                      : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 hover:scale-105'
+                    ? 'text-white bg-gradient-to-r from-indigo-500 to-purple-600 shadow-xl scale-105'
+                    : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 hover:scale-105'
                     }`}
                 >
                   {tab.label}
@@ -285,61 +285,50 @@ const SelectionContent = () => {
               {selectedProducts.map((product) => {
                 const edits = getProductEdits(product.id);
                 return (
-                <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-emerald-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
-                  {/* Compact Image Preview */}
-                  <div className="relative aspect-square bg-gray-100 overflow-hidden">
-                    {edits && edits.elements && edits.elements.length > 0 ? (
-                      <EditedProductPreview product={product} edits={edits} width={300} height={300} />
-                    ) : (
-                      <img
-                        src={product.baseImageUrl || FALLBACK_IMAGE}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          e.currentTarget.src = FALLBACK_IMAGE;
-                        }}
-                      />
-                    )}
-                    {/* Edited Badge */}
-                    {edits && edits.elements && edits.elements.length > 0 && (
-                      <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 z-10">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Edited
+                  <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-emerald-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
+                    {/* Compact Image Preview */}
+                    <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                      {edits && edits.elements && edits.elements.length > 0 ? (
+                        <EditedProductPreview product={product} edits={edits} width={300} height={300} />
+                      ) : (
+                        <img
+                          src={product.baseImageUrl || FALLBACK_IMAGE}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.currentTarget.src = FALLBACK_IMAGE;
+                          }}
+                        />
+                      )}
+                      {/* Edited Badge */}
+                      {edits && edits.elements && edits.elements.length > 0 && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 z-10">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Edited
+                        </div>
+                      )}
+                      {/* Hover Actions Overlay */}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                        <button
+                          onClick={() => addToPending(product)}
+                          className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white transition-colors"
+                          title="Add to Collection"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </button>
                       </div>
-                    )}
-                    {/* Hover Actions Overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => addToPending(product)}
-                        className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white transition-colors"
-                        title="Add to Collection"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => navigate(`/editor/${product.id}?from=selection&rangeId=${selectedRange}`)}
-                        className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors"
-                        title="Edit Product"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
                     </div>
-                  </div>
 
-                  {/* Compact Info */}
-                  <div className="p-3">
-                    <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{product.name}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-2">{product.description}</p>
-                    {/* Inline Icon Actions */}
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                      <span className="text-xs text-emerald-600 font-medium">Configurable</span>
-                      <div className="flex items-center gap-1">
+                    {/* Compact Info */}
+                    <div className="p-3">
+                      <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{product.name}</h4>
+                      <p className="text-xs text-gray-500 line-clamp-2 mb-2">{product.description}</p>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <span className="text-xs text-emerald-600 font-medium">Add to Collection, then configure in Collection tab</span>
                         <button
                           onClick={() => addToPending(product)}
                           className="p-1.5 hover:bg-emerald-50 rounded text-emerald-600 transition-colors"
@@ -349,20 +338,10 @@ const SelectionContent = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => navigate(`/editor/${product.id}?from=selection&rangeId=${selectedRange}`)}
-                          className="p-1.5 hover:bg-blue-50 rounded text-blue-600 transition-colors"
-                          title="Edit"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
+                );
               })}
             </div>
           </div>
@@ -646,7 +625,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
 };
 
 const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
-  const { projects, productEdits, addProductsToPdf, savePendingAsPdf, showToast, duplicateProject, deleteProject } = useStore();
+  const { projects, productEdits, addProductsToPdf, savePendingAsPdf, showToast, duplicateProject, deleteProject, fetchPdfConfigurations } = useStore();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [exportingProjectId, setExportingProjectId] = useState(null);
@@ -659,8 +638,8 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     const added = addProductsToPdf(project?.products || [], project?.name, project?.id);
     if (added > 0) {
       showToast(
-        `${added} product${added !== 1 ? 's' : ''} added to PDF configuration.`,
-        'Go to PDF Config',
+        `${added} product${added !== 1 ? 's' : ''} added to PDF list. Export from Exported projects tab.`,
+        'Go to Exported projects',
         () => typeof setActiveTab === 'function' && setActiveTab('pdf-configurations'),
       );
     }
@@ -705,8 +684,15 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     try {
       setExportingProjectId(project.id);
       await generateProjectPDF(project, { user });
+      await apiService.pdf.create({
+        projectId: project.id,
+        projectName: project.name || 'Unnamed Project',
+        productCount: project.products.length,
+      });
+      await fetchPdfConfigurations();
+      showToast('PDF exported and added to Exported projects.');
     } catch (e) {
-      showToast(e?.message || 'Failed to generate project PDF.');
+      showToast(e?.message || 'Failed to generate or save project PDF.');
     } finally {
       setExportingProjectId(null);
     }
@@ -855,21 +841,8 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
                             />
                           </div>
 
-                          {/* Icon-Based Action Buttons */}
+                          {/* Action: Add to PDF only (configurator is only in Collection tab) */}
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
-                            <button
-                              onClick={() => {
-                              const params = new URLSearchParams({ from: 'projects' });
-                              if (product._instanceId) params.set('instanceId', product._instanceId);
-                              navigate(`/editor/${product.id}?${params.toString()}`);
-                            }}
-                              className="p-2 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-600 transition-colors"
-                              title="Edit Product"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
                             <button
                               onClick={() => handleAddProductToPdf(productWithEdits)}
                               className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors"
@@ -938,48 +911,97 @@ const PDFConfigurationsContent = () => {
     removeFromPdfCollection,
     clearPendingPdfCollection,
     savePendingAsPdf,
+    fetchPdfConfigurations,
     showToast,
+    editsByInstanceId,
+    productEdits,
   } = useStore();
+  const [reExportingId, setReExportingId] = useState(null);
+
+  useEffect(() => {
+    fetchPdfConfigurations();
+  }, [fetchPdfConfigurations]);
+
   const handleExportCurrentPdf = () => {
     savePendingAsPdf();
   };
 
-  const handleDownloadPDF = (pdfConfig) => {
-    const products = Array.isArray(pdfConfig.products) ? [...pdfConfig.products] : [];
-    if (products.length === 0) {
-      console.warn("[PDF] handleDownloadPDF: no products in config", pdfConfig.id);
-      return;
-    }
-    console.info("[PDF] handleDownloadPDF: config", pdfConfig.id, "product count =", products.length);
+  const formatDate = (d) => {
+    if (!d) return "—";
+    const date = typeof d === "string" ? new Date(d) : d;
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const handleReExportPdf = async (config) => {
+    if (!config._id) return;
+    setReExportingId(config._id);
     try {
+      const fullConfig = await apiService.pdf.getById(config._id);
+      let rawProducts = fullConfig?.products ?? [];
+      if (rawProducts.length === 0 && fullConfig?.projectId) {
+        const projectRes = await apiService.projects.getById(fullConfig.projectId);
+        rawProducts = (projectRes?.project?.products ?? projectRes?.products ?? []).map((item) => ({
+          product: item.product || item,
+          instanceId: item.instanceId ?? item._instanceId,
+          edits: item.edits || {},
+        }));
+      }
+      if (rawProducts.length === 0) {
+        showToast("No products in this export.");
+        setReExportingId(null);
+        return;
+      }
+      const normalizeUrl = (url) => (!url ? "" : url.startsWith("/") ? `${API_ORIGIN}${url}` : url);
+      const products = rawProducts.map((item) => {
+        const p = item.product || item;
+        const instanceId = item.instanceId || p._instanceId;
+        const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
+        const edits = instanceEdits
+          ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
+          : item.edits || productEdits[p?._id ?? p?.id] || p.edits || null;
+        const editedImage = instanceEdits?.editedImage || null;
+        return {
+          id: p?._id ?? p?.id,
+          _instanceId: instanceId,
+          name: p?.name,
+          baseImageUrl: normalizeUrl(p?.baseImageUrl || p?.image),
+          edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
+          editedImage,
+        };
+      });
       window.dispatchEvent(
-        new CustomEvent("generatePdf", { detail: { products, projectName: pdfConfig.projectName } }),
+        new CustomEvent("generatePdf", { detail: { products, projectName: config.projectName || fullConfig.projectName } }),
       );
+      await apiService.pdf.updateLastExported(config._id);
+      showToast("PDF re-exported. Last exported date updated.");
     } catch (e) {
-      console.error("[PDF] Error dispatching generatePdf:", e);
+      console.error("[PDF] Re-export error:", e);
+      showToast(e?.message || "Re-export failed.");
+    } finally {
+      setReExportingId(null);
     }
   };
 
   const entries = Array.isArray(pendingPdfCollection) ? pendingPdfCollection.filter((e) => e && e.product) : [];
-  const displayPDFs = pdfConfigurations.length > 0 ? pdfConfigurations : [];
+  const displayPDFs = Array.isArray(pdfConfigurations) ? pdfConfigurations : [];
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-full mb-6 shadow-2xl animate-bounce">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl mb-4 shadow-xl">
+          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h2 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 mb-6 animate-pulse">
-          PDF Configurations
+        <h2 className="text-4xl font-bold text-gray-900 mb-2">
+          Exported projects
         </h2>
-        <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-          Manage your PDF export list and download your customized product documents.
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          Projects you have exported to PDF. Re-export any time with the latest configuration.
         </p>
       </div>
 
-      {/* Current PDF list (cart) – items added via "Add to PDF" */}
+      {/* Current PDF list (cart) – items added via "Add to PDF" from Projects */}
       {entries.length > 0 && (
         <div className="mb-12">
           <div className="relative">
@@ -1041,133 +1063,72 @@ const PDFConfigurationsContent = () => {
       )}
 
       {entries.length === 0 && displayPDFs.length === 0 ? (
-        <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-30"></div>
-          <div className="relative text-center py-24 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl border-2 border-dashed border-cyan-200 shadow-2xl">
-            <div className="text-9xl mb-8 animate-bounce">📄</div>
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl mb-6 shadow-xl">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <h3 className="text-3xl font-bold text-gray-800 mb-6">No PDF configurations yet</h3>
-            <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
-              Add projects or products with &quot;Add to PDF&quot; and they will appear here. Then export your combined PDF.
-            </p>
-            <div className="flex justify-center">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg border border-white/50">
-                <p className="text-cyan-600 font-semibold text-lg">💡 Tip: Go to Projects tab and click &quot;Add to PDF&quot; on a project or product!</p>
-              </div>
-            </div>
+        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/80 py-20 px-6 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 mb-4">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No exported projects yet</h3>
+          <p className="text-gray-600 max-w-md mx-auto mb-6">
+            Export a project from the <strong>Projects</strong> tab (Export PDF button on a project) and it will appear here. You can re-export any project at any time.
+          </p>
+          <p className="text-sm text-gray-500">
+            Go to Projects → choose a project → click the green Export PDF icon.
+          </p>
         </div>
       ) : displayPDFs.length > 0 ? (
-        <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-25"></div>
-          <div className="relative overflow-hidden bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50">
-            <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 p-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">PDF Management</h3>
-                  <p className="text-emerald-100 text-lg">View and download your PDF configurations</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-white">{displayPDFs.length}</div>
-                  <div className="text-emerald-100 text-sm">Total PDFs</div>
-                </div>
-              </div>
-            </div>
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white">Exported projects</h3>
+            <span className="text-emerald-100 text-sm font-medium">{displayPDFs.length} project{displayPDFs.length !== 1 ? 's' : ''}</span>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                  <tr>
-                    <th className="px-8 py-6 text-left text-sm font-bold text-gray-800 uppercase tracking-wider">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Description
-                      </div>
-                    </th>
-                    <th className="px-8 py-6 text-left text-sm font-bold text-gray-800 uppercase tracking-wider">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Date
-                      </div>
-                    </th>
-                    <th className="px-8 py-6 text-left text-sm font-bold text-gray-800 uppercase tracking-wider">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                        Amount
-                      </div>
-                    </th>
-                    <th className="px-8 py-6 text-left text-sm font-bold text-gray-800 uppercase tracking-wider">
-                      <div className="flex items-center">
-                        <svg className="w-5 h-5 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Actions
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {displayPDFs.map((pdf, index) => (
-                    <tr key={index} className="group hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50 transition-all duration-300 transform hover:scale-[1.01]">
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-12 w-12">
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg">
-                              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-lg font-bold text-gray-900 group-hover:text-emerald-600 transition-colors duration-200">{pdf.description}</div>
-                            <div className="text-sm text-gray-500">PDF Configuration</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center mr-3 shadow-md">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                          <span className="text-lg font-semibold text-gray-700">{pdf.date}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 font-bold text-lg shadow-md">
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Project name</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Created date</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Products</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Last exported</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {displayPDFs.map((pdf) => (
+                  <tr key={pdf._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-gray-900">{pdf.projectName ?? pdf.description ?? "—"}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(pdf.createdAt)}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">{pdf.productCount ?? pdf.amount ?? 0}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(pdf.lastExportedAt)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleReExportPdf(pdf)}
+                        disabled={reExportingId === pdf._id}
+                        className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {reExportingId === pdf._id ? (
+                          <svg className="w-4 h-4 animate-spin mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                           </svg>
-                          {pdf.amount}
-                        </div>
-                      </td>
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <button
-                          onClick={() => handleDownloadPDF(pdf)}
-                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-bold rounded-xl text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
-                        >
-                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        ) : (
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
-                          {pdf.actions}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                        Export PDF
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : null}
