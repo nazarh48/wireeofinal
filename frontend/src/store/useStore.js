@@ -1,10 +1,15 @@
 import { create } from "zustand";
-import { apiService, USER_TOKEN_KEY, API_ORIGIN } from "../services/api";
+import { apiService, USER_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
 import { normalizeElements } from "../utils/editorMigration";
 
 const normalizeImageUrl = (url) => {
   if (!url) return "";
-  return url.startsWith("/") ? `${API_ORIGIN}${url}` : url;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  // Use IMAGE_BASE_URL which already contains /api in production
+  const path = url.startsWith("/") ? url : `/${url}`;
+  return `${IMAGE_BASE_URL}${path}`;
 };
 
 const isConfigurableProduct = (product) =>
