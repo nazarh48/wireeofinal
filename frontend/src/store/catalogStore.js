@@ -1,5 +1,16 @@
 import { create } from "zustand";
-import { apiService, API_ORIGIN } from "../services/api";
+import { apiService, IMAGE_BASE_URL } from "../services/api";
+
+/** Resolve relative image paths (e.g. /uploads/products/xxx) to absolute URL. Uses IMAGE_BASE_URL so deployed images work under /api/uploads when proxy only forwards /api. */
+const toAbsoluteImageUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const base = IMAGE_BASE_URL || (typeof window !== "undefined" ? window.location.origin : "");
+  if (!base) return url;
+  const path = url.startsWith("/") ? url : `/${url}`;
+  // IMAGE_BASE_URL already contains /api in production, so just append the path
+  return `${base}${path}`;
+};
 
 const mapRange = (r) => ({
   id: r?._id || r?.id,
@@ -17,19 +28,28 @@ const mapProduct = (p) => {
   const images = rawImages
     .map((img) => (typeof img === "string" ? img : img?.url))
     .filter(Boolean)
-    .map((url) => (url.startsWith("/") ? `${API_ORIGIN}${url}` : url));
-  const baseImageUrlRaw = images[0] || p?.baseImageUrl || "";
-  const baseImageUrl = baseImageUrlRaw.startsWith("/")
-    ? `${API_ORIGIN}${baseImageUrlRaw}`
-    : baseImageUrlRaw;
+    .map(toAbsoluteImageUrl);
+  const baseImageUrlRaw = p?.baseImageUrl || images[0] || "";
+  const baseImageUrl = toAbsoluteImageUrl(baseImageUrlRaw) || images[0] || "";
+
+  // Get range name for SEO-friendly alt text
+  const rangeName = p?.range?.name || "";
+  const productName = p?.name || "Product";
+
+  // Create SEO-optimized alt text
+  const imageAlt = rangeName
+    ? `${productName} - ${rangeName} - High Quality Wire Products`
+    : `${productName} - High Quality Wire Products`;
+
   return {
     id: p?._id || p?.id,
-    name: p?.name || "",
+    name: productName,
     description: p?.description || "",
     rangeId,
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
     baseImageUrl,
     images,
+    imageAlt, // SEO-friendly alt text for images
     configurable:
       p?.productType === "configurable" || p?.isConfigurable === true,
     status: p?.status || "active",

@@ -11,8 +11,10 @@ app.use(cors({ origin: config.cors.origin, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Serve uploaded files at /uploads (local) and under /api/uploads (deployed behind proxy that only forwards /api)
+const uploadsPath = path.join(process.cwd(), "uploads");
+app.use("/uploads", express.static(uploadsPath));
+app.use("/api/uploads", express.static(uploadsPath));
 
 app.get("/health", (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });

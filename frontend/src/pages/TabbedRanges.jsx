@@ -292,9 +292,10 @@ const SelectionContent = () => {
                         <EditedProductPreview product={product} edits={edits} width={300} height={300} />
                       ) : (
                         <img
-                          src={product.baseImageUrl || FALLBACK_IMAGE}
-                          alt={product.name}
+                          src={product.baseImageUrl || product.images?.[0] || FALLBACK_IMAGE}
+                          alt={product.imageAlt || `${product.name} - High Quality Product`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          crossOrigin="anonymous"
                           onError={(e) => {
                             e.currentTarget.src = FALLBACK_IMAGE;
                           }}
@@ -519,9 +520,10 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                         </div>
                       ) : (
                         <img
-                          src={item.baseImageUrl || FALLBACK_IMAGE}
-                          alt={item.name}
+                          src={item.baseImageUrl || item.images?.[0] || FALLBACK_IMAGE}
+                          alt={item.imageAlt || `${item.name} - High Quality Product`}
                           className="w-full h-56 object-cover rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-700"
+                          crossOrigin="anonymous"
                           onError={(e) => {
                             e.currentTarget.src = FALLBACK_IMAGE;
                           }}

@@ -6,11 +6,48 @@ export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 
 export const API_BASE_URL =
   import.meta.env.PROD
-    ? (import.meta.env.VITE_API_URL || "/api")
+    ? (import.meta.env.VITE_API_URL || "https://wireeo.com/api")
     : (import.meta.env.VITE_API_URL || "http://localhost:5000/api");
 
-
+/** Origin (no /api) – for same-origin requests. */
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
+
+/** Base URL for image paths. When deployed, proxy often forwards only /api, so images must be under /api/uploads. */
+export const IMAGE_BASE_URL = API_BASE_URL.replace(/\/?$/, "");
+
+/**
+ * Converts a relative image path to an absolute URL.
+ * Handles both /uploads paths and other relative paths.
+ * This ensures images work correctly in both development and production.
+ * 
+ * @param {string} imagePath - Relative image path (e.g., /uploads/products/image.jpg)
+ * @returns {string} - Absolute image URL
+ * 
+ * @example
+ * // Development: http://localhost:5000/uploads/products/image.jpg
+ * // Production: https://wireeo.com/api/uploads/products/image.jpg
+ * getImageUrl('/uploads/products/image.jpg')
+ */
+export const getImageUrl = (imagePath) => {
+  if (!imagePath || typeof imagePath !== 'string') return '';
+
+  // Already absolute URL
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+    return imagePath;
+  }
+
+  const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+
+  // In production, images are served under /api/uploads
+  // In development, images are served under /uploads
+  if (path.startsWith('/uploads/')) {
+    return import.meta.env.PROD
+      ? `${IMAGE_BASE_URL}${path}`
+      : `${API_ORIGIN}${path}`;
+  }
+
+  return `${API_ORIGIN}${path}`;
+};
 
 function withBearerToken(getToken) {
   return (cfg) => {
