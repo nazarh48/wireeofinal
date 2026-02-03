@@ -44,6 +44,10 @@ export const productValidators = {
       .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
       .withMessage("isConfigurable must be boolean"),
     body("status").optional().isIn(["active", "inactive", "draft"]).withMessage("Invalid status"),
+    body("featured")
+      .optional()
+      .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
+      .withMessage("featured must be boolean"),
   ],
   update: [
     param("id").custom(objectId),
@@ -56,6 +60,10 @@ export const productValidators = {
       .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
       .withMessage("isConfigurable must be boolean"),
     body("status").optional().isIn(["active", "inactive", "draft"]),
+    body("featured")
+      .optional()
+      .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
+      .withMessage("featured must be boolean"),
   ],
   id: [param("id").custom(objectId)],
   productId: [param("productId").custom(objectId)],
@@ -104,6 +112,80 @@ export const pdfValidators = {
     body("productCount").isInt({ min: 0 }).withMessage("productCount must be non-negative integer"),
     body("products").optional().isArray(),
     body("pdfSettings").optional().isObject(),
+  ],
+  id: [param("id").custom(objectId)],
+};
+
+export const categoryValidators = {
+  create: [
+    body("name")
+      .custom((val, { req }) => {
+        const name = (val != null ? val : req.body?.name ?? "").toString().trim();
+        if (!name) throw new Error("Name required");
+        return true;
+      })
+      .withMessage("Name required"),
+    body("slug").optional().trim(),
+    body("description").optional().trim(),
+    body("subtitle").optional().trim(),
+    body("icon").optional().trim(),
+    body("image").optional().trim(),
+    body("color").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("name").optional().trim().notEmpty(),
+    body("slug").optional().trim(),
+    body("description").optional().trim(),
+    body("subtitle").optional().trim(),
+    body("icon").optional().trim(),
+    body("image").optional().trim(),
+    body("color").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  id: [param("id").custom(objectId)],
+};
+
+export const solutionValidators = {
+  create: [
+    body("title").trim().notEmpty().withMessage("Title required"),
+    body("description").optional().trim(),
+    body("icon").optional().trim(),
+    body("image").optional().trim(),
+    body("features").optional(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("title").optional().trim().notEmpty(),
+    body("description").optional().trim(),
+    body("icon").optional().trim(),
+    body("image").optional().trim(),
+    body("features").optional(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  id: [param("id").custom(objectId)],
+  slug: [param("slug").trim().notEmpty()],
+};
+
+export const pdfMaterialValidators = {
+  create: [
+    body("name").trim().notEmpty().withMessage("Name required"),
+    body("shortDescription").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("name").optional().trim().notEmpty(),
+    body("shortDescription").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
   ],
   id: [param("id").custom(objectId)],
 };

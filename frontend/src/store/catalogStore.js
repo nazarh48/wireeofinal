@@ -41,6 +41,15 @@ const mapProduct = (p) => {
     ? `${productName} - ${rangeName} - High Quality Wire Products`
     : `${productName} - High Quality Wire Products`;
 
+  const downloadableFiles = Array.isArray(p?.downloadableFiles)
+    ? p.downloadableFiles.map((f) => ({
+        url: typeof f === "string" ? toAbsoluteImageUrl(f) : toAbsoluteImageUrl(f?.url),
+        filename: f?.filename || "",
+        originalName: f?.originalName || "",
+        label: f?.label || f?.originalName || "",
+      }))
+    : [];
+
   return {
     id: p?._id || p?.id,
     name: productName,
@@ -49,10 +58,12 @@ const mapProduct = (p) => {
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
     baseImageUrl,
     images,
-    imageAlt, // SEO-friendly alt text for images
+    imageAlt,
     configurable:
       p?.productType === "configurable" || p?.isConfigurable === true,
     status: p?.status || "active",
+    featured: p?.featured === true,
+    downloadableFiles,
     createdAt: p?.createdAt || null,
     updatedAt: p?.updatedAt || null,
   };
@@ -150,18 +161,19 @@ export const useCatalogStore = create((set, get) => ({
   },
 
   createProduct: async (payload) => {
-    const { rangeId, configurable, imagesFiles, ...rest } = payload;
+    const { rangeId, configurable, featured, imagesFiles, ...rest } = payload;
     const range = rangeId ?? payload.range;
     const isConfigurable = configurable ?? payload.isConfigurable;
 
     const hasFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
-    const body = hasFiles ? new FormData() : { ...rest, range, isConfigurable };
+    const body = hasFiles ? new FormData() : { ...rest, range, isConfigurable, featured: !!featured, status: rest.status || "active" };
 
     if (hasFiles) {
       body.append("name", rest.name || "");
       body.append("description", rest.description || "");
       body.append("range", range);
       body.append("isConfigurable", String(!!isConfigurable));
+      body.append("featured", String(!!featured));
       body.append("status", rest.status || "active");
       const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
       files.forEach((f) => body.append("images", f));
@@ -176,7 +188,7 @@ export const useCatalogStore = create((set, get) => ({
     return res?.product;
   },
   updateProduct: async (id, payload) => {
-    const { rangeId, configurable, imagesFiles, ...rest } = payload;
+    const { rangeId, configurable, featured, imagesFiles, ...rest } = payload;
     const hasFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
 
     let body;
@@ -187,6 +199,7 @@ export const useCatalogStore = create((set, get) => ({
       if (rest.description !== undefined) body.append("description", rest.description);
       if (rangeId !== undefined) body.append("range", rangeId);
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
+      if (featured !== undefined) body.append("featured", String(!!featured));
       if (rest.status !== undefined) body.append("status", rest.status);
       const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
       files.forEach((f) => body.append("images", f));
@@ -195,6 +208,7 @@ export const useCatalogStore = create((set, get) => ({
       body = { ...rest };
       if (rangeId !== undefined) body.range = rangeId;
       if (configurable !== undefined) body.isConfigurable = configurable;
+      if (featured !== undefined) body.featured = featured;
       config = undefined;
     }
 
@@ -232,6 +246,8 @@ export const useCatalogStore = create((set, get) => ({
     const p = get().getPublicProductById(id);
     return p && p.configurable ? p : null;
   },
+  getFeaturedProducts: () => get().publicProducts.filter((p) => p.featured),
+  getNonFeaturedProducts: () => get().publicProducts.filter((p) => !p.featured),
 }));
 
 export default useCatalogStore;

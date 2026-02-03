@@ -28,16 +28,25 @@ export function useCatalog() {
   const getConfigurableProductById = useCatalogStore((s) => s.getConfigurableProductById);
   const getNormalProductsByRange = useCatalogStore((s) => s.getNormalProductsByRange);
   const getConfigurableProductsByRange = useCatalogStore((s) => s.getConfigurableProductsByRange);
+  const getFeaturedProducts = useCatalogStore((s) => s.getFeaturedProducts);
+  const getNonFeaturedProducts = useCatalogStore((s) => s.getNonFeaturedProducts);
+
+  const featuredProducts = useMemo(() => getFeaturedProducts(), [products]);
+  const nonFeaturedProducts = useMemo(() => getNonFeaturedProducts(), [products]);
 
   return {
     ranges,
     normalProducts,
     configurableProducts,
+    featuredProducts,
+    nonFeaturedProducts,
     getRangeById,
     getNormalProductById,
     getConfigurableProductById,
     getNormalProductsByRange,
     getConfigurableProductsByRange,
+    getFeaturedProducts,
+    getNonFeaturedProducts,
     loading: publicLoading,
     loaded: publicLoaded,
     error: publicError,

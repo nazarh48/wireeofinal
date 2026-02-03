@@ -5,3 +5,6 @@ export { Collection } from "./Collection.js";
 export { Project } from "./Project.js";
 export { CanvasEdit } from "./CanvasEdit.js";
 export { PDFConfig } from "./PDFConfig.js";
+export { Category } from "./Category.js";
+export { Solution } from "./Solution.js";
+export { PdfMaterial } from "./PdfMaterial.js";

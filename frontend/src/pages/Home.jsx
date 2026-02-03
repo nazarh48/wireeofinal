@@ -1,7 +1,19 @@
-
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { apiService, getImageUrl } from '../services/api';
 
 const Home = () => {
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
+  useEffect(() => {
+    apiService.categories
+      .list({ status: 'active' })
+      .then((res) => setCategories(res?.categories || []))
+      .catch(() => setCategories([]))
+      .finally(() => setCategoriesLoading(false));
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -54,7 +66,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Product Categories */}
+      {/* Product Categories - from dashboard */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
@@ -63,59 +75,48 @@ const Home = () => {
               Comprehensive electrical solutions designed for every application - from residential homes to industrial facilities.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
-              <div className="h-48 bg-gradient-to-br from-blue-500 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/20"></div>
-                <div className="absolute bottom-4 left-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Control Systems</h3>
-                <p className="text-gray-600 mb-6">Advanced control panels, switches, and automation systems for comprehensive electrical management.</p>
-                <Link to="/products" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">Explore Range →</Link>
-              </div>
+          {categoriesLoading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading categories…</p>
             </div>
-            <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
-              <div className="h-48 bg-gradient-to-br from-purple-500 to-purple-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/20"></div>
-                <div className="absolute bottom-4 left-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Protection Devices</h3>
-                <p className="text-gray-600 mb-6">Circuit breakers, surge protectors, and safety devices ensuring maximum electrical protection.</p>
-                <Link to="/products" className="text-purple-600 font-semibold hover:text-purple-700 transition-colors">Explore Range →</Link>
-              </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <p>No categories yet. Add categories from the admin dashboard to show them here.</p>
             </div>
-            <div className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
-              <div className="h-48 bg-gradient-to-br from-indigo-500 to-indigo-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/20"></div>
-                <div className="absolute bottom-4 left-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {categories.map((cat) => {
+                const hasImage = cat.image && (cat.image.startsWith('http') || cat.image.startsWith('/'));
+                const imageUrl = hasImage ? (cat.image.startsWith('http') ? cat.image : getImageUrl(cat.image)) : null;
+                const colorClass = cat.color || 'from-blue-500 to-blue-600';
+                return (
+                  <div key={cat._id} className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+                    <div className={`h-48 relative overflow-hidden ${!imageUrl ? `bg-gradient-to-br ${colorClass}` : ''}`}>
+                      {imageUrl ? (
+                        <img src={imageUrl} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : null}
+                      <div className="absolute inset-0 bg-black/20" />
+                      <div className="absolute bottom-4 left-4">
+                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${imageUrl ? 'bg-white/20' : 'bg-white/20'}`}>
+                          {cat.icon ? <span className="text-2xl">{cat.icon}</span> : (
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-8">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-4">{cat.name}</h3>
+                      <p className="text-gray-600 mb-6">{cat.description || (cat.subtitle ? `${cat.subtitle}. ` : '') || 'Explore our range of solutions.'}</p>
+                      <Link to="/products" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">Explore Range →</Link>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Smart Automation</h3>
-                <p className="text-gray-600 mb-6">Intelligent automation solutions for energy management, lighting control, and building systems.</p>
-                <Link to="/products" className="text-indigo-600 font-semibold hover:text-indigo-700 transition-colors">Explore Range →</Link>
-              </div>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
       </section>
 

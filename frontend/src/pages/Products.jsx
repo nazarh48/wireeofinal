@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useCatalog } from '../hooks/useCatalog';
+import { useAuthStore } from '../store/authStore';
+import { getImageUrl } from '../services/api';
 
 const Products = () => {
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const { loadPublicCatalog, loading: catalogLoading, loaded: catalogLoaded, featuredProducts, nonFeaturedProducts } = useCatalog();
+  const isUserLoggedIn = useAuthStore((s) => s.isUserAuthenticated());
+
+  useEffect(() => {
+    if (!catalogLoaded && !catalogLoading) loadPublicCatalog();
+  }, [catalogLoaded, catalogLoading, loadPublicCatalog]);
 
   const productCategories = [
     {
@@ -74,32 +83,10 @@ const Products = () => {
     }
   ];
 
-  const featuredProducts = [
-    {
-      name: 'WIREEO PLC-5000 Series',
-      category: 'Industrial Control',
-      price: 'From $2,499',
-      image: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      features: ['High-speed processing', 'Modular design', 'Industrial grade'],
-      badge: 'Best Seller'
-    },
-    {
-      name: 'Smart Energy Meter Pro',
-      category: 'Energy Management',
-      price: 'From $899',
-      image: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      features: ['Real-time monitoring', 'IoT connectivity', 'Advanced analytics'],
-      badge: 'New'
-    },
-    {
-      name: 'Safety Controller SIL3',
-      category: 'Safety Systems',
-      price: 'From $1,299',
-      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80',
-      features: ['SIL3 certified', 'Redundant design', 'Diagnostic functions'],
-      badge: 'Certified'
-    }
+  const displayFeatured = featuredProducts.length > 0 ? featuredProducts : [
+    { id: 'placeholder-1', name: 'Featured products', description: 'Mark products as featured in the admin to show them here.', baseImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80', range: { name: 'Pro' }, configurable: true },
   ];
+  const displayNormal = nonFeaturedProducts;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -126,18 +113,18 @@ const Products = () => {
                 </svg>
                 Products Pro
               </Link>
-              <button 
-                onClick={() => setActiveTab('catalog')}
-                className="px-8 py-4 bg-white text-blue-900 font-semibold rounded-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-lg"
+              <Link
+                to="/products/browse"
+                className="px-8 py-4 bg-white text-blue-900 font-semibold rounded-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-lg inline-block text-center"
               >
                 Browse Catalog
-              </button>
-              <button 
-                onClick={() => setActiveTab('custom')}
-                className="px-8 py-4 border-2 border-white text-white hover:bg-white hover:text-blue-900 font-semibold rounded-lg transition-all duration-300"
+              </Link>
+              <Link
+                to="/solutions"
+                className="px-8 py-4 border-2 border-white text-white hover:bg-white hover:text-blue-900 font-semibold rounded-lg transition-all duration-300 inline-block text-center"
               >
                 Custom Solutions
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -224,7 +211,7 @@ const Products = () => {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Featured Products - photo, description, link only; no price; Manage Pro Product for logged-in users */}
       <section className="py-20 bg-gradient-to-br from-blue-50 to-purple-50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
@@ -235,57 +222,89 @@ const Products = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {featuredProducts.map((product, index) => (
-              <div key={index} className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group">
-                <div className="relative">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-4 left-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      product.badge === 'Best Seller' ? 'bg-orange-100 text-orange-800' :
-                      product.badge === 'New' ? 'bg-green-100 text-green-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {product.badge}
-                    </span>
+            {displayFeatured.map((product) => {
+              const imgSrc = product.baseImageUrl?.startsWith('http') ? product.baseImageUrl : getImageUrl(product.baseImageUrl || '');
+              const detailUrl = product.configurable ? `/products/detail/${product.id}?pro=true` : `/products/detail/${product.id}`;
+              return (
+                <div key={product.id} className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group">
+                  <div className="relative">
+                    <img
+                      src={imgSrc}
+                      alt={product.name}
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-4 left-4">
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                        Featured
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <div className="text-sm text-blue-600 font-medium mb-1">{product.range?.name || 'Product'}</div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h3>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">{product.description || 'Professional electrical automation solution.'}</p>
+                    <div className="flex flex-col gap-2">
+                      <Link
+                        to={detailUrl}
+                        className="flex-1 text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300"
+                      >
+                        View Product
+                      </Link>
+                      {isUserLoggedIn && product.configurable && (
+                        <Link
+                          to="/products/ranges?tab=selection"
+                          className="text-center border-2 border-blue-600 text-blue-600 py-2 px-4 rounded-lg font-semibold hover:bg-blue-50 transition-all duration-300"
+                        >
+                          Manage Pro Product
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
-                
-                <div className="p-6">
-                  <div className="text-sm text-blue-600 font-medium mb-1">{product.category}</div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{product.name}</h3>
-                  <div className="text-2xl font-bold text-blue-600 mb-4">{product.price}</div>
-                  
-                  <div className="space-y-2 mb-6">
-                    {product.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center text-sm text-gray-600">
-                        <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300">
-                      View Details
-                    </button>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
+
+      {/* Normal / Other Products */}
+      {displayNormal.length > 0 && (
+        <section className="py-20">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">All Products</h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Browse our full range of electrical automation products.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {displayNormal.slice(0, 12).map((product) => {
+                const imgSrc = product.baseImageUrl?.startsWith('http') ? product.baseImageUrl : getImageUrl(product.baseImageUrl || '');
+                const detailUrl = product.configurable ? `/products/detail/${product.id}?pro=true` : `/products/detail/${product.id}`;
+                return (
+                  <div key={product.id} className="bg-white rounded-xl shadow-lg overflow-hidden group">
+                    <img src={imgSrc} alt={product.name} className="w-full h-40 object-cover group-hover:scale-105 transition-transform" />
+                    <div className="p-4">
+                      <p className="text-xs text-gray-500 mb-1">{product.range?.name}</p>
+                      <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">{product.name}</h3>
+                      <Link to={detailUrl} className="text-blue-600 font-semibold text-sm hover:underline">
+                        View Details →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {displayNormal.length > 12 && (
+              <div className="text-center mt-8">
+                <Link to="/products/browse" className="text-blue-600 font-semibold hover:underline">
+                  Browse all products →
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-900 to-purple-900 text-white">

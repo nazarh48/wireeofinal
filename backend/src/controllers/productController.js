@@ -6,12 +6,23 @@ function buildProductFilter(query) {
   if (query.range) filter.range = query.range;
   if (query.status) filter.status = query.status;
   if (query.productType) filter.productType = query.productType;
+  if (query.featured !== undefined) filter.featured = query.featured === true || query.featured === "true" || query.featured === "1";
   return filter;
+}
+
+function toProductFile(f, dir) {
+  const base = dir === "products" ? "/uploads/products" : "/uploads/product-files";
+  return {
+    url: `${base}/${f.filename}`,
+    filename: f.filename,
+    originalName: f.originalname || "",
+    label: f.originalname || "",
+  };
 }
 
 export async function create(req, res, next) {
   try {
-    const { name, description, range, baseImageUrl, isConfigurable, status } = req.body;
+    const { name, description, range, baseImageUrl, isConfigurable, status, featured } = req.body;
     const r = await Range.findById(range);
     if (!r) return res.status(400).json({ success: false, message: "Range not found" });
     const boolConfigurable =
@@ -21,13 +32,11 @@ export async function create(req, res, next) {
       isConfigurable === 1;
     const productType = boolConfigurable ? "configurable" : "normal";
 
-    const files = Array.isArray(req.files) ? req.files : [];
-    const images = files.map((f) => ({
-      url: `/uploads/products/${f.filename}`,
-      filename: f.filename,
-      originalName: f.originalname || "",
-    }));
+    const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
+    const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
+    const images = imageFiles.map((f) => toProductFile(f, "products"));
     const primaryUrl = images[0]?.url || baseImageUrl || "";
+    const downloadableFiles = fileFiles.map((f) => toProductFile(f, "product-files"));
     const product = await Product.create({
       name,
       description: description || "",
@@ -37,6 +46,8 @@ export async function create(req, res, next) {
       isConfigurable: !!boolConfigurable,
       productType,
       status: status || "active",
+      featured: featured === true || featured === "true" || featured === "1",
+      downloadableFiles: downloadableFiles.length ? downloadableFiles : undefined,
     });
     await product.populate("range", "name description status");
     return res.status(201).json({ success: true, product });
@@ -59,6 +70,7 @@ export async function listConfigurable(req, res, next) {
   try {
     const filter = { productType: "configurable", status: "active" };
     if (req.query.range) filter.range = req.query.range;
+    if (req.query.featured !== undefined) filter.featured = req.query.featured === true || req.query.featured === "true" || req.query.featured === "1";
     const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
     return res.status(200).json({ success: true, products });
   } catch (err) {
@@ -70,6 +82,17 @@ export async function listNormal(req, res, next) {
   try {
     const filter = { productType: "normal", status: "active" };
     if (req.query.range) filter.range = req.query.range;
+    if (req.query.featured !== undefined) filter.featured = req.query.featured === true || req.query.featured === "true" || req.query.featured === "1";
+    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
+    return res.status(200).json({ success: true, products });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listFeatured(req, res, next) {
+  try {
+    const filter = { featured: true, status: "active" };
     const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
     return res.status(200).json({ success: true, products });
   } catch (err) {
@@ -91,7 +114,7 @@ export async function getById(req, res, next) {
 
 export async function update(req, res, next) {
   try {
-    const { name, description, range, baseImageUrl, isConfigurable, status } = req.body;
+    const { name, description, range, baseImageUrl, isConfigurable, status, featured, downloadableFiles: bodyFiles } = req.body;
     if (range !== undefined) {
       const r = await Range.findById(range);
       if (!r) return res.status(400).json({ success: false, message: "Range not found" });
@@ -111,16 +134,19 @@ export async function update(req, res, next) {
       updates.productType = boolConfigurable ? "configurable" : "normal";
     }
     if (status !== undefined) updates.status = status;
+    if (featured !== undefined) updates.featured = featured === true || featured === "true" || featured === "1";
 
-    const files = Array.isArray(req.files) ? req.files : [];
-    if (files.length) {
-      const images = files.map((f) => ({
-        url: `/uploads/products/${f.filename}`,
-        filename: f.filename,
-        originalName: f.originalname || "",
-      }));
+    const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
+    const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
+    if (imageFiles.length) {
+      const images = imageFiles.map((f) => toProductFile(f, "products"));
       updates.images = images;
       if (!updates.baseImageUrl) updates.baseImageUrl = images[0]?.url || "";
+    }
+    if (fileFiles.length) {
+      updates.downloadableFiles = fileFiles.map((f) => toProductFile(f, "product-files"));
+    } else if (bodyFiles !== undefined && Array.isArray(bodyFiles)) {
+      updates.downloadableFiles = bodyFiles;
     }
 
     const product = await Product.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true })

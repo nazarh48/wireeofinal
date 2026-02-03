@@ -89,7 +89,7 @@ const Projects = () => {
         <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
         <div className="relative container mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            My <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Projects</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Graphic Configurator</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             Manage and export your electrical automation projects. Create, configure, and organize your custom system designs.

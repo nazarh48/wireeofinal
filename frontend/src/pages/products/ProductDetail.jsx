@@ -1,12 +1,15 @@
 import { useMemo, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useAuthStore } from '../../store/authStore';
+import { getImageUrl } from '../../services/api';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const isProFlow = searchParams.get('pro') === 'true';
   const { getNormalProductById, getConfigurableProductById, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
+  const isUserLoggedIn = useAuthStore((s) => s.isUserAuthenticated());
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
@@ -139,8 +142,44 @@ const ProductDetail = () => {
               </div>
             </div>
 
+            {/* Downloadable files */}
+            {product?.downloadableFiles?.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Downloads</h3>
+                <div className="flex flex-wrap gap-3">
+                  {product.downloadableFiles.map((file, idx) => (
+                    <a
+                      key={idx}
+                      href={getImageUrl(file?.url || file)}
+                      download={file?.originalName || file?.filename}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium hover:bg-blue-100 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {file?.label || file?.originalName || `Download ${idx + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
+              {product?.featured && isUserLoggedIn && product?.configurable && (
+                <Link
+                  to="/products/ranges?tab=selection"
+                  className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center text-center"
+                >
+                  <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Manage Pro Product
+                </Link>
+              )}
               {isProFlow && product?.configurable ? (
                 <Link
                   to={`/products/ranges?tab=collection`}

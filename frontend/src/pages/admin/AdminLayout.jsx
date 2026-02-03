@@ -6,18 +6,24 @@ import { useAuthStore } from "../../store/authStore";
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const token = useAuthStore((s) => s.adminToken);
+  const adminToken = useAuthStore((s) => s.adminToken);
+  const userToken = useAuthStore((s) => s.userToken);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const isAdmin = !!token;
+  const isAdmin = !!adminToken;
+  const isRegularUser = !!userToken && !adminToken;
 
   useEffect(() => {
+    if (isRegularUser) {
+      navigate("/", { replace: true });
+      return;
+    }
     if (!isAdmin && !location.pathname.includes("/admin/login")) {
       navigate("/admin/login", { replace: true });
     }
-  }, [isAdmin, navigate, location.pathname]);
+  }, [isAdmin, isRegularUser, navigate, location.pathname]);
 
-  if (!isAdmin) {
+  if (!isAdmin || isRegularUser) {
     return null;
   }
 

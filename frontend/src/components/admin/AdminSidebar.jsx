@@ -9,15 +9,21 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconLogout,
+  IconCategories,
+  IconSolutions,
+  IconPdf,
 } from "./AdminIcons";
 import { useAuthStore } from "../../store/authStore";
 
 const nav = [
   { to: "/admin/dashboard", label: "Dashboard", icon: IconDashboard },
+  { to: "/admin/categories", label: "Categories", icon: IconCategories },
+  { to: "/admin/solutions", label: "Solutions", icon: IconSolutions },
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
+  { to: "/admin/pdf-materials", label: "PDF Materials", icon: IconPdf },
   { to: "/admin/users", label: "Users Management", icon: IconUsers },
-  { to: "/admin/projects", label: "Projects", icon: IconProjects },
+  { to: "/admin/projects", label: "Graphic Configurator", icon: IconProjects },
   { to: "/admin/settings", label: "Settings", icon: IconSettings },
 ];
 

@@ -20,6 +20,10 @@ import ProductsManagement from './pages/admin/ProductsManagement';
 import UsersManagement from './pages/admin/UsersManagement';
 import AdminProjects from './pages/admin/AdminProjects';
 import AdminSettings from './pages/admin/AdminSettings';
+import CategoriesManagement from './pages/admin/CategoriesManagement';
+import SolutionsManagement from './pages/admin/SolutionsManagement';
+import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
+import SolutionDetail from './pages/SolutionDetail';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import ProductPage from './pages/ProductPage';
@@ -75,6 +79,7 @@ function App() {
         <Route path="/tabbed-ranges" element={<Layout><RequireAuth><TabbedRanges /></RequireAuth></Layout>} />
         <Route path="/products/:rangeId" element={<Layout><ProductPage /></Layout>} />
         <Route path="/solutions" element={<Layout><Solutions /></Layout>} />
+        <Route path="/solutions/:id" element={<Layout><SolutionDetail /></Layout>} />
         <Route path="/projects" element={<Layout><RequireAuth><Projects /></RequireAuth></Layout>} />
         <Route path="/resources" element={<Layout><Resources /></Layout>} />
         <Route path="/about" element={<Layout><About /></Layout>} />
@@ -89,6 +94,9 @@ function App() {
           <Route path="ranges" element={<RangesManagement />} />
           <Route path="products" element={<ProductsManagement />} />
           <Route path="users" element={<UsersManagement />} />
+          <Route path="categories" element={<CategoriesManagement />} />
+          <Route path="solutions" element={<SolutionsManagement />} />
+          <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

@@ -115,10 +115,10 @@ const TabbedRanges = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h1 className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 mb-4 animate-pulse">
-            Tabbed Ranges
+            Graphic Configurator
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover and customize your perfect product collection with our premium selection tools.
+            Discover and customize your perfect product collection with selection, collection, projects, and PDF configurations.
           </p>
         </div>
         <div className="mb-16">

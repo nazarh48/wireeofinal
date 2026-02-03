@@ -15,6 +15,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [rangeId, setRangeId] = useState(initial?.rangeId ?? (ranges[0]?.id ?? ""));
   const [configurable, setConfigurable] = useState(!!initial?.configurable);
+  const [featured, setFeatured] = useState(!!initial?.featured);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [error, setError] = useState("");
   const [imagesFiles, setImagesFiles] = useState([]);
@@ -55,6 +56,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       description: description.trim(),
       rangeId,
       configurable,
+      featured,
       status,
       imagesFiles,
     });
@@ -140,6 +142,18 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
         />
         <label htmlFor="configurable" className="text-sm font-medium text-slate-700">
           Configurable (can be used in configurator, collections, projects, PDF)
+        </label>
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          id="featured"
+          checked={featured}
+          onChange={(e) => setFeatured(e.target.checked)}
+          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+        />
+        <label htmlFor="featured" className="text-sm font-medium text-slate-700">
+          Featured (show on Products page without price; Manage Pro Product for logged-in users)
         </label>
       </div>
       <div>

@@ -106,12 +106,44 @@ export const apiService = {
       unwrap(await publicApi.get("/products/configurable", { params })),
     listNormal: async (params) =>
       unwrap(await publicApi.get("/products/normal", { params })),
+    listFeatured: async () => unwrap(await publicApi.get("/products/featured")),
     getById: async (id) => unwrap(await publicApi.get(`/products/${id}`)),
     create: async (payload, config) =>
       unwrap(await adminApi.post("/products", payload, config)),
     update: async (id, payload, config) =>
       unwrap(await adminApi.patch(`/products/${id}`, payload, config)),
     remove: async (id) => unwrap(await adminApi.delete(`/products/${id}`)),
+  },
+
+  categories: {
+    list: async (params) => unwrap(await publicApi.get("/categories", { params })),
+    getById: async (id) => unwrap(await publicApi.get(`/categories/${id}`)),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/categories", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/categories/${id}`, payload, config)),
+    remove: async (id) => unwrap(await adminApi.delete(`/categories/${id}`)),
+  },
+
+  solutions: {
+    list: async (params) => unwrap(await publicApi.get("/solutions", { params })),
+    getById: async (id) => unwrap(await publicApi.get(`/solutions/${id}`)),
+    getBySlug: async (slug) => unwrap(await publicApi.get(`/solutions/slug/${slug}`)),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/solutions", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/solutions/${id}`, payload, config)),
+    remove: async (id) => unwrap(await adminApi.delete(`/solutions/${id}`)),
+  },
+
+  pdfMaterials: {
+    list: async (params) => unwrap(await publicApi.get("/pdf-materials", { params })),
+    getById: async (id) => unwrap(await publicApi.get(`/pdf-materials/${id}`)),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/pdf-materials", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/pdf-materials/${id}`, payload, config)),
+    remove: async (id) => unwrap(await adminApi.delete(`/pdf-materials/${id}`)),
   },
 
   collections: {
