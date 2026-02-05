@@ -16,6 +16,7 @@ const mapRange = (r) => ({
   id: r?._id || r?.id,
   name: r?.name || "",
   description: r?.description || "",
+  image: r?.image ? toAbsoluteImageUrl(r.image) : "",
   status: r?.status || "active",
   createdAt: r?.createdAt || null,
   updatedAt: r?.updatedAt || null,
@@ -140,18 +141,43 @@ export const useCatalogStore = create((set, get) => ({
     }
   },
 
-  // Admin mutations
-  createRange: async (payload) => {
-    const res = await apiService.ranges.create(payload);
+  // Admin mutations. When image file is included: create with JSON first (so validation passes), then PATCH with image only (multer doesn't put other fields in req.body).
+  createRange: async (payload, imageFile = null) => {
+    const jsonBody = {
+      name: payload.name || "",
+      description: payload.description != null ? payload.description : "",
+      status: payload.status != null ? payload.status : "active",
+    };
+    const res = await apiService.ranges.create(jsonBody);
+    const range = res?.range;
+    const rangeId = range && (range.id || range._id);
+    if (rangeId && imageFile && (imageFile instanceof File || (imageFile instanceof Blob && imageFile.name))) {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      await apiService.ranges.update(rangeId, formData);
+    }
     await get().loadAdminCatalog();
     await get().loadPublicCatalog();
-    return res?.range;
+    return range ? get().adminRanges.find((r) => r.id === rangeId || r.id === range.id || r.id === range._id) || range : range;
   },
-  updateRange: async (id, payload) => {
-    const res = await apiService.ranges.update(id, payload);
+  updateRange: async (id, payload, imageFile = null) => {
+    const jsonBody = {
+      ...(payload.name != null && { name: payload.name }),
+      ...(payload.description != null && { description: payload.description }),
+      ...(payload.status != null && { status: payload.status }),
+    };
+    if (Object.keys(jsonBody).length > 0) {
+      await apiService.ranges.update(id, jsonBody);
+    }
+    if (imageFile && (imageFile instanceof File || (imageFile instanceof Blob && imageFile.name))) {
+      const formData = new FormData();
+      formData.append("image", imageFile);
+      await apiService.ranges.update(id, formData);
+    }
     await get().loadAdminCatalog();
     await get().loadPublicCatalog();
-    return res?.range;
+    const updated = get().adminRanges.find((r) => r.id === id);
+    return updated || null;
   },
   deleteRange: async (id) => {
     const res = await apiService.ranges.remove(id);

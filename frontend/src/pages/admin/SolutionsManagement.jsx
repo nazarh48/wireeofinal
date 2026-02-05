@@ -279,11 +279,12 @@ export default function SolutionsManagement() {
             {solutions.map((s) => (
               <li key={s._id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
                 <div className="flex items-center gap-4">
-                  {s.image && (
+                  {(s.image || (Array.isArray(s.images) && s.images[0])) && (
                     <img
-                      src={getImageUrl(s.image)}
+                      src={getImageUrl(s.image || (s.images && s.images[0] && (s.images[0].url || s.images[0])) || "")}
                       alt=""
                       className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                      onError={(e) => { e.target.style.display = "none"; }}
                     />
                   )}
                   <div>

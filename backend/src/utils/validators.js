@@ -22,12 +22,14 @@ export const rangeValidators = {
   create: [
     body("name").trim().notEmpty().withMessage("Name required"),
     body("description").optional().trim(),
+    body("image").optional().trim(),
     body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status"),
   ],
   update: [
     param("id").custom(objectId),
     body("name").optional().trim().notEmpty().withMessage("Name required"),
     body("description").optional().trim(),
+    body("image").optional().trim(),
     body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status"),
   ],
   id: [param("id").custom(objectId)],

@@ -3,6 +3,7 @@ import { useCatalogStore } from "../../store/catalogStore";
 import { useAdminStore } from "../../store/adminStore";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
+import { getImageUrl } from "../../services/api";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -13,6 +14,7 @@ function RangeForm({ initial, onSubmit, onCancel, loading }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [status, setStatus] = useState(initial?.status ?? "active");
+  const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState("");
 
   const handleSubmit = (e) => {
@@ -23,7 +25,7 @@ function RangeForm({ initial, onSubmit, onCancel, loading }) {
       setError("Name is required.");
       return;
     }
-    onSubmit({ name: t, description: description.trim(), status });
+    onSubmit({ name: t, description: description.trim(), status }, imageFile || undefined);
   };
 
   return (
@@ -52,6 +54,18 @@ function RangeForm({ initial, onSubmit, onCancel, loading }) {
           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
           placeholder="Short description"
         />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Image</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+          className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700"
+        />
+        {initial?.image && !imageFile && (
+          <p className="text-xs text-slate-500 mt-1">Current image is set. Choose a new file to replace.</p>
+        )}
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -109,11 +123,11 @@ export default function RangesManagement() {
     return acc;
   }, {});
 
-  const handleCreate = async (payload) => {
+  const handleCreate = async (payload, imageFile) => {
     setLoading(true);
     setError("");
     try {
-      const r = await createRange(payload);
+      const r = await createRange(payload, imageFile);
       if (r) logActivity({ type: "range_created", label: `Range "${r.name}" created`, meta: { id: r.id } });
       setShowCreate(false);
     } catch (e) {
@@ -123,12 +137,12 @@ export default function RangesManagement() {
     }
   };
 
-  const handleUpdate = async (payload) => {
+  const handleUpdate = async (payload, imageFile) => {
     if (!editing) return;
     setLoading(true);
     setError("");
     try {
-      await updateRange(editing.id, payload);
+      await updateRange(editing.id, payload, imageFile);
       logActivity({ type: "range_updated", label: `Range "${payload.name}" updated`, meta: { id: editing.id } });
       setEditing(null);
     } catch (e) {
@@ -187,8 +201,19 @@ export default function RangesManagement() {
           <ul className="divide-y divide-slate-200">
             {ranges.map((r) => (
               <li key={r.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                <div>
-                  <p className="font-medium text-slate-900">{r.name}</p>
+                <div className="flex items-center gap-4">
+                  {r.image ? (
+                    <img
+                      src={getImageUrl(r.image)}
+                      alt=""
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs">No img</div>
+                  )}
+                  <div>
+                    <p className="font-medium text-slate-900">{r.name}</p>
                   <p className="text-sm text-slate-500">{r.description || "—"}</p>
                   <div className="flex gap-2 mt-1">
                     <span className={`text-xs px-2 py-0.5 rounded ${r.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
@@ -197,6 +222,7 @@ export default function RangesManagement() {
                     <span className="text-xs text-slate-400">
                       {productCountByRange[r.id] ?? 0} product(s)
                     </span>
+                  </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

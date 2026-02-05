@@ -52,17 +52,32 @@ const Solutions = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {(loading ? DEFAULT_SOLUTIONS : solutions).map((solution, index) => {
-              const imgSrc = solution.image?.startsWith("http") ? solution.image : getImageUrl(solution.image || "");
-              const features = Array.isArray(solution.features) ? solution.features : [];
+              const rawImage = solution.image || (Array.isArray(solution.images) && solution.images[0] ? (solution.images[0]?.url ?? solution.images[0]) : "");
+              const imgSrc = typeof rawImage === "string" && rawImage.startsWith("http") ? rawImage : getImageUrl(rawImage || "");
+              let features = [];
+              if (Array.isArray(solution.features)) features = solution.features;
+              else if (typeof solution.features === "string" && solution.features.trim()) {
+                try {
+                  const parsed = JSON.parse(solution.features);
+                  features = Array.isArray(parsed) ? parsed : [solution.features];
+                } catch {
+                  features = solution.features.split(/\n|,/).map((s) => s.trim()).filter(Boolean);
+                }
+              }
               const id = solution._id || solution.id || index;
               return (
                 <div key={id} className="bg-white rounded-2xl shadow-lg hover:shadow-xl overflow-hidden group transition-all duration-300">
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={imgSrc}
-                      alt={solution.title}
-                      className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
+                  <div className="relative overflow-hidden bg-gray-100">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={solution.title}
+                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-4 left-4 text-4xl">{solution.icon || "📋"}</div>
                   </div>

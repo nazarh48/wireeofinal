@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
-import { apiService } from "../../services/api";
+import { apiService, getImageUrl } from "../../services/api";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -299,12 +299,24 @@ export default function CategoriesManagement() {
           <ul className="divide-y divide-slate-200">
             {categories.map((c) => (
               <li key={c._id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                <div>
+                <div className="flex items-center gap-4 min-w-0">
+                  {c.image ? (
+                    <img
+                      src={getImageUrl(c.image)}
+                      alt=""
+                      className="w-14 h-14 object-cover rounded-lg bg-slate-100 flex-shrink-0"
+                      onError={(e) => { e.target.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-400 text-xs">No img</div>
+                  )}
+                  <div>
                   <p className="font-medium text-slate-900">{c.name}</p>
                   <p className="text-sm text-slate-500">{c.description || "—"}</p>
                   <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${c.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                     {c.status}
                   </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setEditing(c)} className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" aria-label="Edit">

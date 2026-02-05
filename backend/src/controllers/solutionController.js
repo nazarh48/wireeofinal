@@ -5,6 +5,54 @@ function toUrl(dirName, filename) {
   return `/uploads/${dirName}/${filename}`;
 }
 
+/** Ensure image and file URLs are in /uploads/... form for frontend. */
+function normalizeSolutionUrls(solution) {
+  if (!solution) return solution;
+  const out = { ...solution };
+
+  if (typeof out.image === "string" && out.image && !out.image.startsWith("http")) {
+    out.image = out.image.startsWith("/") ? out.image : `/${out.image}`;
+  }
+
+  if (Array.isArray(out.images)) {
+    out.images = out.images.map((item) => {
+      if (typeof item === "string") return { url: item.startsWith("/") ? item : `/${item}`, filename: "", originalName: "" };
+      const url = item?.url || "";
+      return {
+        ...item,
+        url: typeof url === "string" && url ? (url.startsWith("/") ? url : `/${url}`) : url,
+      };
+    });
+  } else {
+    out.images = [];
+  }
+
+  if (!out.image && out.images && out.images[0] && out.images[0].url) {
+    out.image = out.images[0].url;
+  }
+
+  if (Array.isArray(out.downloadableFiles)) {
+    out.downloadableFiles = out.downloadableFiles.map((item) => {
+      if (typeof item === "string") return { url: item.startsWith("/") ? item : `/${item}`, filename: "", originalName: "", label: "" };
+      const url = item?.url || "";
+      return {
+        ...item,
+        url: typeof url === "string" && url ? (url.startsWith("/") ? url : `/${url}`) : url,
+      };
+    });
+  } else {
+    out.downloadableFiles = [];
+  }
+
+  return out;
+}
+
+function parseFeatures(features) {
+  if (Array.isArray(features)) return features.filter((f) => f != null && String(f).trim() !== "");
+  if (typeof features === "string") return features.trim() ? [features.trim()] : [];
+  return [];
+}
+
 export async function create(req, res, next) {
   try {
     const { title, description, icon, image, features, order, status } = req.body;
@@ -44,7 +92,9 @@ export async function create(req, res, next) {
       order: order != null ? Number(order) : 0,
       status: status || "active",
     });
-    return res.status(201).json({ success: true, solution });
+    const doc = solution.toObject ? solution.toObject() : solution;
+    const normalized = normalizeSolutionUrls(doc);
+    return res.status(201).json({ success: true, solution: normalized });
   } catch (err) {
     next(err);
   }
@@ -56,7 +106,8 @@ export async function list(req, res, next) {
     const filter = {};
     if (status) filter.status = status;
     const solutions = await Solution.find(filter).sort({ order: 1, createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, solutions });
+    const normalized = solutions.map(normalizeSolutionUrls);
+    return res.status(200).json({ success: true, solutions: normalized });
   } catch (err) {
     next(err);
   }
@@ -68,7 +119,8 @@ export async function getById(req, res, next) {
     if (!solution) {
       return res.status(404).json({ success: false, message: "Solution not found" });
     }
-    return res.status(200).json({ success: true, solution });
+    const normalized = normalizeSolutionUrls(solution);
+    return res.status(200).json({ success: true, solution: normalized });
   } catch (err) {
     next(err);
   }
@@ -80,7 +132,8 @@ export async function getBySlug(req, res, next) {
     if (!solution) {
       return res.status(404).json({ success: false, message: "Solution not found" });
     }
-    return res.status(200).json({ success: true, solution });
+    const normalized = normalizeSolutionUrls(solution);
+    return res.status(200).json({ success: true, solution: normalized });
   } catch (err) {
     next(err);
   }
@@ -129,7 +182,8 @@ export async function update(req, res, next) {
     if (!solution) {
       return res.status(404).json({ success: false, message: "Solution not found" });
     }
-    return res.status(200).json({ success: true, solution });
+    const normalized = normalizeSolutionUrls(solution);
+    return res.status(200).json({ success: true, solution: normalized });
   } catch (err) {
     next(err);
   }

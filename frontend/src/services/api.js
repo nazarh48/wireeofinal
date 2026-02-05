@@ -3,11 +3,9 @@ import axios from "axios";
 export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 
-
-export const API_BASE_URL =
-  import.meta.env.PROD
-    ? (import.meta.env.VITE_API_URL || "https://wireeo.com/api")
-    : (import.meta.env.VITE_API_URL || "http://localhost:5000/api");
+export const API_BASE_URL = import.meta.env.PROD
+  ? import.meta.env.VITE_API_URL || "https://wireeo.com/api"
+  : import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 /** Origin (no /api) – for same-origin requests. */
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
@@ -19,31 +17,34 @@ export const IMAGE_BASE_URL = API_BASE_URL.replace(/\/?$/, "");
  * Converts a relative image path to an absolute URL.
  * Handles both /uploads paths and other relative paths.
  * This ensures images work correctly in both development and production.
- * 
+ *
  * @param {string} imagePath - Relative image path (e.g., /uploads/products/image.jpg)
  * @returns {string} - Absolute image URL
- * 
+ *
  * @example
  * // Development: http://localhost:5000/uploads/products/image.jpg
  * // Production: https://wireeo.com/api/uploads/products/image.jpg
  * getImageUrl('/uploads/products/image.jpg')
  */
 export const getImageUrl = (imagePath) => {
-  if (!imagePath || typeof imagePath !== 'string') return '';
+  if (!imagePath || typeof imagePath !== "string") return "";
 
   // Already absolute URL
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) {
+  if (
+    imagePath.startsWith("http://") ||
+    imagePath.startsWith("https://") ||
+    imagePath.startsWith("data:")
+  ) {
     return imagePath;
   }
 
-  const path = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+  const path = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
 
   // In production, images are served under /api/uploads
-  // In development, images are served under /uploads
-  if (path.startsWith('/uploads/')) {
-    return import.meta.env.PROD
-      ? `${IMAGE_BASE_URL}${path}`
-      : `${API_ORIGIN}${path}`;
+  // In development, images are also served under /api/uploads (backend serves both /uploads and /api/uploads)
+  if (path.startsWith("/uploads/")) {
+    // Always use /api/uploads in both dev and prod for consistency
+    return `${IMAGE_BASE_URL}${path}`;
   }
 
   return `${API_ORIGIN}${path}`;
@@ -64,12 +65,12 @@ const publicApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 
 const userApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 userApi.interceptors.request.use(
-  withBearerToken(() => localStorage.getItem(USER_TOKEN_KEY))
+  withBearerToken(() => localStorage.getItem(USER_TOKEN_KEY)),
 );
 
 const adminApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 adminApi.interceptors.request.use(
-  withBearerToken(() => localStorage.getItem(ADMIN_TOKEN_KEY))
+  withBearerToken(() => localStorage.getItem(ADMIN_TOKEN_KEY)),
 );
 
 function unwrap(res) {
@@ -101,7 +102,8 @@ export const apiService = {
   },
 
   products: {
-    list: async (params) => unwrap(await publicApi.get("/products", { params })),
+    list: async (params) =>
+      unwrap(await publicApi.get("/products", { params })),
     listConfigurable: async (params) =>
       unwrap(await publicApi.get("/products/configurable", { params })),
     listNormal: async (params) =>
@@ -116,7 +118,8 @@ export const apiService = {
   },
 
   categories: {
-    list: async (params) => unwrap(await publicApi.get("/categories", { params })),
+    list: async (params) =>
+      unwrap(await publicApi.get("/categories", { params })),
     getById: async (id) => unwrap(await publicApi.get(`/categories/${id}`)),
     create: async (payload, config) =>
       unwrap(await adminApi.post("/categories", payload, config)),
@@ -126,9 +129,11 @@ export const apiService = {
   },
 
   solutions: {
-    list: async (params) => unwrap(await publicApi.get("/solutions", { params })),
+    list: async (params) =>
+      unwrap(await publicApi.get("/solutions", { params })),
     getById: async (id) => unwrap(await publicApi.get(`/solutions/${id}`)),
-    getBySlug: async (slug) => unwrap(await publicApi.get(`/solutions/slug/${slug}`)),
+    getBySlug: async (slug) =>
+      unwrap(await publicApi.get(`/solutions/slug/${slug}`)),
     create: async (payload, config) =>
       unwrap(await adminApi.post("/solutions", payload, config)),
     update: async (id, payload, config) =>
@@ -137,7 +142,8 @@ export const apiService = {
   },
 
   pdfMaterials: {
-    list: async (params) => unwrap(await publicApi.get("/pdf-materials", { params })),
+    list: async (params) =>
+      unwrap(await publicApi.get("/pdf-materials", { params })),
     getById: async (id) => unwrap(await publicApi.get(`/pdf-materials/${id}`)),
     create: async (payload, config) =>
       unwrap(await adminApi.post("/pdf-materials", payload, config)),
@@ -160,14 +166,16 @@ export const apiService = {
     create: async ({ name, products }) =>
       unwrap(await userApi.post("/projects", { name, products })),
     addProducts: async ({ projectId, products }) =>
-      unwrap(await userApi.post("/projects/add-products", { projectId, products })),
+      unwrap(
+        await userApi.post("/projects/add-products", { projectId, products }),
+      ),
     addFromCollection: async ({ projectId, projectName, instanceIds }) =>
       unwrap(
         await userApi.post("/projects/add-from-collection", {
           projectId,
           projectName,
           instanceIds,
-        })
+        }),
       ),
     updateName: async (id, name) =>
       unwrap(await userApi.patch(`/projects/${id}/name`, { name })),
@@ -182,11 +190,18 @@ export const apiService = {
           canvasData,
           textOverlays,
           layoutConfig,
-        })
+        }),
       ),
     getByProduct: async (productId) =>
       unwrap(await userApi.get(`/canvas/product/${productId}`)),
-    saveInstance: async ({ instanceId, productId, canvasData, textOverlays, layoutConfig, editedImage }) =>
+    saveInstance: async ({
+      instanceId,
+      productId,
+      canvasData,
+      textOverlays,
+      layoutConfig,
+      editedImage,
+    }) =>
       unwrap(
         await userApi.post("/canvas/instance/save", {
           instanceId,
@@ -195,21 +210,34 @@ export const apiService = {
           textOverlays,
           layoutConfig,
           editedImage,
-        })
+        }),
       ),
     getByInstance: async (instanceId) =>
       unwrap(await userApi.get(`/canvas/instance/${instanceId}`)),
   },
 
   pdf: {
-    create: async ({ projectId, projectName, productCount, products, pdfSettings }) =>
-      unwrap(await userApi.post("/pdf", { projectId, projectName, productCount, products, pdfSettings })),
+    create: async ({
+      projectId,
+      projectName,
+      productCount,
+      products,
+      pdfSettings,
+    }) =>
+      unwrap(
+        await userApi.post("/pdf", {
+          projectId,
+          projectName,
+          productCount,
+          products,
+          pdfSettings,
+        }),
+      ),
     list: async () => unwrap(await userApi.get("/pdf")),
     getById: async (id) => unwrap(await userApi.get(`/pdf/${id}`)),
     updateLastExported: async (id) =>
       unwrap(await userApi.patch(`/pdf/${id}/last-exported`)),
-    reExport: async (id) =>
-      unwrap(await userApi.put(`/pdf/${id}/re-export`)),
+    reExport: async (id) => unwrap(await userApi.put(`/pdf/${id}/re-export`)),
   },
 
   adminDashboard: {

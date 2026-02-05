@@ -8,6 +8,7 @@ const SOLUTION_UPLOAD_DIR = path.join(UPLOAD_ROOT, "solutions");
 const PDF_MATERIAL_UPLOAD_DIR = path.join(UPLOAD_ROOT, "pdf-materials");
 const PRODUCT_FILES_DIR = path.join(UPLOAD_ROOT, "product-files");
 const CATEGORY_UPLOAD_DIR = path.join(UPLOAD_ROOT, "categories");
+const RANGE_UPLOAD_DIR = path.join(UPLOAD_ROOT, "ranges");
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -18,6 +19,7 @@ ensureDir(SOLUTION_UPLOAD_DIR);
 ensureDir(PDF_MATERIAL_UPLOAD_DIR);
 ensureDir(PRODUCT_FILES_DIR);
 ensureDir(CATEGORY_UPLOAD_DIR);
+ensureDir(RANGE_UPLOAD_DIR);
 
 const productStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, PRODUCT_UPLOAD_DIR),
@@ -80,6 +82,22 @@ const imageFilter = (req, file, cb) => {
 
 export const uploadCategoryImage = multer({
   storage: categoryImageStorage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single("image");
+
+const rangeImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, RANGE_UPLOAD_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || "");
+    const safeExt = ext && ext.length <= 10 ? ext : "";
+    const name = `range_${Date.now()}_${Math.random().toString(36).slice(2, 9)}${safeExt}`;
+    cb(null, name);
+  },
+});
+
+export const uploadRangeImage = multer({
+  storage: rangeImageStorage,
   fileFilter: imageFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
 }).single("image");

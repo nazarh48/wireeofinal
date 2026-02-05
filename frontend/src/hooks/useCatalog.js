@@ -6,20 +6,20 @@ import { useCatalogStore } from "../store/catalogStore";
  * Normal/configurable split for strict separation in UI.
  */
 export function useCatalog() {
-  const ranges = useCatalogStore((s) => s.publicRanges);
-  const products = useCatalogStore((s) => s.publicProducts);
+  const ranges = useCatalogStore((s) => s.publicRanges) ?? [];
+  const products = useCatalogStore((s) => s.publicProducts) ?? [];
   const publicLoading = useCatalogStore((s) => s.publicLoading);
   const publicLoaded = useCatalogStore((s) => s.publicLoaded);
   const publicError = useCatalogStore((s) => s.publicError);
   const loadPublicCatalog = useCatalogStore((s) => s.loadPublicCatalog);
 
   const normalProducts = useMemo(
-    () => products.filter((p) => !p.configurable),
+    () => (Array.isArray(products) ? products : []).filter((p) => !p.configurable),
     [products]
   );
 
   const configurableProducts = useMemo(
-    () => products.filter((p) => p.configurable),
+    () => (Array.isArray(products) ? products : []).filter((p) => p.configurable),
     [products]
   );
 
