@@ -12,6 +12,7 @@ import Resources from './pages/Resources';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Legal from './pages/Legal';
+import Cookies from './pages/Cookies';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminLayout from './pages/admin/AdminLayout';
 import DashboardOverview from './pages/admin/DashboardOverview';
@@ -23,6 +24,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 import CategoriesManagement from './pages/admin/CategoriesManagement';
 import SolutionsManagement from './pages/admin/SolutionsManagement';
 import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
+import AdminCookies from './pages/admin/AdminCookies';
 import SolutionDetail from './pages/SolutionDetail';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
@@ -84,6 +86,7 @@ function App() {
         <Route path="/resources" element={<Layout><Resources /></Layout>} />
         <Route path="/about" element={<Layout><About /></Layout>} />
         <Route path="/contact" element={<Layout><Contact /></Layout>} />
+        <Route path="/cookies" element={<Layout><Cookies /></Layout>} />
         <Route path="/legal/:page" element={<Layout><Legal /></Layout>} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
@@ -98,6 +101,7 @@ function App() {
           <Route path="solutions" element={<SolutionsManagement />} />
           <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
           <Route path="projects" element={<AdminProjects />} />
+          <Route path="cookies" element={<AdminCookies />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>

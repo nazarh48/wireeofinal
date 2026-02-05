@@ -1,72 +1,26 @@
+import { useState, useEffect } from "react";
+import { apiService, getImageUrl } from "../services/api";
+
 const Resources = () => {
-  const resources = [
-    {
-      title: "Installation Guide",
-      type: "Guide",
-      description: "Complete installation procedures for electrical automation systems, wiring diagrams, and safety protocols.",
-      downloadUrl: "#",
-      icon: "🔧",
-      thumbnail:
-        "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "4.2 MB",
-      format: "PDF"
-    },
-    {
-      title: "System Configuration Manual",
-      type: "Manual",
-      description: "Detailed configuration procedures for PLCs, HMIs, and industrial control systems.",
-      downloadUrl: "#",
-      icon: "⚙️",
-      thumbnail:
-        "https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "6.8 MB",
-      format: "PDF"
-    },
-    {
-      title: "Energy Efficiency Whitepaper",
-      type: "Whitepaper",
-      description: "Advanced strategies for optimizing energy consumption in industrial and commercial electrical systems.",
-      downloadUrl: "#",
-      icon: "⚡",
-      thumbnail:
-        "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "2.1 MB",
-      format: "PDF"
-    },
-    {
-      title: "Safety Standards Compliance",
-      type: "Guide",
-      description: "Essential safety standards, regulations, and compliance requirements for electrical installations.",
-      downloadUrl: "#",
-      icon: "🛡️",
-      thumbnail:
-        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "3.5 MB",
-      format: "PDF"
-    },
-    {
-      title: "Technical Specifications Pack",
-      type: "Datasheet",
-      description: "Comprehensive technical specifications, wiring diagrams, and compatibility matrices for all products.",
-      downloadUrl: "#",
-      icon: "📊",
-      thumbnail:
-        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "8.3 MB",
-      format: "ZIP"
-    },
-    {
-      title: "Troubleshooting Handbook",
-      type: "Guide",
-      description: "Common issues, diagnostic procedures, and solutions for electrical automation systems.",
-      downloadUrl: "#",
-      icon: "🔍",
-      thumbnail:
-        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
-      size: "4.7 MB",
-      format: "PDF"
-    }
-  ];
+  const [resources, setResources] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        const res = await apiService.pdfMaterials.list({ status: "active" });
+        if (res?.materials) {
+          setResources(res.materials);
+        }
+      } catch (err) {
+        console.error("Failed to fetch resources:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchResources();
+  }, []);
+  // Removed hardcoded resources array
 
   const webinars = [
     {
@@ -124,44 +78,54 @@ const Resources = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {resources.map((resource, index) => (
-              <div
-                key={index}
-                className={`bg-white rounded-2xl shadow-premium hover-lift p-6 animate-scale-in animation-delay-[${index * 0.1}s]`}
-              >
-                {resource.thumbnail && (
-                  <div className="mb-4 overflow-hidden rounded-xl">
-                    <img
-                      src={resource.thumbnail}
-                      alt={`${resource.title} thumbnail`}
-                      className="w-full h-32 object-cover hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
+            {loading ? (
+              <div className="col-span-full text-center py-12 text-slate-500">Loading resources...</div>
+            ) : resources.length === 0 ? (
+              <div className="col-span-full text-center py-12 text-slate-500">No resources available at the moment.</div>
+            ) : (
+              resources.map((resource, index) => (
+                <div
+                  key={resource._id || index}
+                  className={`bg-white rounded-2xl shadow-premium hover-lift p-6 animate-scale-in animation-delay-[${index * 0.1}s]`}
+                >
+                  {resource.photo && (
+                    <div className="mb-4 overflow-hidden rounded-xl">
+                      <img
+                        src={getImageUrl(resource.photo)}
+                        alt={`${resource.name} thumbnail`}
+                        className="w-full h-32 object-cover hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="text-4xl">📄</div>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                      {resource.type || "Guide"}
+                    </span>
                   </div>
-                )}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-4xl">{resource.icon}</div>
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                    {resource.type}
-                  </span>
+
+                  <h3 className="text-xl font-bold text-gray-900 mb-3">{resource.name}</h3>
+                  <p className="text-gray-600 mb-4 leading-relaxed">{resource.shortDescription}</p>
+
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <span>PDF</span>
+                    <span>{resource.size}</span>
+                  </div>
+
+                  <a
+                    href={resource.fileUrl ? getImageUrl(resource.fileUrl) : "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download
+                  </a>
                 </div>
-
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{resource.title}</h3>
-                <p className="text-gray-600 mb-4 leading-relaxed">{resource.description}</p>
-
-                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                  <span>{resource.format}</span>
-                  <span>{resource.size}</span>
-                </div>
-
-                <button className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download
-                </button>
-              </div>
-            ))}
+              )))}
           </div>
         </div>
       </section>

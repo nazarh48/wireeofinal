@@ -7,18 +7,31 @@ function toUrl(dirName, filename) {
 
 export async function create(req, res, next) {
   try {
-    const { name, shortDescription, order, status } = req.body;
+    const { name, shortDescription, type, order, status } = req.body;
     const photoFile = req.files?.photo?.[0];
     const fileFile = req.files?.file?.[0];
     const photo = photoFile ? toUrl("pdf-materials", photoFile.filename) : "";
     const fileUrl = fileFile ? toUrl("pdf-materials", fileFile.filename) : "";
     const fileFilename = fileFile ? fileFile.filename : "";
+
+    let size = "";
+    if (fileFile && fileFile.size) {
+      const mb = fileFile.size / (1024 * 1024);
+      if (mb < 1) {
+        size = (fileFile.size / 1024).toFixed(1) + " KB";
+      } else {
+        size = mb.toFixed(1) + " MB";
+      }
+    }
+
     const material = await PdfMaterial.create({
       name: name || "",
       shortDescription: shortDescription || "",
+      type: type || "Guide",
       photo,
       fileUrl,
       fileFilename,
+      size,
       order: order != null ? Number(order) : 0,
       status: status || "active",
     });
@@ -54,10 +67,11 @@ export async function getById(req, res, next) {
 
 export async function update(req, res, next) {
   try {
-    const { name, shortDescription, order, status } = req.body;
+    const { name, shortDescription, type, order, status } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (shortDescription !== undefined) updates.shortDescription = shortDescription;
+    if (type !== undefined) updates.type = type;
     if (order !== undefined) updates.order = Number(order);
     if (status !== undefined) updates.status = status;
 
@@ -67,6 +81,15 @@ export async function update(req, res, next) {
     if (fileFile) {
       updates.fileUrl = toUrl("pdf-materials", fileFile.filename);
       updates.fileFilename = fileFile.filename;
+
+      if (fileFile.size) {
+        const mb = fileFile.size / (1024 * 1024);
+        if (mb < 1) {
+          updates.size = (fileFile.size / 1024).toFixed(1) + " KB";
+        } else {
+          updates.size = mb.toFixed(1) + " MB";
+        }
+      }
     }
 
     const material = await PdfMaterial.findByIdAndUpdate(

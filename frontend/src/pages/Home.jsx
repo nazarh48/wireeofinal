@@ -1,10 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService, getImageUrl } from '../services/api';
 
+const HERO_SLIDES = [
+  {
+    title: 'Professional Electrical Solutions',
+    subtitle: 'Advanced electrical automation systems for residential, commercial, and industrial applications',
+    image: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+    gradient: 'from-blue-900 via-indigo-900 to-purple-900'
+  },
+  {
+    title: 'Smart Building Automation',
+    subtitle: 'Transform your spaces with intelligent control systems and seamless integration',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+    gradient: 'from-purple-900 via-blue-900 to-indigo-900'
+  },
+  {
+    title: 'Industrial Excellence',
+    subtitle: 'Powering industries with reliable, cutting-edge electrical solutions worldwide',
+    image: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
+    gradient: 'from-indigo-900 via-purple-900 to-blue-900'
+  }
+];
+
+const TESTIMONIALS = [
+  { name: "John D.", role: "System Integrator", image: "https://randomuser.me/api/portraits/men/32.jpg", text: "Wireeo has completely transformed the way we manage our building systems. The integration was seamless and the support team is fantastic!" },
+  { name: "Sarah L.", role: "Property Developer", image: "https://randomuser.me/api/portraits/women/44.jpg", text: "The Universal KNX Bridge by Wireeo is a game-changer for our projects. It has made our work so much easier and more efficient." },
+  { name: "Emily R.", role: "Home Owner", image: "https://randomuser.me/api/portraits/women/68.jpg", text: "I love how easy it is to control everything in my home with Wireeo's HyperVisu. It's user-friendly and reliable." },
+  { name: "Michael T.", role: "Electrical Engineer", image: "https://randomuser.me/api/portraits/men/45.jpg", text: "Outstanding products and exceptional technical support. Wireeo has become our go-to solution for all automation projects." },
+  { name: "Lisa M.", role: "Facility Manager", image: "https://randomuser.me/api/portraits/women/55.jpg", text: "The energy savings we've achieved with Wireeo's solutions have exceeded our expectations. Highly recommended!" }
+];
+
 const Home = () => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const slideInterval = useRef(null);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+
+  useEffect(() => {
+    slideInterval.current = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 5000);
+    return () => clearInterval(slideInterval.current);
+  }, []);
 
   useEffect(() => {
     apiService.categories
@@ -16,25 +55,39 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white overflow-hidden min-h-screen flex items-center">
-        <div className="absolute inset-0 bg-black opacity-40"></div>
-        <div className="absolute inset-0 bg-cover bg-center opacity-30 bg-[url('https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
-        <div className="relative container mx-auto px-4 py-32">
+      {/* Hero Carousel */}
+      <section className="relative overflow-hidden min-h-screen flex items-center">
+        {HERO_SLIDES.map((slide, index) => (
+          <div
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ${
+              index === currentSlide ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}></div>
+            <div className="absolute inset-0 bg-black opacity-40"></div>
+            <div className={`absolute inset-0 bg-cover bg-center opacity-30 bg-[url('${slide.image}')]`}></div>
+          </div>
+        ))}
+        
+        <div className="relative container mx-auto px-4 py-32 z-10">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                  Professional <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Electrical</span> Solutions
+                <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-white">
+                  {HERO_SLIDES[currentSlide].title.split(' ').slice(0, -2).join(' ')}{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                    {HERO_SLIDES[currentSlide].title.split(' ').slice(-2).join(' ')}
+                  </span>
                 </h1>
                 <p className="text-xl md:text-2xl text-gray-300 mb-8">
-                  Advanced electrical automation systems for residential, commercial, and industrial applications. Trusted by professionals worldwide.
+                  {HERO_SLIDES[currentSlide].subtitle}
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Link to="/products" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+                  <Link to="/products" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-center">
                     Explore Products
                   </Link>
-                  <Link to="/solutions" className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300">
+                  <Link to="/solutions" className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 text-center">
                     View Solutions
                   </Link>
                 </div>
@@ -64,9 +117,28 @@ const Home = () => {
             </div>
           </div>
         </div>
+
+        {/* Carousel Indicators */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
+          {HERO_SLIDES.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                setCurrentSlide(index);
+                clearInterval(slideInterval.current);
+                slideInterval.current = setInterval(() => {
+                  setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+                }, 5000);
+              }}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === currentSlide ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
+              }`}
+            />
+          ))}
+        </div>
       </section>
 
-      {/* Product Categories - from dashboard */}
+      {/* Product Categories */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
@@ -120,92 +192,59 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
+      {/* Testimonials Carousel */}
+      <section className="bg-gray-100 py-16">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Why Choose WIREEO?</h2>
-              <p className="text-xl text-gray-600 mb-8">
-                With over 25 years of experience in electrical automation, we deliver cutting-edge solutions that meet the highest industry standards.
-              </p>
-              <div className="space-y-6">
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+          <h2 className="text-4xl font-extrabold text-blue-600 mb-8 text-center">What Our Clients Say About Wireeo</h2>
+          <div className="relative max-w-4xl mx-auto">
+            <div className="overflow-hidden">
+              <div className="flex transition-transform duration-500" style={{ transform: `translateX(-${testimonialIndex * 100}%)` }}>
+                {TESTIMONIALS.map((testimonial, idx) => (
+                  <div key={idx} className="w-full flex-shrink-0 px-4">
+                    <div className="p-8 bg-white shadow-lg rounded-xl">
+                      <img src={testimonial.image} alt={testimonial.name} className="w-16 h-16 rounded-full mx-auto mb-4" />
+                      <p className="text-gray-700 italic text-center mb-4">"{testimonial.text}"</p>
+                      <h4 className="font-bold text-lg text-blue-600 text-center">- {testimonial.name}, {testimonial.role}</h4>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Certified Quality</h3>
-                    <p className="text-gray-600">All products meet international standards and certifications for safety and performance.</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Innovation First</h3>
-                    <p className="text-gray-600">Cutting-edge technology and continuous R&D for next-generation electrical solutions.</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192L5.636 18.364M12 2.25a9.75 9.75 0 109.75 9.75A9.75 9.75 0 0012 2.25z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Expert Support</h3>
-                    <p className="text-gray-600">24/7 technical support and consultation from our team of electrical engineers.</p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-            <div className="relative">
-              <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Performance</h4>
-                    <p className="text-sm text-gray-600">99.9% uptime reliability</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Security</h4>
-                    <p className="text-sm text-gray-600">Advanced protection protocols</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                      <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                    </div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Efficiency</h4>
-                    <p className="text-sm text-gray-600">Up to 40% energy savings</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center mb-4">
-                      <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Warranty</h4>
-                    <p className="text-sm text-gray-600">5-year comprehensive coverage</p>
-                  </div>
-                </div>
-              </div>
+            <button onClick={() => setTestimonialIndex((prev) => (prev - 1 + TESTIMONIALS.length) % TESTIMONIALS.length)} className="absolute left-0 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow-lg hover:bg-gray-100">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onClick={() => setTestimonialIndex((prev) => (prev + 1) % TESTIMONIALS.length)} className="absolute right-0 top-1/2 -translate-y-1/2 bg-white p-2 rounded-full shadow-lg hover:bg-gray-100">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Call to Action */}
+      <section className="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-16">
+        <div className="container mx-auto text-center">
+          <h2 className="text-4xl font-extrabold mb-6">Join the Wireeo Community</h2>
+          <p className="mb-8 text-lg">Be part of a growing network of professionals and enthusiasts shaping the future of smart buildings with Wireeo.</p>
+          <button className="bg-white text-blue-600 font-bold py-3 px-8 rounded-full shadow-lg hover:bg-gray-200 transition duration-300">Sign Up Now</button>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-16">
+        <div className="container mx-auto text-center">
+          <h2 className="text-4xl font-extrabold text-blue-600 mb-8">Why Choose Wireeo?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
+              <h3 className="text-2xl font-bold mb-4">Innovative Solutions</h3>
+              <p className="text-gray-700">Wireeo offers cutting-edge technology to simplify and enhance your smart building experience.</p>
+            </div>
+            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
+              <h3 className="text-2xl font-bold mb-4">Seamless Integration</h3>
+              <p className="text-gray-700">Our products integrate effortlessly with existing systems, ensuring a smooth transition.</p>
+            </div>
+            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
+              <h3 className="text-2xl font-bold mb-4">Reliable Support</h3>
+              <p className="text-gray-700">Our dedicated support team is here to assist you every step of the way, ensuring your success.</p>
             </div>
           </div>
         </div>

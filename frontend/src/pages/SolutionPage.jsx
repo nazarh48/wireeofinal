@@ -147,108 +147,172 @@ const SolutionPage = () => {
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-40"></div>
-        <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
+      <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white pt-32 pb-20 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px'}}></div>
+        </div>
         <div className="relative container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            What <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">WIREEO</span> Can Do
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+            Where Professional KNX<br/>
+            <span className="text-blue-400">Meets Modern IoT</span>
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            WIREEO provides comprehensive electrical automation solutions for modern infrastructure needs.
-          </p>
-        </div>
-      </section>
-
-      {/* Description */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold text-gray-900 mb-6">Professional Electrical Automation</h2>
-            <p className="text-xl text-gray-600 leading-relaxed">
-              WIREEO is engineered to provide reliable, efficient, and intelligent electrical automation solutions. 
-              Our systems integrate seamlessly with existing infrastructure while providing advanced control, 
-              monitoring, and protection capabilities for residential, commercial, and industrial applications.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid 2x3 */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Core Capabilities</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Advanced electrical systems designed for reliability, efficiency, and intelligent operation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {features.map((f) => (
-              <FeatureCard key={f.title} icon={f.icon} title={f.title} description={f.description} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Additional Paragraph */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">System Architecture</h3>
-            <p className="text-gray-600 leading-relaxed">
-              WIREEO systems are built on a modular architecture that supports scalable deployment and easy integration. 
-              Our communication protocols ensure seamless data exchange between devices, while advanced analytics provide 
-              insights for optimized performance. The system supports both centralized and distributed control strategies, 
-              making it suitable for applications ranging from single buildings to large industrial complexes.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Functions Table / Structured List */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">System Functions</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Comprehensive functionality across all aspects of electrical system management and automation.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {functionsByCategory.map((c) => (
-              <FunctionsCategory key={c.title} title={c.title} items={c.items} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer Note */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6">Professional Support</h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-            Advanced features and enterprise-level support are available through WIREEO Professional. 
-            System capabilities may vary based on specific hardware configurations and installation requirements. 
-            Contact our technical team for detailed specifications and custom solutions.
+          <p className="text-lg text-gray-300 max-w-3xl mx-auto mb-10">
+            Don't choose between reliability and flexibility. We combine the industrial strength of KNX with the open connectivity of IoT and energy management, creating a future-proof foundation for every building you design.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/products"
-              className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              View Products
+            <Link to="/products" className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300">
+              Discover Our Ecosystem
             </Link>
-            <Link
-              to="/contact"
-              className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300"
-            >
-              Contact Technical Team
+            <Link to="/contact" className="px-8 py-4 border-2 border-white text-white hover:bg-white hover:text-blue-900 font-semibold rounded-lg transition-all duration-300">
+              Explore Products
             </Link>
+          </div>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent"></div>
+      </section>
+
+      {/* Complexity Simplified Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Complexity, <span className="text-blue-600">Simplified.</span>
+            </h2>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              That smart building technology should be invisible in the user and effortless for the professional. We bridge the gap between robust industrial standards (KNX) and modern IoT flexibility. By designing solutions that are simple enough to install in a day, and open to everything, we empower integrators to deliver seamless efficiency without compromise.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Who We Are Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="text-3xl font-bold text-gray-900 mb-6">Who we are?</h3>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              Elausys is a business provider in smart building and home automation solutions using the KNX Standard. We develop innovative products that bridge the gap between industrial-grade reliability and modern IoT connectivity.
+            </p>
+            <p className="text-gray-600 leading-relaxed">
+              Our mission is to make professional building automation accessible, flexible, and future-proof for integrators and end-users alike.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Solutions Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Solutions</h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              A complete ecosystem designed to make smart buildings work seamlessly
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {features.slice(0, 4).map((f) => (
+              <div key={f.title} className="bg-gray-50 p-8 rounded-2xl hover:shadow-lg transition-shadow duration-300">
+                <div className="w-14 h-14 bg-blue-600 rounded-lg flex items-center justify-center mb-6">
+                  {f.icon}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">{f.title}</h3>
+                <p className="text-gray-600 leading-relaxed mb-4">{f.description}</p>
+                <Link to="/solutions" className="text-blue-600 font-semibold hover:underline inline-flex items-center">
+                  Learn more
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ready to Build Smarter Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Ready to Build <span className="text-blue-600">Smarter?</span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Whether you are an integrator looking for efficiency or a building owner seeking simplicity, Elausys is your partner in intelligent automation.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="bg-white p-8 rounded-2xl text-center hover:shadow-lg transition-shadow">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">System Integrator</h3>
+              <p className="text-gray-600 mb-4">Install and configure smart building systems faster than ever</p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl text-center hover:shadow-lg transition-shadow">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Property Developer</h3>
+              <p className="text-gray-600 mb-4">Add value to your projects with future-proof smart home solutions</p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl text-center hover:shadow-lg transition-shadow">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Home Owner</h3>
+              <p className="text-gray-600 mb-4">Experience effortless control over your entire home with flexible automation</p>
+            </div>
+          </div>
+
+          <div className="text-center mt-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/contact" className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300">
+                Contact Us
+              </Link>
+              <Link to="/products" className="px-8 py-4 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold rounded-lg transition-all duration-300">
+                Explore Products
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* Newsletter Section */}
+      <section className="py-20 bg-blue-50">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-2xl mx-auto">
+            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Stay informed about the latest home automation trends
+            </h2>
+            <p className="text-gray-600 mb-8">
+              Receive the latest updates and advice directly to your inbox.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <button className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-300">
+                Subscribe to newsletter
+              </button>
+            </div>
           </div>
         </div>
       </section>

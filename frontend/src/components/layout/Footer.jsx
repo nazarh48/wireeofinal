@@ -159,7 +159,10 @@ const Footer = () => {
           <div className="border-t border-gray-700 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-gray-400 text-sm mb-4 md:mb-0">
-                © {currentYear} Wireeo. All rights reserved. | Privacy Policy | Terms of Service
+                © {currentYear} Wireeo. All rights reserved. |{' '}
+                <Link to="/legal/privacy" className="hover:text-green-400 transition-colors">Privacy Policy</Link> |{' '}
+                <Link to="/legal/terms" className="hover:text-green-400 transition-colors">Terms of Service</Link> |{' '}
+                <Link to="/cookies" className="hover:text-green-400 transition-colors">Cookies Policy</Link>
               </p>
               <div className="flex items-center space-x-4 text-sm text-gray-400">
                 <span>Powered by Innovation</span>

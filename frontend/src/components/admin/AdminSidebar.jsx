@@ -12,6 +12,7 @@ import {
   IconCategories,
   IconSolutions,
   IconPdf,
+  IconCookie,
 } from "./AdminIcons";
 import { useAuthStore } from "../../store/authStore";
 
@@ -24,6 +25,7 @@ const nav = [
   { to: "/admin/pdf-materials", label: "PDF Materials", icon: IconPdf },
   { to: "/admin/users", label: "Users Management", icon: IconUsers },
   { to: "/admin/projects", label: "Graphic Configurator", icon: IconProjects },
+  { to: "/admin/cookies", label: "Cookies Policy", icon: IconCookie },
   { to: "/admin/settings", label: "Settings", icon: IconSettings },
 ];
 
@@ -39,9 +41,8 @@ export default function AdminSidebar({ collapsed, onToggle }) {
 
   return (
     <aside
-      className={`${
-        collapsed ? "w-[72px]" : "w-64"
-      } flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out shrink-0 border-r border-slate-700`}
+      className={`${collapsed ? "w-[72px]" : "w-64"
+        } flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out shrink-0 border-r border-slate-700`}
     >
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-700">
         {!collapsed && (
@@ -66,10 +67,9 @@ export default function AdminSidebar({ collapsed, onToggle }) {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-colors ${
-                isActive
-                  ? "bg-emerald-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              `flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-colors ${isActive
+                ? "bg-emerald-600 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
               } ${collapsed ? "justify-center" : ""}`
             }
           >
@@ -87,9 +87,8 @@ export default function AdminSidebar({ collapsed, onToggle }) {
         )}
         <button
           onClick={handleLogout}
-          className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${collapsed ? "justify-center" : ""
+            }`}
         >
           <IconLogout className="w-5 h-5 flex-shrink-0" />
           {!collapsed && <span>Logout</span>}

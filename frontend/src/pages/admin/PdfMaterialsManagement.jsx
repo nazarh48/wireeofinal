@@ -8,9 +8,19 @@ const statusOptions = [
   { value: "inactive", label: "Inactive" },
 ];
 
+const typeOptions = [
+  { value: "Guide", label: "Guide" },
+  { value: "Manual", label: "Manual" },
+  { value: "Whitepaper", label: "Whitepaper" },
+  { value: "Datasheet", label: "Datasheet" },
+  { value: "Brochure", label: "Brochure" },
+  { value: "Certificate", label: "Certificate" },
+];
+
 function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [shortDescription, setShortDescription] = useState(initial?.shortDescription ?? "");
+  const [type, setType] = useState(initial?.type ?? "Guide");
   const [order, setOrder] = useState(initial?.order ?? 0);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [photoFile, setPhotoFile] = useState(null);
@@ -26,7 +36,7 @@ function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
       return;
     }
     onSubmit(
-      { name: t, shortDescription: shortDescription.trim(), order: Number(order) || 0, status },
+      { name: t, shortDescription: shortDescription.trim(), type, order: Number(order) || 0, status },
       photoFile,
       fileFile
     );
@@ -55,6 +65,18 @@ function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
           rows={2}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
         />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+        >
+          {typeOptions.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Photo</label>
@@ -145,6 +167,7 @@ export default function PdfMaterialsManagement() {
     const fd = new FormData();
     fd.append("name", payload.name);
     if (payload.shortDescription) fd.append("shortDescription", payload.shortDescription);
+    fd.append("type", payload.type || "Guide");
     fd.append("order", String(payload.order ?? 0));
     fd.append("status", payload.status || "active");
     if (photoFile) fd.append("photo", photoFile);
@@ -241,7 +264,9 @@ export default function PdfMaterialsManagement() {
                   )}
                   <div>
                     <p className="font-medium text-slate-900">{m.name}</p>
-                    <p className="text-sm text-slate-500 line-clamp-1">{m.shortDescription || "—"}</p>
+                    <p className="text-sm text-slate-500 line-clamp-1">
+                      <span className="font-semibold text-emerald-600">[{m.type || "Guide"}]</span> {m.shortDescription || "—"}
+                    </p>
                     <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${m.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                       {m.status}
                     </span>

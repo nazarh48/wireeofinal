@@ -11,6 +11,7 @@ import adminDashboardRoutes from "./adminDashboardRoutes.js";
 import categoryRoutes from "./categoryRoutes.js";
 import solutionRoutes from "./solutionRoutes.js";
 import pdfMaterialRoutes from "./pdfMaterialRoutes.js";
+import cookiePolicyRoutes from "./cookiePolicyRoutes.js";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use("/admin/dashboard", adminDashboardRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/solutions", solutionRoutes);
 router.use("/pdf-materials", pdfMaterialRoutes);
+router.use("/cookie-policy", cookiePolicyRoutes);
 
 export default router;
