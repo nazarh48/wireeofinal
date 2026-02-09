@@ -15,7 +15,6 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [rangeId, setRangeId] = useState(initial?.rangeId ?? (ranges[0]?.id ?? ""));
   const [configurable, setConfigurable] = useState(!!initial?.configurable);
-  const [featured, setFeatured] = useState(!!initial?.featured);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [error, setError] = useState("");
   const [imagesFiles, setImagesFiles] = useState([]);
@@ -56,45 +55,47 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       description: description.trim(),
       rangeId,
       configurable,
-      featured,
       status,
       imagesFiles,
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="rounded-lg bg-red-50 text-red-700 px-4 py-2 text-sm">
+        <div className="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm font-medium flex items-center gap-2">
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           {error}
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Name *</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          placeholder="Product name"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+          placeholder="e.g. Cable XYZ 2.5mm"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Description</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          placeholder="Short description"
+          rows={3}
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none transition-shadow"
+          placeholder="Short product description"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Range *</label>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Range *</label>
         <select
           value={rangeId}
           onChange={(e) => setRangeId(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-shadow"
         >
           <option value="">Select range</option>
           {ranges.map((r) => (
@@ -103,36 +104,36 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
         </select>
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Product images</label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => {
-            const files = Array.from(e.target.files || []);
-            // cleanup existing blob urls
-            previews.forEach((u) => {
-              if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
-            });
-            setImagesFiles(files);
-            setPreviews(files.map((f) => URL.createObjectURL(f)));
-          }}
-          className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-        />
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Product images</label>
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors">
+          <span className="text-sm text-slate-500 mt-1">Click to upload or drag and drop</span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              previews.forEach((u) => {
+                if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
+              });
+              setImagesFiles(files);
+              setPreviews(files.map((f) => URL.createObjectURL(f)));
+            }}
+          />
+        </label>
         {previews.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {previews.slice(0, 6).map((src, idx) => (
-              <div key={idx} className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                <img src={src} alt="" className="w-full h-20 object-cover" />
+          <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {previews.slice(0, 8).map((src, idx) => (
+              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                <img src={src} alt="" className="w-full h-full object-cover" />
               </div>
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-500">
-          Upload up to 10 images. If you don’t select new images while editing, existing images stay unchanged.
-        </p>
+        <p className="mt-2 text-xs text-slate-500">Up to 10 images. When editing, leaving unchanged keeps existing images.</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
         <input
           type="checkbox"
           id="configurable"
@@ -141,45 +142,33 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
         />
         <label htmlFor="configurable" className="text-sm font-medium text-slate-700">
-          Configurable (can be used in configurator, collections, projects, PDF)
-        </label>
-      </div>
-      <div className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="featured"
-          checked={featured}
-          onChange={(e) => setFeatured(e.target.checked)}
-          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-        />
-        <label htmlFor="featured" className="text-sm font-medium text-slate-700">
-          Featured (show on Products page without price; Manage Pro Product for logged-in users)
+          Configurable (use in configurator, collections, projects, PDF)
         </label>
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-shadow"
         >
           {statusOptions.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
       </div>
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-2 border-t border-slate-200">
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50"
+          className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
         >
           {loading ? "Saving…" : initial ? "Update" : "Create"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50"
+          className="px-4 py-3 border border-slate-300 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
         >
           Cancel
         </button>
@@ -229,7 +218,10 @@ export default function ProductsManagement() {
     setLoading(true);
     setError("");
     try {
-      await updateProduct(editing.id, payload);
+      await updateProduct(editing.id, {
+        ...payload,
+        downloadableFiles: editing.downloadableFiles || [],
+      });
       logActivity({ type: "product_updated", label: `Product "${payload.name}" updated`, meta: { id: editing.id } });
       setEditing(null);
     } catch (e) {
@@ -346,8 +338,9 @@ export default function ProductsManagement() {
         )}
       </div>
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)}>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Create product</h2>
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} size="xl" scrollable>
+        <h2 className="text-xl font-bold text-slate-900 mb-1">Create product</h2>
+        <p className="text-sm text-slate-500 mb-5">Add a new product to a range.</p>
         <ProductForm
           ranges={activeRanges}
           onSubmit={handleCreate}
@@ -356,8 +349,9 @@ export default function ProductsManagement() {
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)}>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit product</h2>
+      <Modal open={!!editing} onClose={() => setEditing(null)} size="xl" scrollable>
+        <h2 className="text-xl font-bold text-slate-900 mb-1">Edit product</h2>
+        <p className="text-sm text-slate-500 mb-5">{editing?.name && `Editing: ${editing.name}`}</p>
         {editing && (
           <ProductForm
             initial={editing}

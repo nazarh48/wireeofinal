@@ -10,13 +10,13 @@ function buildProductFilter(query) {
   return filter;
 }
 
-function toProductFile(f, dir) {
+function toProductFile(f, dir, customLabel) {
   const base = dir === "products" ? "/uploads/products" : "/uploads/product-files";
   return {
     url: `${base}/${f.filename}`,
     filename: f.filename,
     originalName: f.originalname || "",
-    label: f.originalname || "",
+    label: customLabel !== undefined && customLabel !== "" ? String(customLabel) : (f.originalname || ""),
   };
 }
 
@@ -112,9 +112,23 @@ export async function getById(req, res, next) {
   }
 }
 
+function parseBodyFiles(bodyFiles) {
+  if (Array.isArray(bodyFiles)) return bodyFiles;
+  if (typeof bodyFiles === "string" && bodyFiles.trim()) {
+    try {
+      const parsed = JSON.parse(bodyFiles);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export async function update(req, res, next) {
   try {
-    const { name, description, range, baseImageUrl, isConfigurable, status, featured, downloadableFiles: bodyFiles } = req.body;
+    const { name, description, range, baseImageUrl, isConfigurable, status, featured, downloadableFiles: bodyFilesRaw } = req.body;
+    const bodyFiles = parseBodyFiles(bodyFilesRaw);
     if (range !== undefined) {
       const r = await Range.findById(range);
       if (!r) return res.status(400).json({ success: false, message: "Range not found" });
@@ -144,9 +158,22 @@ export async function update(req, res, next) {
       if (!updates.baseImageUrl) updates.baseImageUrl = images[0]?.url || "";
     }
     if (fileFiles.length) {
-      updates.downloadableFiles = fileFiles.map((f) => toProductFile(f, "product-files"));
-    } else if (bodyFiles !== undefined && Array.isArray(bodyFiles)) {
-      updates.downloadableFiles = bodyFiles;
+      const existing = parseBodyFiles(bodyFilesRaw);
+      let fileLabels = [];
+      const rawLabels = req.body.fileLabels;
+      if (typeof rawLabels === "string" && rawLabels.trim()) {
+        try {
+          fileLabels = JSON.parse(rawLabels);
+          if (!Array.isArray(fileLabels)) fileLabels = [];
+        } catch {
+          fileLabels = [];
+        }
+      } else if (Array.isArray(rawLabels)) fileLabels = rawLabels;
+      const newFiles = fileFiles.map((f, i) => toProductFile(f, "product-files", fileLabels[i]));
+      updates.downloadableFiles = [...existing, ...newFiles];
+    } else if (bodyFilesRaw !== undefined) {
+      const parsed = parseBodyFiles(bodyFilesRaw);
+      if (parsed.length >= 0) updates.downloadableFiles = parsed;
     }
 
     const product = await Product.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true })

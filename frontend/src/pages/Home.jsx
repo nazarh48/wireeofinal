@@ -4,14 +4,15 @@ import { apiService, getImageUrl } from '../services/api';
 
 const HERO_SLIDES = [
   {
-    title: 'Professional Electrical Solutions',
-    subtitle: 'Advanced electrical automation systems for residential, commercial, and industrial applications',
+    title: 'Where Professional KNX Meets Modern Io',
+    subtitle: 'Expert-Driven Solutions for Installers and Integrators. We streamline the industrial strength of KNX with the ease of modern IoT, making your smart building projects faster, smarter, and more reliable.',
     image: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
     gradient: 'from-blue-900 via-indigo-900 to-purple-900'
   },
   {
     title: 'Smart Building Automation',
-    subtitle: 'Transform your spaces with intelligent control systems and seamless integration',
+    subtitle: 'Transform your spaces with intelligent control systems and seamless integration. Our solutions are designed to enhance energy efficiency, improve security, and provide unparalleled convenience for modern living and working environments.',
+    details: 'With cutting-edge technology and user-friendly interfaces, our smart building automation systems are tailored to meet the unique needs of every client. Experience the future of intelligent spaces today.',
     image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
     gradient: 'from-purple-900 via-blue-900 to-indigo-900'
   },
@@ -60,16 +61,15 @@ const Home = () => {
         {HERO_SLIDES.map((slide, index) => (
           <div
             key={index}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentSlide ? 'opacity-100' : 'opacity-0'
-            }`}
+            className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'
+              }`}
           >
             <div className={`absolute inset-0 bg-gradient-to-br ${slide.gradient}`}></div>
             <div className="absolute inset-0 bg-black opacity-40"></div>
             <div className={`absolute inset-0 bg-cover bg-center opacity-30 bg-[url('${slide.image}')]`}></div>
           </div>
         ))}
-        
+
         <div className="relative container mx-auto px-4 py-32 z-10">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -83,9 +83,14 @@ const Home = () => {
                 <p className="text-xl md:text-2xl text-gray-300 mb-8">
                   {HERO_SLIDES[currentSlide].subtitle}
                 </p>
+                {HERO_SLIDES[currentSlide].details && (
+                  <p className="text-lg md:text-xl text-gray-400 mb-8">
+                    {HERO_SLIDES[currentSlide].details}
+                  </p>
+                )}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Link to="/products" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-center">
-                    Explore Products
+                    Get Started Learning
                   </Link>
                   <Link to="/solutions" className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 text-center">
                     View Solutions
@@ -130,65 +135,207 @@ const Home = () => {
                   setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
                 }, 5000);
               }}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentSlide ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
-              }`}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentSlide ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
+                }`}
             />
           ))}
         </div>
       </section>
 
-      {/* Product Categories */}
+      {/* Complexity Simplified Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Complexity, <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Simplified.</span>
+            </h2>
+            <p className="text-lg text-gray-600 max-w-4xl mx-auto leading-relaxed">
+              Our intuitive platform brings the full capabilities of the KNX ecosystem to your fingertips, letting you design, configure, and deploy smart building solutions with ease. Whether you're an integrator, architect, or facility manager, Wireeo empowers you to create intelligent spaces that are as simple to manage as they are powerful.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 md:p-12 border border-blue-100">
+            <h3 className="text-2xl font-bold text-blue-600 mb-4">Who we are?</h3>
+            <p className="text-gray-700 leading-relaxed">
+              Wireeo is a family-friendly business dedicated to simplifying and enhancing the world of building automation. With a deep understanding of the KNX ecosystem and a passion for innovation, we've built a suite of tools and solutions that bridge the gap between professional-grade functionality and user-friendly design. Our mission is to make smart building technology accessible, reliable, and scalable for everyone—from individual homeowners to large-scale commercial projects.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Solutions */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Product Categories</h2>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Product Categories</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Comprehensive electrical solutions designed for every application - from residential homes to industrial facilities.
+              A suite of innovative products designed to transform your building automation experience
             </p>
           </div>
           {categoriesLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading categories…</p>
+              <p className="text-gray-600">Loading solutions…</p>
             </div>
           ) : categories.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              <p>No categories yet. Add categories from the admin dashboard to show them here.</p>
+              <p>No solutions available yet. Add product categories from the admin dashboard.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {categories.map((cat) => {
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {categories.map((cat, index) => {
                 const hasImage = cat.image && (cat.image.startsWith('http') || cat.image.startsWith('/'));
                 const imageUrl = hasImage ? (cat.image.startsWith('http') ? cat.image : getImageUrl(cat.image)) : null;
-                const colorClass = cat.color || 'from-blue-500 to-blue-600';
+
+                // Icon colors cycling through blue, purple, indigo
+                const iconColors = [
+                  'from-blue-500 to-blue-600',
+                  'from-purple-500 to-purple-600',
+                  'from-indigo-500 to-indigo-600'
+                ];
+                const iconColor = iconColors[index % iconColors.length];
+
                 return (
-                  <div key={cat._id} className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
-                    <div className={`h-48 relative overflow-hidden ${!imageUrl ? `bg-gradient-to-br ${colorClass}` : ''}`}>
-                      {imageUrl ? (
-                        <img src={imageUrl} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      ) : null}
-                      <div className="absolute inset-0 bg-black/20" />
-                      <div className="absolute bottom-4 left-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${imageUrl ? 'bg-white/20' : 'bg-white/20'}`}>
-                          {cat.icon ? <span className="text-2xl">{cat.icon}</span> : (
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                            </svg>
-                          )}
-                        </div>
+                  <Link
+                    to="/products"
+                    key={cat._id}
+                    className="group block bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100"
+                  >
+                    {imageUrl ? (
+                      <div className="h-56 relative overflow-hidden bg-gray-100">
+                        <img
+                          src={imageUrl}
+                          alt={cat.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
                       </div>
+                    ) : (
+                      <div className={`h-56 bg-gradient-to-br ${iconColor} flex items-center justify-center`}>
+                        <svg className="w-20 h-20 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="p-6">
+                      <div className="flex items-start mb-3">
+                        <div className={`w-10 h-10 bg-gradient-to-br ${iconColor} rounded-lg flex items-center justify-center mr-3 flex-shrink-0`}>
+                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          {cat.name}
+                        </h3>
+                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed mb-4">
+                        {cat.description || cat.subtitle || 'Discover our innovative solutions for modern building automation.'}
+                      </p>
+                      <span className="text-blue-600 font-semibold text-sm group-hover:text-blue-700 transition-colors inline-flex items-center">
+                        Learn More
+                        <svg className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </span>
                     </div>
-                    <div className="p-8">
-                      <h3 className="text-2xl font-bold text-gray-900 mb-4">{cat.name}</h3>
-                      <p className="text-gray-600 mb-6">{cat.description || (cat.subtitle ? `${cat.subtitle}. ` : '') || 'Explore our range of solutions.'}</p>
-                      <Link to="/products" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">Explore Range →</Link>
-                    </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Ready to Build Smarter Section */}
+      <section className="relative py-32 overflow-hidden">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2069&q=80"
+            alt="Modern workspace"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/95 via-purple-900/95 to-indigo-900/95"></div>
+          <div className="absolute inset-0 bg-black/20"></div>
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center mb-20">
+            <h2 className="text-5xl md:text-6xl font-bold text-white mb-6">
+              Ready to Build <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">Smarter?</span>
+            </h2>
+            <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
+              Getting started with Wireeo is simple. Follow these three easy steps to bring your building automation project to life.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-16">
+            <div className="group relative">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl h-full">
+                <div className="w-24 h-24 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-xl">
+                  <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <div className="inline-block px-4 py-1 bg-cyan-400/20 rounded-full mb-4">
+                    <span className="text-cyan-300 font-semibold text-sm">STEP 1</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">System Designer</h3>
+                  <p className="text-blue-100 leading-relaxed text-lg">
+                    Use our intuitive system designer to plan and configure your KNX installation with ease. Drag, drop, and customize to match your exact requirements.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="group relative">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl h-full">
+                <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-xl">
+                  <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <div className="inline-block px-4 py-1 bg-purple-400/20 rounded-full mb-4">
+                    <span className="text-purple-300 font-semibold text-sm">STEP 2</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">Project Template</h3>
+                  <p className="text-blue-100 leading-relaxed text-lg">
+                    Choose from our library of pre-built templates or create your own. Save time and ensure consistency across all your projects.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="group relative">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 hover:bg-white/15 transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl h-full">
+                <div className="w-24 h-24 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 shadow-xl">
+                  <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <div className="inline-block px-4 py-1 bg-indigo-400/20 rounded-full mb-4">
+                    <span className="text-indigo-300 font-semibold text-sm">STEP 3</span>
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">Deploy & Support</h3>
+                  <p className="text-blue-100 leading-relaxed text-lg">
+                    Review your configuration, place your order, and receive everything you need to complete your installation quickly and efficiently.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <Link to="/products" className="group relative bg-white text-blue-600 hover:bg-blue-50 px-10 py-5 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl text-center overflow-hidden">
+              <span className="relative z-10">Get Started Now</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-500 opacity-0 group-hover:opacity-10 transition-opacity duration-300"></div>
+            </Link>
+            <Link to="/contact" className="group relative border-2 border-white text-white hover:bg-white hover:text-blue-900 px-10 py-5 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl text-center">
+              <span className="relative z-10">Contact Sales</span>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -229,23 +376,120 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-16">
-        <div className="container mx-auto text-center">
-          <h2 className="text-4xl font-extrabold text-blue-600 mb-8">Why Choose Wireeo?</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
-              <h3 className="text-2xl font-bold mb-4">Innovative Solutions</h3>
-              <p className="text-gray-700">Wireeo offers cutting-edge technology to simplify and enhance your smart building experience.</p>
-            </div>
-            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
-              <h3 className="text-2xl font-bold mb-4">Seamless Integration</h3>
-              <p className="text-gray-700">Our products integrate effortlessly with existing systems, ensuring a smooth transition.</p>
-            </div>
-            <div className="p-8 bg-gray-100 shadow-lg rounded-xl">
-              <h3 className="text-2xl font-bold mb-4">Reliable Support</h3>
-              <p className="text-gray-700">Our dedicated support team is here to assist you every step of the way, ensuring your success.</p>
-            </div>
+      {/* Why Choose Wireeo Section */}
+      <section className="py-24 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+              Why Choose <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600">Wireeo?</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Experience the perfect blend of innovation, reliability, and support that sets us apart in building automation
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10">
+            {/* Innovative Solutions Card */}
+            <Link to="/products" className="group relative block rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 min-h-[500px]">
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                  alt="Innovation and technology"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-blue-700/85 to-purple-800/90 group-hover:from-blue-700/95 group-hover:via-blue-800/90 group-hover:to-purple-900/95 transition-all duration-500"></div>
+              </div>
+              <div className="relative p-8 h-full flex flex-col justify-end">
+                <div className="mb-6">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 border border-white/30">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div className="inline-block px-4 py-1 bg-white/20 backdrop-blur-sm rounded-full mb-4 border border-white/30">
+                    <span className="text-white font-semibold text-sm">CUTTING EDGE</span>
+                  </div>
+                </div>
+                <h3 className="text-3xl md:text-4xl font-bold mb-4 text-white">Innovative Solutions</h3>
+                <p className="text-blue-100 text-lg leading-relaxed">
+                  Wireeo offers cutting-edge technology to simplify and enhance your smart building experience. Our advanced automation systems leverage the latest IoT innovations to deliver unmatched performance and reliability.
+                </p>
+                <div className="mt-6 flex items-center text-white font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  <span>Explore Technology</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+
+            {/* Seamless Integration Card */}
+            <Link to="/products" className="group relative block rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 min-h-[500px]">
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                  alt="Integration and connectivity"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-600/90 via-purple-700/85 to-pink-800/90 group-hover:from-purple-700/95 group-hover:via-purple-800/90 group-hover:to-pink-900/95 transition-all duration-500"></div>
+              </div>
+              <div className="relative p-8 h-full flex flex-col justify-end">
+                <div className="mb-6">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 border border-white/30">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+                    </svg>
+                  </div>
+                  <div className="inline-block px-4 py-1 bg-white/20 backdrop-blur-sm rounded-full mb-4 border border-white/30">
+                    <span className="text-white font-semibold text-sm">COMPATIBLE</span>
+                  </div>
+                </div>
+                <h3 className="text-3xl md:text-4xl font-bold mb-4 text-white">Seamless Integration</h3>
+                <p className="text-purple-100 text-lg leading-relaxed">
+                  Our products integrate effortlessly with existing systems, ensuring a smooth transition. Compatible with KNX, Modbus, BACnet, and other industry-standard protocols, Wireeo solutions work harmoniously with your current infrastructure.
+                </p>
+                <div className="mt-6 flex items-center text-white font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  <span>View Integrations</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
+
+            {/* Reliable Support Card */}
+            <Link to="/contact" className="group relative block rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-3 min-h-[500px]">
+              <div className="absolute inset-0">
+                <img
+                  src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+                  alt="Support and collaboration"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/90 via-indigo-700/85 to-blue-800/90 group-hover:from-indigo-700/95 group-hover:via-indigo-800/90 group-hover:to-blue-900/95 transition-all duration-500"></div>
+              </div>
+              <div className="relative p-8 h-full flex flex-col justify-end">
+                <div className="mb-6">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 border border-white/30">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                  <div className="inline-block px-4 py-1 bg-white/20 backdrop-blur-sm rounded-full mb-4 border border-white/30">
+                    <span className="text-white font-semibold text-sm">24/7 AVAILABLE</span>
+                  </div>
+                </div>
+                <h3 className="text-3xl md:text-4xl font-bold mb-4 text-white">Reliable Support</h3>
+                <p className="text-indigo-100 text-lg leading-relaxed">
+                  Our dedicated support team is here to assist you every step of the way, ensuring your success. With 24/7 technical assistance, comprehensive documentation, and expert training programs, we're committed to your long-term satisfaction.
+                </p>
+                <div className="mt-6 flex items-center text-white font-semibold group-hover:translate-x-2 transition-transform duration-300">
+                  <span>Contact Support</span>
+                  <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </section>

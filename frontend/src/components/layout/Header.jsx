@@ -1,9 +1,11 @@
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef(null);
   const user = useAuthStore((s) => s.user);
   const admin = useAuthStore((s) => s.admin);
   const isUserAuthed = useAuthStore((s) => s.isUserAuthenticated());
@@ -11,6 +13,29 @@ const Header = () => {
   const logoutUser = useAuthStore((s) => s.logoutUser);
   const logoutAdmin = useAuthStore((s) => s.logoutAdmin);
   const isAuthed = isUserAuthed || isAdminAuthed;
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const closeDropdownAndMenu = () => {
+    setUserDropdownOpen(false);
+    setIsMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    if (isAdminAuthed) logoutAdmin();
+    else logoutUser();
+    closeDropdownAndMenu();
+    navigate('/');
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-200/50 transition-all duration-300">
@@ -53,47 +78,72 @@ const Header = () => {
             </Link>
           </nav>
 
-          {/* Auth Section */}
-          <div className="flex items-center space-x-2">
+          {/* Right side: Login/Sign up or User icon with dropdown */}
+          <div className="flex items-center gap-2">
             {!isAuthed ? (
               <>
-                <Link to="/login" className="hidden md:block px-4 py-2 text-sm text-gray-700 hover:text-blue-600 font-medium transition-all duration-300 hover:scale-105">
+                <Link to="/login" className="hidden md:block px-4 py-2 text-sm text-gray-700 hover:text-blue-600 font-medium transition-all duration-300">
                   Login
                 </Link>
-                <Link to="/signup" className="hidden md:block px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105">
+                <Link to="/signup" className="hidden md:block px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-300">
                   Sign Up
                 </Link>
               </>
             ) : (
-              <div className="hidden md:flex items-center space-x-2">
-                {isUserAuthed && (
-                  <>
-                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg transition-all duration-300 hover:shadow-md">
-                      <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center shadow-sm transition-transform duration-300 hover:scale-110">
-                        <span className="text-white text-xs font-semibold">{(user?.name || user?.email || 'U').charAt(0).toUpperCase()}</span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-700">
-                        {user?.name || user?.email || 'User'}
-                      </span>
+              <div className="relative" ref={userDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserDropdownOpen((o) => !o)}
+                  className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition-colors border border-slate-200"
+                  aria-expanded={userDropdownOpen}
+                  aria-haspopup="true"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </button>
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white shadow-lg border border-slate-200 py-1 z-[60]">
+                    <div className="px-4 py-2 border-b border-slate-100">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {isAdminAuthed ? (admin?.email || 'Admin') : (user?.name || user?.email || 'Account')}
+                      </p>
+                      <p className="text-xs text-slate-500">{isAdminAuthed ? 'Administrator' : 'User'}</p>
                     </div>
-                    <button onClick={() => logoutUser()} className="px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 font-medium transition-all duration-300 hover:scale-105">
-                      Logout
-                    </button>
-                  </>
-                )}
-                {isAdminAuthed && (
-                  <>
-                    <Link to="/admin/dashboard" className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-lg text-sm font-medium hover:from-gray-800 hover:to-gray-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105">
-                      <svg className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    {isAdminAuthed && (
+                      <Link
+                        to="/admin/dashboard"
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                        onClick={closeDropdownAndMenu}
+                      >
+                        <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
+                        </svg>
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <Link
+                      to="/products/ranges"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+                      onClick={closeDropdownAndMenu}
+                    >
+                      <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      <span>Admin</span>
+                      Manage Products
                     </Link>
-                    <button onClick={() => logoutAdmin()} className="px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 font-medium transition-all duration-300 hover:scale-105">
+                    <div className="border-t border-slate-100 my-1" />
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
                       Logout
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             )}
@@ -101,9 +151,10 @@ const Header = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 hover:text-blue-600 transition-all duration-300 hover:bg-blue-50 rounded-lg hover:scale-110"
+              className="lg:hidden p-2 text-gray-600 hover:text-blue-600 transition-all duration-300 hover:bg-blue-50 rounded-lg"
+              aria-label="Toggle menu"
             >
-              <svg className="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ transform: isMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
               </svg>
             </button>
@@ -157,57 +208,17 @@ const Header = () => {
                 <span className="font-medium">Contact</span>
               </Link>
 
-              {/* Mobile Auth */}
-              <div className="pt-4 border-t border-gray-100 space-y-2">
-                {!isAuthed ? (
-                  <>
-                    <Link to="/signup" className="block px-4 py-3 text-blue-600 border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl font-medium text-center transition-all duration-300 hover:shadow-md hover:-translate-y-0.5" onClick={() => setIsMenuOpen(false)}>
-                      Sign Up
-                    </Link>
-                    <Link to="/login" className="block px-4 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white rounded-xl font-medium text-center transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5" onClick={() => setIsMenuOpen(false)}>
-                      Login
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    {isUserAuthed && (
-                      <>
-                        <div className="flex items-center space-x-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100 shadow-sm">
-                          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-md animate-pulse">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <span className="font-semibold text-gray-700">{user?.name || user?.email || 'User'}</span>
-                        </div>
-                        <button
-                          onClick={() => { logoutUser(); setIsMenuOpen(false); }}
-                          className="block w-full px-4 py-3 text-gray-600 border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-xl font-medium text-center transition-all duration-300 hover:shadow-md"
-                        >
-                          Logout User
-                        </button>
-                      </>
-                    )}
-                    {isAdminAuthed && (
-                      <>
-                        <Link
-                          to="/admin/dashboard"
-                          className="block px-4 py-3 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white rounded-xl font-medium text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5"
-                          onClick={() => setIsMenuOpen(false)}
-                        >
-                          Admin Dashboard
-                        </Link>
-                        <button
-                          onClick={() => { logoutAdmin(); setIsMenuOpen(false); }}
-                          className="block w-full px-4 py-3 text-gray-600 border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-xl font-medium text-center transition-all duration-300 hover:shadow-md"
-                        >
-                          Logout Admin
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+              {/* Mobile: Login/Sign up when not logged in; when logged in use the user icon in header */}
+              {!isAuthed && (
+                <div className="pt-4 border-t border-gray-100 space-y-2">
+                  <Link to="/signup" className="block px-4 py-3 text-blue-600 border-2 border-blue-200 hover:bg-blue-50 rounded-xl font-medium text-center" onClick={() => setIsMenuOpen(false)}>
+                    Sign Up
+                  </Link>
+                  <Link to="/login" className="block px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium text-center" onClick={() => setIsMenuOpen(false)}>
+                    Login
+                  </Link>
+                </div>
+              )}
             </nav>
           </div>
         </div>

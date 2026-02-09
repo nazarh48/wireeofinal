@@ -1,5 +1,6 @@
 import Header from './Header';
 import Footer from './Footer';
+import CookieBanner from './CookieBanner';
 
 const Layout = ({ children }) => {
   return (
@@ -8,6 +9,7 @@ const Layout = ({ children }) => {
       <main className="flex-grow pt-20">
         {children}
       </main>
+      <CookieBanner />
       <Footer />
     </div>
   );

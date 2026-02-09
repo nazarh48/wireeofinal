@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import axios from "axios";
+import { ADMIN_TOKEN_KEY, API_BASE_URL } from "../../services/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_URL = API_BASE_URL;
 
 export default function AdminCookies() {
     const [content, setContent] = useState("");
@@ -68,7 +69,7 @@ export default function AdminCookies() {
             setSaving(true);
             setMessage({ type: "", text: "" });
 
-            const token = localStorage.getItem("adminToken");
+            const token = localStorage.getItem(ADMIN_TOKEN_KEY);
             const response = await axios.put(
                 `${API_URL}/cookie-policy`,
                 { content },

@@ -214,12 +214,15 @@ export const useCatalogStore = create((set, get) => ({
     return res?.product;
   },
   updateProduct: async (id, payload) => {
-    const { rangeId, configurable, featured, imagesFiles, ...rest } = payload;
-    const hasFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
+    const { rangeId, configurable, featured, imagesFiles, downloadFiles, ...rest } = payload;
+    const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
+    const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
+    const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
+    const useFormData = hasImageFiles || hasDownloadFiles;
 
     let body;
     let config;
-    if (hasFiles) {
+    if (useFormData) {
       body = new FormData();
       if (rest.name !== undefined) body.append("name", rest.name);
       if (rest.description !== undefined) body.append("description", rest.description);
@@ -227,14 +230,23 @@ export const useCatalogStore = create((set, get) => ({
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
       if (featured !== undefined) body.append("featured", String(!!featured));
       if (rest.status !== undefined) body.append("status", rest.status);
-      const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
-      files.forEach((f) => body.append("images", f));
+      if (hasImageFiles) {
+        const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
+        files.forEach((f) => body.append("images", f));
+      }
+      body.append("downloadableFiles", JSON.stringify(existingDownloadableFiles));
+      if (hasDownloadFiles) {
+        const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
+        downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
+        body.append("fileLabels", JSON.stringify(labels));
+      }
       config = { headers: { "Content-Type": "multipart/form-data" } };
     } else {
       body = { ...rest };
       if (rangeId !== undefined) body.range = rangeId;
       if (configurable !== undefined) body.isConfigurable = configurable;
       if (featured !== undefined) body.featured = featured;
+      if (existingDownloadableFiles.length > 0) body.downloadableFiles = existingDownloadableFiles;
       config = undefined;
     }
 
