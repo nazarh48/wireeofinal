@@ -46,13 +46,15 @@ const Contact = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-40"></div>
-        <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
-        <div className="relative container mx-auto px-4 text-center">
+      <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{backgroundImage: "url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')"}} aria-hidden="true"></div>
+        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent"></div>
+        <div className="relative container mx-auto px-4 text-center z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            Contact <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Us</span>
+            Contact <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Us</span>
           </h1>
+          <div className="w-24 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mx-auto mb-6 rounded-full" />
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Get in touch with our electrical automation experts for technical consultation and project support.
           </p>
@@ -60,13 +62,16 @@ const Contact = () => {
       </section>
 
       {/* Contact Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
+      <section className="py-20 bg-white relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-teal-50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" aria-hidden="true" />
+        <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
             {/* Contact Form */}
             <div>
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6">Send us a Message</h2>
+              <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Send us a <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Message</span></h2>
+                <div className="w-16 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mb-6 rounded-full" />
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -80,7 +85,7 @@ const Contact = () => {
                         required
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                         placeholder="Your full name"
                       />
                     </div>
@@ -95,7 +100,7 @@ const Contact = () => {
                         required
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                         placeholder="your@email.com"
                       />
                     </div>
@@ -111,7 +116,7 @@ const Contact = () => {
                       name="company"
                       value={formData.company}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
                       placeholder="Your company or organization"
                     />
                   </div>
@@ -127,14 +132,14 @@ const Contact = () => {
                       rows={6}
                       value={formData.message}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 resize-none"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 resize-none"
                       placeholder="Tell us about your electrical automation project requirements..."
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Send Message
                   </button>
@@ -146,7 +151,8 @@ const Contact = () => {
             <div>
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-6">Contact Information</h2>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Contact <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Information</span></h2>
+                  <div className="w-16 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mb-6 rounded-full" />
                   <p className="text-gray-600 mb-8">
                     Our technical team is ready to assist with your electrical automation needs. 
                     Contact us for project consultation, technical support, or product information.
@@ -154,8 +160,14 @@ const Contact = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {contactInfo.map((info, index) => (
-                    <div key={index} className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+                  {contactInfo.map((info, index) => {
+                    const colors = [
+                      { bg: 'bg-gradient-to-br from-teal-50 to-teal-100/50', border: 'border-teal-200', hover: 'hover:border-teal-300' },
+                      { bg: 'bg-gradient-to-br from-cyan-50 to-cyan-100/50', border: 'border-cyan-200', hover: 'hover:border-cyan-300' },
+                    ];
+                    const color = colors[index % 2];
+                    return (
+                    <div key={index} className={`${color.bg} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 ${color.border} ${color.hover}`}>
                       <div className="text-3xl mb-4">{info.icon}</div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-3">{info.title}</h3>
                       <div className="space-y-1">
@@ -164,11 +176,12 @@ const Contact = () => {
                         ))}
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
 
                 {/* Service Areas */}
-                <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl shadow-lg p-6 border-2 border-teal-200">
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Service Areas</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                     <div>
@@ -196,17 +209,21 @@ const Contact = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Start Your Project?</h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+      <section className="py-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent" aria-hidden="true" />
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Ready to Start Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Project?</span>
+          </h2>
+          <div className="w-24 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mx-auto mb-6 rounded-full" />
+          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
             Our electrical automation experts are here to help you design and implement the perfect solution for your needs.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+            <button className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
               Schedule Consultation
             </button>
-            <button className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300">
+            <button className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300">
               Download Catalog
             </button>
           </div>

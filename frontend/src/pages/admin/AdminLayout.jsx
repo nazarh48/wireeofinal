@@ -28,7 +28,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-100">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100">
       <AdminSidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}

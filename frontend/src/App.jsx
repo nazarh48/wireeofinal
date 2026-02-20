@@ -25,9 +25,13 @@ import CategoriesManagement from './pages/admin/CategoriesManagement';
 import SolutionsManagement from './pages/admin/SolutionsManagement';
 import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
 import AdminCookies from './pages/admin/AdminCookies';
+import NewsletterManagement from './pages/admin/NewsletterManagement';
 import SolutionDetail from './pages/SolutionDetail';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import ProductPage from './pages/ProductPage';
 import EditorPage from './pages/EditorPage';
 import ProductExperience from './pages/ProductExperience';
@@ -90,6 +94,9 @@ function App() {
         <Route path="/legal/:page" element={<Layout><Legal /></Layout>} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -100,6 +107,7 @@ function App() {
           <Route path="categories" element={<CategoriesManagement />} />
           <Route path="solutions" element={<SolutionsManagement />} />
           <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
+          <Route path="newsletter" element={<NewsletterManagement />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="cookies" element={<AdminCookies />} />
           <Route path="settings" element={<AdminSettings />} />

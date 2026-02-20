@@ -48,8 +48,36 @@ function normalizeSolutionUrls(solution) {
 }
 
 function parseFeatures(features) {
-  if (Array.isArray(features)) return features.filter((f) => f != null && String(f).trim() !== "");
-  if (typeof features === "string") return features.trim() ? [features.trim()] : [];
+  // Already an array – normalize and filter
+  if (Array.isArray(features)) {
+    return features
+      .map((f) => (f != null ? String(f).trim() : ""))
+      .filter((f) => f !== "");
+  }
+
+  if (typeof features === "string") {
+    const trimmed = features.trim();
+    if (!trimmed) return [];
+
+    // Try to parse JSON array (e.g. '["a","b"]')
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((f) => (f != null ? String(f).trim() : ""))
+          .filter((f) => f !== "");
+      }
+    } catch {
+      // Not JSON, fall back to splitting
+    }
+
+    // Fallback: split by newlines or commas
+    return trimmed
+      .split(/\r?\n|,/)
+      .map((s) => s.trim())
+      .filter((s) => s !== "");
+  }
+
   return [];
 }
 
@@ -86,7 +114,7 @@ export async function create(req, res, next) {
       description: description || "",
       icon: icon || "",
       image: image || (images[0]?.url || ""),
-      features: Array.isArray(features) ? features : typeof features === "string" ? (features ? [features] : []) : [],
+      features: parseFeatures(features),
       images,
       downloadableFiles,
       order: order != null ? Number(order) : 0,
@@ -151,8 +179,13 @@ export async function update(req, res, next) {
     if (order !== undefined) setUpdates.order = Number(order);
     if (status !== undefined) setUpdates.status = status;
 
-    const updateOp = Object.keys(setUpdates).length ? { $set: setUpdates } : {};
     const files = Array.isArray(req.files?.images) ? req.files.images : [];
+    if (files.length) {
+      // When admin adds image(s), set main image to the first new upload so it shows on frontend
+      const firstUrl = toUrl("solutions", files[0].filename);
+      setUpdates.image = firstUrl;
+    }
+    const updateOp = Object.keys(setUpdates).length ? { $set: setUpdates } : {};
     if (files.length) {
       const images = files.map((f) => ({
         url: toUrl("solutions", f.filename),

@@ -38,14 +38,14 @@ const EditorPage = () => {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-      <div className="bg-white shadow-sm border-b flex-shrink-0">
+    <div className="h-screen flex flex-col bg-teal-50/30 overflow-hidden">
+      <div className="bg-white shadow-sm border-b border-teal-100 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               <button
                 onClick={() => navigate(isFromProjects ? '/products/ranges?tab=projects' : '/products/ranges?tab=collection')}
-                className="text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base flex-shrink-0"
+                className="text-teal-600 hover:text-teal-800 font-medium text-sm sm:text-base flex-shrink-0"
               >
                 ← Back
               </button>

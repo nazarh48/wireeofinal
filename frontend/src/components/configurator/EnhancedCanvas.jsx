@@ -35,18 +35,20 @@ const EnhancedCanvas = forwardRef((props, ref) => {
   const CANVAS_WIDTH = 800;
   const CANVAS_HEIGHT = 600;
 
-  // Load images
+  // Load base image: prefer configurator image (same as configurator), else baseImageUrl
+  const baseImageForCanvas = configurator.product?.configuratorImageUrl || configurator.product?.baseImageUrl;
+
   useEffect(() => {
-    if (configurator.product?.baseImageUrl) {
+    if (baseImageForCanvas) {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
-      img.src = configurator.product.baseImageUrl;
+      img.src = baseImageForCanvas;
       img.onload = () => {
         setImages((prev) => ({ ...prev, base: img }));
       };
       img.onerror = () => {
         const imgFallback = new window.Image();
-        imgFallback.src = configurator.product.baseImageUrl;
+        imgFallback.src = baseImageForCanvas;
         imgFallback.onload = () => {
           setImages((prev) => ({ ...prev, base: imgFallback }));
         };
@@ -65,7 +67,7 @@ const EnhancedCanvas = forwardRef((props, ref) => {
           };
         }
       });
-  }, [configurator.product, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [baseImageForCanvas, configurator.product, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update transformer
   useEffect(() => {

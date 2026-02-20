@@ -252,7 +252,6 @@ export default function CategoriesManagement() {
   };
 
   const handleDelete = async (cat) => {
-    if (!window.confirm(`Delete "${cat.name}"?`)) return;
     setSubmitLoading(true);
     setError("");
     try {
@@ -340,16 +339,33 @@ export default function CategoriesManagement() {
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit category</h2>
         <CategoryForm initial={editing ?? undefined} onSubmit={handleUpdate} onCancel={() => setEditing(null)} loading={submitLoading} />
       </Modal>
-      <Modal open={!!deleting} onClose={() => setDeleting(null)}>
+      <Modal open={!!deleting} onClose={() => !submitLoading && setDeleting(null)}>
         {deleting && (
-          <>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Delete category</h2>
-            <p className="text-slate-700 mb-4">Delete &quot;{deleting.name}&quot;?</p>
-            <div className="flex gap-3">
-              <button onClick={() => handleDelete(deleting)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">Delete</button>
-              <button onClick={() => setDeleting(null)} className="px-4 py-2 border border-slate-300 rounded-lg font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <div className="text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-5">
+              <IconTrash className="w-7 h-7 text-red-600" />
             </div>
-          </>
+            <h2 className="text-xl font-semibold text-slate-900 mb-2">Delete category</h2>
+            <p className="text-slate-600 mb-6">
+              Are you sure you want to delete <span className="font-medium text-slate-800">&quot;{deleting.name}&quot;</span>? This action cannot be undone.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+              <button
+                onClick={() => setDeleting(null)}
+                disabled={submitLoading}
+                className="px-5 py-2.5 border border-slate-300 rounded-xl font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleting)}
+                disabled={submitLoading}
+                className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm hover:shadow"
+              >
+                {submitLoading ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>

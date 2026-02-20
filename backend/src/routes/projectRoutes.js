@@ -13,6 +13,7 @@ router.get("/:id", validate(projectValidators.id), ctrl.getById);
 router.post("/", ctrl.create);
 router.post("/add-products", validate(projectValidators.addProducts), ctrl.addProducts);
 router.post("/add-from-collection", validate(projectValidators.addFromCollection), ctrl.addFromCollection);
+router.delete("/:id/products/:instanceId", validate(projectValidators.removeProduct), ctrl.removeProduct);
 router.patch("/:id/name", validate(projectValidators.updateName), ctrl.updateName);
 router.delete("/:id", validate(projectValidators.id), ctrl.remove);
 

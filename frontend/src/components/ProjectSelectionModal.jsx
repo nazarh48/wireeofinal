@@ -33,11 +33,15 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
     if (isCreatingNew && newProjectName.trim()) {
       setSubmitting(true);
       try {
-        await onConfirm(products, null, newProjectName.trim());
-        onClose();
-        setSelectedProjectId('');
-        setNewProjectName('');
-        setIsCreatingNew(false);
+        const ok = await onConfirm(products, null, newProjectName.trim());
+        if (ok) {
+          onClose();
+          setSelectedProjectId('');
+          setNewProjectName('');
+          setIsCreatingNew(false);
+        } else {
+          setLocalError('Failed to create project. Please try again.');
+        }
       } catch (err) {
         setLocalError(err?.message || 'Failed to create project');
       } finally {
@@ -46,11 +50,15 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
     } else if (selectedProjectId) {
       setSubmitting(true);
       try {
-        await onConfirm(products, selectedProjectId);
-        onClose();
-        setSelectedProjectId('');
-        setNewProjectName('');
-        setIsCreatingNew(false);
+        const ok = await onConfirm(products, selectedProjectId);
+        if (ok) {
+          onClose();
+          setSelectedProjectId('');
+          setNewProjectName('');
+          setIsCreatingNew(false);
+        } else {
+          setLocalError('Failed to add products to the selected project.');
+        }
       } catch (err) {
         setLocalError(err?.message || 'Failed to add products to project');
       } finally {

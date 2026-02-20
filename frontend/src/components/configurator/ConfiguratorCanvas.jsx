@@ -24,24 +24,27 @@ const ConfiguratorCanvas = () => {
   const GRID_SIZE = 20;
 
   useEffect(() => {
-    // Load base product image
-    if (configurator.product?.baseImageUrl) {
+    // Load base product image (prefer configuratorImageUrl when available)
+    const baseForCanvas =
+      configurator.product?.configuratorImageUrl ||
+      configurator.product?.baseImageUrl;
+    if (baseForCanvas) {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
-      img.src = configurator.product.baseImageUrl;
+      img.src = baseForCanvas;
       img.onload = () => {
         setImages(prev => ({ ...prev, base: img }));
       };
       img.onerror = () => {
-        console.error(`Failed to load base image: ${configurator.product.baseImageUrl}`);
+        console.error(`Failed to load base image: ${baseForCanvas}`);
         // Try without crossOrigin
         const imgFallback = new window.Image();
-        imgFallback.src = configurator.product.baseImageUrl;
+        imgFallback.src = baseForCanvas;
         imgFallback.onload = () => {
           setImages(prev => ({ ...prev, base: imgFallback }));
         };
         imgFallback.onerror = () => {
-          console.error(`Failed to load base image (fallback): ${configurator.product.baseImageUrl}`);
+          console.error(`Failed to load base image (fallback): ${baseForCanvas}`);
         };
       };
     }

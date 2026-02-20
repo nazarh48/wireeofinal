@@ -13,9 +13,14 @@ const downloadableFileSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    productCode: { type: String, default: "", trim: true },
     description: { type: String, default: "", trim: true },
+    technicalDetails: { type: String, default: "", trim: true },
     range: { type: mongoose.Schema.Types.ObjectId, ref: "Range", required: true },
     baseImageUrl: { type: String, default: "", trim: true },
+    // Optional image used specifically inside the Graphic Configurator
+    // (personalised canvas) instead of the marketing/base image.
+    configuratorImageUrl: { type: String, default: "", trim: true },
     images: [
       {
         url: { type: String, required: true },

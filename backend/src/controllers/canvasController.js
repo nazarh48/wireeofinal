@@ -1,10 +1,14 @@
 import { CanvasEdit } from "../models/CanvasEdit.js";
+import crypto from "crypto";
+
+const buildInstanceObjectId = (instanceId) =>
+  crypto.createHash("sha1").update(String(instanceId || "")).digest("hex").slice(0, 24);
 
 export async function save(req, res, next) {
   try {
     const { productId, canvasData, textOverlays, layoutConfig } = req.body;
     const edit = await CanvasEdit.findOneAndUpdate(
-      { productId, createdBy: req.user._id },
+      { productId, createdBy: req.user._id, instanceId: { $exists: false } },
       { $set: { canvasData: canvasData || {}, textOverlays: textOverlays || {}, layoutConfig: layoutConfig || {} } },
       { new: true, upsert: true, runValidators: true }
     );
@@ -19,6 +23,7 @@ export async function getByProduct(req, res, next) {
     const edit = await CanvasEdit.findOne({
       productId: req.params.productId,
       createdBy: req.user._id,
+      instanceId: { $exists: false },
     }).lean();
     if (!edit) {
       return res.status(200).json({ success: true, edit: null });
@@ -33,17 +38,27 @@ export async function getByProduct(req, res, next) {
 export async function saveInstance(req, res, next) {
   try {
     const { instanceId, productId, canvasData, textOverlays, layoutConfig, editedImage } = req.body;
+    const instanceProductId = buildInstanceObjectId(instanceId);
+    const normalizedEditedImage =
+      editedImage && typeof editedImage === "object" && typeof editedImage.value === "string"
+        ? editedImage.value.length > 1_500_000
+          ? null
+          : editedImage
+        : null;
 
-    // Store instance-level edits in a separate collection or use instanceId as key
-    // For now, we'll use the same CanvasEdit model but with instanceId as identifier
     const edit = await CanvasEdit.findOneAndUpdate(
-      { productId: instanceId, createdBy: req.user._id }, // Using instanceId as productId for instance edits
+      { instanceId, createdBy: req.user._id },
       {
         $set: {
+          // Keep instance edits isolated from product-level unique index by using a deterministic
+          // per-instance ObjectId surrogate in productId, while preserving the real product id.
+          productId: instanceProductId,
+          instanceId,
+          originalProductId: productId,
           canvasData: canvasData || {},
           textOverlays: textOverlays || {},
           layoutConfig: layoutConfig || {},
-          metadata: { instanceId, originalProductId: productId, editedImage }
+          editedImage: normalizedEditedImage,
         }
       },
       { new: true, upsert: true, runValidators: true }
@@ -57,7 +72,7 @@ export async function saveInstance(req, res, next) {
 export async function getByInstance(req, res, next) {
   try {
     const edit = await CanvasEdit.findOne({
-      productId: req.params.instanceId, // instanceId stored as productId
+      instanceId: req.params.instanceId,
       createdBy: req.user._id,
     }).lean();
     if (!edit) {

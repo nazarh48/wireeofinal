@@ -12,6 +12,7 @@ import categoryRoutes from "./categoryRoutes.js";
 import solutionRoutes from "./solutionRoutes.js";
 import pdfMaterialRoutes from "./pdfMaterialRoutes.js";
 import cookiePolicyRoutes from "./cookiePolicyRoutes.js";
+import newsletterRoutes from "./newsletterRoutes.js";
 
 const router = Router();
 
@@ -28,5 +29,6 @@ router.use("/categories", categoryRoutes);
 router.use("/solutions", solutionRoutes);
 router.use("/pdf-materials", pdfMaterialRoutes);
 router.use("/cookie-policy", cookiePolicyRoutes);
+router.use("/newsletter", newsletterRoutes);
 
 export default router;

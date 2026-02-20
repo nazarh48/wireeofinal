@@ -54,10 +54,13 @@ const mapProduct = (p) => {
   return {
     id: p?._id || p?.id,
     name: productName,
+    productCode: p?.productCode ?? "",
     description: p?.description || "",
+    technicalDetails: p?.technicalDetails ?? "",
     rangeId,
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
     baseImageUrl,
+    configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
     images,
     imageAlt,
     configurable:
@@ -187,45 +190,62 @@ export const useCatalogStore = create((set, get) => ({
   },
 
   createProduct: async (payload) => {
-    const { rangeId, configurable, featured, imagesFiles, ...rest } = payload;
+    const { rangeId, configurable, featured, imagesFiles, configuratorImageFile, downloadFiles, ...rest } = payload;
     const range = rangeId ?? payload.range;
-    const isConfigurable = configurable ?? payload.isConfigurable;
+    // Always resolve so non-configurable products are saved as productType "normal" and show on Products page
+    const isConfigurable = configurable ?? payload.isConfigurable ?? false;
 
-    const hasFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
-    const body = hasFiles ? new FormData() : { ...rest, range, isConfigurable, featured: !!featured, status: rest.status || "active" };
+    const hasImages = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
+    const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
+    const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
+    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles;
+    const body = hasFiles ? new FormData() : { ...rest, range, isConfigurable: !!isConfigurable, featured: !!featured, status: rest.status || "active" };
 
     if (hasFiles) {
       body.append("name", rest.name || "");
-      body.append("description", rest.description || "");
+      body.append("productCode", rest.productCode ?? "");
+      body.append("description", rest.description ?? "");
+      body.append("technicalDetails", rest.technicalDetails ?? "");
       body.append("range", range);
       body.append("isConfigurable", String(!!isConfigurable));
       body.append("featured", String(!!featured));
       body.append("status", rest.status || "active");
-      const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
-      files.forEach((f) => body.append("images", f));
+      if (hasImages) {
+        const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
+        files.forEach((f) => body.append("images", f));
+      }
+      if (hasConfiguratorImage) body.append("configuratorImage", configuratorImageFile);
+      if (hasDownloadFiles) {
+        downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
+        const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
+        body.append("fileLabels", JSON.stringify(labels));
+      }
     }
 
     const res = await apiService.products.create(
       body,
-      hasFiles ? { headers: { "Content-Type": "multipart/form-data" } } : undefined
+      hasFiles ? {} : undefined
     );
     await get().loadAdminCatalog();
     await get().loadPublicCatalog();
     return res?.product;
   },
   updateProduct: async (id, payload) => {
-    const { rangeId, configurable, featured, imagesFiles, downloadFiles, ...rest } = payload;
+    const { rangeId, configurable, featured, imagesFiles, configuratorImageFile, downloadFiles, ...rest } = payload;
     const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
+    const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
-    const useFormData = hasImageFiles || hasDownloadFiles;
+    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles;
 
     let body;
     let config;
     if (useFormData) {
       body = new FormData();
       if (rest.name !== undefined) body.append("name", rest.name);
+      if (rest.productCode !== undefined) body.append("productCode", rest.productCode);
       if (rest.description !== undefined) body.append("description", rest.description);
+      if (rest.technicalDetails !== undefined) body.append("technicalDetails", rest.technicalDetails);
       if (rangeId !== undefined) body.append("range", rangeId);
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
       if (featured !== undefined) body.append("featured", String(!!featured));
@@ -234,13 +254,14 @@ export const useCatalogStore = create((set, get) => ({
         const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
         files.forEach((f) => body.append("images", f));
       }
+      if (hasConfiguratorImage) body.append("configuratorImage", configuratorImageFile);
       body.append("downloadableFiles", JSON.stringify(existingDownloadableFiles));
       if (hasDownloadFiles) {
         const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
         downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
         body.append("fileLabels", JSON.stringify(labels));
       }
-      config = { headers: { "Content-Type": "multipart/form-data" } };
+      config = {};
     } else {
       body = { ...rest };
       if (rangeId !== undefined) body.range = rangeId;

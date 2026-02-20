@@ -8,6 +8,17 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 6, select: false },
     role: { type: String, enum: ["admin", "user"], default: "user" },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
+    // Email verification
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationToken: { type: String, select: false },
+    emailVerificationExpires: { type: Date, select: false },
+    // 2FA (email-based)
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorCode: { type: String, select: false },
+    twoFactorCodeExpires: { type: Date, select: false },
+    // Password reset
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpires: { type: Date, select: false },
   },
   { timestamps: true }
 );

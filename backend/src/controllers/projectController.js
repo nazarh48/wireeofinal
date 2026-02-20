@@ -1,6 +1,7 @@
 import { Project } from "../models/Project.js";
 import { Collection } from "../models/Collection.js";
 import { ensureConfigurable } from "../services/productService.js";
+import mongoose from "mongoose";
 
 function mapProducts(items) {
   return items.map((p) => ({
@@ -21,7 +22,7 @@ export async function create(req, res, next) {
       products: mapProducts(productsInput || []),
       createdBy: req.user._id,
     });
-    await project.populate("products.product", "name description baseImageUrl isConfigurable productType");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType");
     return res.status(201).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -34,7 +35,7 @@ export async function create(req, res, next) {
 export async function list(req, res, next) {
   try {
     const projects = await Project.find({ createdBy: req.user._id })
-      .populate("products.product", "name description baseImageUrl isConfigurable productType")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType")
       .sort({ createdAt: -1 })
       .lean();
     return res.status(200).json({ success: true, projects });
@@ -46,7 +47,7 @@ export async function list(req, res, next) {
 export async function getById(req, res, next) {
   try {
     const project = await Project.findOne({ _id: req.params.id, createdBy: req.user._id })
-      .populate("products.product", "name description baseImageUrl isConfigurable productType range")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType range")
       .lean();
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
@@ -70,7 +71,7 @@ export async function addProducts(req, res, next) {
     const toAdd = mapProducts(productsInput || []);
     project.products.push(...toAdd);
     await project.save();
-    await project.populate("products.product", "name description baseImageUrl isConfigurable productType");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType");
     return res.status(200).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -118,7 +119,7 @@ export async function addFromCollection(req, res, next) {
     }));
     project.products.push(...mapped);
     await project.save();
-    await project.populate("products.product", "name description baseImageUrl isConfigurable productType");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType");
     return res.status(200).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -151,6 +152,53 @@ export async function remove(req, res, next) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }
     return res.status(200).json({ success: true, message: "Project deleted" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeProduct(req, res, next) {
+  try {
+    const { id, instanceId } = req.params;
+    const project = await Project.findOne({ _id: id, createdBy: req.user._id });
+    if (!project) {
+      return res.status(404).json({ success: false, message: "Project not found" });
+    }
+
+    const before = Array.isArray(project.products) ? project.products.length : 0;
+    // Primary removal path: by unique collection instanceId.
+    let nextProducts = (project.products || []).filter(
+      (p) => String(p.instanceId || "") !== String(instanceId),
+    );
+
+    // Fallback path: if caller passed a productId instead of instanceId, remove one matching item.
+    if (nextProducts.length === before && mongoose.Types.ObjectId.isValid(instanceId)) {
+      let removedByProductId = false;
+      nextProducts = (project.products || []).filter((p) => {
+        if (removedByProductId) return true;
+        if (String(p.product || "") === String(instanceId)) {
+          removedByProductId = true;
+          return false;
+        }
+        return true;
+      });
+    }
+
+    // Idempotent response: already removed/not found should not break frontend flow.
+    if (nextProducts.length === before) {
+      await project.populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType");
+      return res.status(200).json({
+        success: true,
+        project,
+        removed: false,
+        message: "Project product was already removed",
+      });
+    }
+
+    project.products = nextProducts;
+    await project.save();
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl isConfigurable productType");
+    return res.status(200).json({ success: true, project, removed: true });
   } catch (err) {
     next(err);
   }

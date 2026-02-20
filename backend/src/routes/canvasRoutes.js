@@ -9,8 +9,10 @@ const router = Router();
 router.use(authenticate);
 
 router.post("/save", validate(canvasValidators.save), ctrl.save);
+router.put("/save", validate(canvasValidators.save), ctrl.save);
 router.get("/product/:productId", validate(canvasValidators.productId), ctrl.getByProduct);
 router.post("/instance/save", validate(canvasValidators.saveInstance), ctrl.saveInstance);
+router.put("/instance/save", validate(canvasValidators.saveInstance), ctrl.saveInstance);
 router.get("/instance/:instanceId", validate(canvasValidators.instanceId), ctrl.getByInstance);
 
 export default router;

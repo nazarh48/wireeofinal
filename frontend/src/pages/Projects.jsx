@@ -10,6 +10,9 @@ const FALLBACK_IMAGE = '/test.png';
 const Projects = () => {
   const projects = useStore((state) => state.projects);
   const projectsLoading = useStore((state) => state.projectsLoading);
+  const collection = useStore((state) => state.collection);
+  const editsByInstanceId = useStore((state) => state.editsByInstanceId);
+  const productEdits = useStore((state) => state.productEdits);
   const fetchProjects = useStore((state) => state.fetchProjects);
   const updateProjectName = useStore((state) => state.updateProjectName);
   const deleteProject = useStore((state) => state.deleteProject);
@@ -47,6 +50,22 @@ const Projects = () => {
     }
   };
 
+  // Enhance products with edits + editedImage + correct image so PDF shows edited images (same as TabbedRanges)
+  const getEnhancedProductForPdf = (product) => {
+    const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
+    const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
+    const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
+    const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+    const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
+    return {
+      ...product,
+      edits: edits || null,
+      editedImage: editedImage || null,
+      configuratorImageUrl: baseImg || product.configuratorImageUrl || product.baseImageUrl,
+      baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
+    };
+  };
+
   const handleDownloadPDF = async (project) => {
     try {
       setLoadingPdf(project.id);
@@ -55,7 +74,8 @@ const Projects = () => {
         setLoadingPdf(null);
         return;
       }
-      await generateProjectPDF(project, { user });
+      const enhancedProducts = project.products.map(getEnhancedProductForPdf);
+      await generateProjectPDF({ ...project, products: enhancedProducts }, { user });
       setLoadingPdf(null);
     } catch (error) {
       console.error('Error downloading PDF:', error);
@@ -68,8 +88,8 @@ const Projects = () => {
     const added = addProductsToPdf(project?.products || []);
     if (added > 0) {
       showToast(
-        `${added} product${added !== 1 ? 's' : ''} added to PDF configuration.`,
-        'Save as PDF',
+        `${added} product${added !== 1 ? 's' : ''} added to PDF.`,
+        'Export Configuration Sheet',
         savePendingAsPdf,
       );
     }
@@ -84,37 +104,47 @@ const Projects = () => {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-40"></div>
-        <div className="absolute inset-0 bg-cover bg-center opacity-20 bg-[url('https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')]"></div>
-        <div className="relative container mx-auto px-4 text-center">
+      <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{backgroundImage: "url('https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')"}} aria-hidden="true"></div>
+        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent"></div>
+        <div className="relative container mx-auto px-4 text-center z-10">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">Graphic Configurator</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Graphic Product Configurator</span>
           </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Manage and export your electrical automation projects. Create, configure, and organize your custom system designs.
+          <div className="w-24 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mx-auto mb-6 rounded-full" />
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-3">
+            Define the visual identity of your Wireeo devices.
+          </p>
+          <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-4">
+            Personalize engraving, interface layout, and background elements within controlled production parameters.
+          </p>
+          <p className="text-sm font-semibold tracking-wide text-teal-300 uppercase">
+            Structured. Validated. Manufacturable.
           </p>
         </div>
       </section>
 
       {/* Projects Grid */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
+      <section className="py-20 bg-white relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-teal-50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" aria-hidden="true" />
+        <div className="container mx-auto px-4 relative z-10">
           {projectsLoading ? (
             <div className="text-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading projects…</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading configurations…</p>
             </div>
           ) : userProjects.length === 0 ? (
             <div className="text-center py-20">
               <div className="text-6xl mb-4">📋</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Projects Yet</h3>
-              <p className="text-gray-600 mb-8">Start creating your first electrical automation project by configuring products.</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Configurations Yet</h3>
+              <p className="text-gray-600 mb-8">Define the visual identity of your Wireeo devices. Personalize engraving, layout, and backgrounds to create your first configuration.</p>
               <Link
                 to="/products/ranges"
-                className="inline-flex items-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105"
+                className="inline-flex items-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
-                Create Your First Project
+                Create New Configuration
                 <svg className="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
@@ -125,7 +155,7 @@ const Projects = () => {
               {userProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl overflow-hidden group transition-all duration-300"
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden group transition-all duration-300 border border-gray-200 hover:border-teal-300"
                 >
                   <div className="relative overflow-hidden h-48">
                     <img
@@ -138,8 +168,8 @@ const Projects = () => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     <div className="absolute top-4 left-4 text-4xl">{project.icon}</div>
-                    <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                      Professional Project
+                    <div className="absolute top-4 right-4 bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Product Configuration
                     </div>
                   </div>
 
@@ -150,7 +180,7 @@ const Projects = () => {
                           type="text"
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="flex-1 px-3 py-2 border-2 border-blue-500 rounded-lg focus:outline-none"
+                          className="flex-1 px-3 py-2 border-2 border-teal-500 rounded-lg focus:outline-none focus:border-teal-600"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSaveName(project.id);
                             if (e.key === 'Escape') setEditingId(null);
@@ -159,7 +189,7 @@ const Projects = () => {
                         />
                         <button
                           onClick={() => handleSaveName(project.id)}
-                          className="px-3 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
+                          className="px-3 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg font-semibold hover:from-teal-700 hover:to-cyan-700"
                         >
                           ✓
                         </button>
@@ -171,29 +201,29 @@ const Projects = () => {
                         </button>
                       </div>
                     ) : (
-                      <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">
                         {project.name || project.title}
                       </h3>
                     )}
 
                     <p className="text-gray-600 text-sm mb-4">
-                      {project.description || 'Electrical automation project configuration'}
+                      {project.description || 'Product personalization file · Configured Wireeo device'}
                     </p>
 
                     {project.products && project.products.length > 0 && (
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">
+                      <div className="mb-4 p-3 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg border border-teal-200">
+                        <p className="text-xs font-semibold text-teal-700 mb-2">
                           Products ({project.products.length})
                         </p>
                         <ul className="space-y-1">
                           {project.products.slice(0, 3).map((product, idx) => (
-                            <li key={idx} className="text-xs text-gray-600 flex items-center">
-                              <span className="inline-block w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></span>
+                            <li key={idx} className="text-xs text-gray-700 flex items-center">
+                              <span className="inline-block w-1.5 h-1.5 bg-teal-600 rounded-full mr-2"></span>
                               {product.name || product.baseProductName || 'Product'}
                             </li>
                           ))}
                           {project.products.length > 3 && (
-                            <li className="text-xs text-gray-500 italic">
+                            <li className="text-xs text-gray-600 italic">
                               +{project.products.length - 3} more
                             </li>
                           )}
@@ -204,7 +234,7 @@ const Projects = () => {
                     <div className="flex gap-2 mb-4">
                       <button
                         onClick={() => handleEditName(project.id, project.name)}
-                        className="flex-1 flex items-center justify-center gap-1 bg-blue-100 text-blue-700 hover:bg-blue-200 font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
+                        className="flex-1 flex items-center justify-center gap-1 bg-teal-100 text-teal-700 hover:bg-teal-200 font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -226,17 +256,17 @@ const Projects = () => {
                       <div className="space-y-3">
                         <button
                           onClick={() => handleAddProjectToPdf(project)}
-                          className="w-full bg-white border-2 border-blue-200 text-blue-700 hover:bg-blue-50 font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                          className="w-full bg-white border-2 border-teal-200 text-teal-700 hover:bg-teal-50 hover:border-teal-300 font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
-                          Add Project to PDF
+                          Add Configuration to PDF
                         </button>
                         <button
                           onClick={() => handleDownloadPDF(project)}
                           disabled={loadingPdf === project.id}
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                         >
                           {loadingPdf === project.id ? (
                             <>
@@ -250,7 +280,7 @@ const Projects = () => {
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                               </svg>
-                              Export Project PDF
+                              Export Configuration Sheet
                             </>
                           )}
                         </button>
@@ -266,17 +296,21 @@ const Projects = () => {
 
       {/* CTA Section */}
       {userProjects.length > 0 && (
-        <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-4xl font-bold mb-6">Create Another Project?</h2>
-            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-              Configure more electrical automation products and organize them into new projects.
+        <section className="py-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent" aria-hidden="true" />
+          <div className="container mx-auto px-4 text-center relative z-10">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              Create Another <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Configuration?</span>
+            </h2>
+            <div className="w-24 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mx-auto mb-6 rounded-full" />
+            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+              Personalize additional Wireeo devices and generate structured configuration sheets for your project.
             </p>
             <Link
               to="/products/ranges"
-              className="inline-flex items-center bg-white hover:bg-gray-100 text-blue-600 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 transform hover:scale-105"
+              className="inline-flex items-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
-              Create New Project
+              Create New Configuration
               <svg className="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>

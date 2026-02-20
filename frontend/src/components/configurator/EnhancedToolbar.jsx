@@ -85,6 +85,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
       opacity: 1,
     });
     setTextInput('');
+    setActiveTool('select');
   };
 
   const handleAddShape = (shapeType) => {
@@ -100,6 +101,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
       strokeWidth,
       opacity,
     });
+    setActiveTool('select');
   };
 
   const handleAddSticker = (sticker) => {
@@ -116,6 +118,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
       rotation: 0,
       opacity: 1,
     });
+    setActiveTool('select');
   };
 
   const handleUploadImage = (event) => {
@@ -133,6 +136,7 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
         rotation: 0,
         opacity: 1,
       });
+      setActiveTool('select');
     };
     reader.readAsDataURL(file);
   };
@@ -277,37 +281,64 @@ const EnhancedToolbar = ({ stageRef, canvasWidth = 800, canvasHeight = 600 }) =>
               </button>
             </div>
 
-            {/* Tool Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-2">Drawing Tools</label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { tool: 'select', icon: 'M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122', label: 'Select' },
-                  { tool: 'text', icon: 'M4 6h16M4 12h16M4 18h7', label: 'Text' },
-                  { tool: 'rectangle', icon: 'M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z', label: 'Rect' },
-                  { tool: 'circle', icon: 'M21 12a9 9 0 11-18 0 9 9 0 0118 0z', label: 'Circle' },
-                  { tool: 'line', icon: 'M5 12h14', label: 'Line' },
-                  { tool: 'arrow', icon: 'M13 7l5 5m0 0l-5 5m5-5H6', label: 'Arrow' },
-                  { tool: 'pen', icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z', label: 'Pen' },
-                  { tool: 'image', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z', label: 'Image' },
-                ].map(({ tool, icon, label }) => (
-                  <button
-                    key={tool}
-                    onClick={() => handleToolChange(tool)}
-                    className={`p-2.5 rounded-lg border-2 transition-all ${
-                      activeTool === tool
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+            {/* Primary vertical tool list – styled like reference configurator */}
+            <div className="space-y-2">
+              {[
+                {
+                  id: 'icons',
+                  tool: 'sticker',
+                  label: 'Symbols & Icons',
+                  description: 'Add pictograms and icons',
+                  iconPath:
+                    'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
+                },
+                {
+                  id: 'text',
+                  tool: 'text',
+                  label: 'Text field',
+                  description: 'Place editable text labels',
+                  iconPath: 'M4 6h16M4 12h16M4 18h7',
+                },
+                {
+                  id: 'counter',
+                  tool: 'rectangle',
+                  label: 'Counter',
+                  description: 'Add simple counters or frames',
+                  iconPath: 'M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z',
+                },
+                {
+                  id: 'picture',
+                  tool: 'image',
+                  label: 'Own picture',
+                  description: 'Upload personal images',
+                  iconPath:
+                    'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
+                },
+              ].map(({ id, tool, label, description, iconPath }) => (
+                <button
+                  key={id}
+                  onClick={() => handleToolChange(tool)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl border transition-all text-left ${
+                    activeTool === tool
+                      ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 text-gray-700'
+                  }`}
+                >
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                      activeTool === tool ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
                     }`}
-                    title={label}
                   >
-                    <svg className="w-5 h-5 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
                     </svg>
-                    <span className="text-xs mt-1 block">{label}</span>
-                  </button>
-                ))}
-              </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold">{label}</div>
+                    <div className="text-[10px] text-gray-500">{description}</div>
+                  </div>
+                </button>
+              ))}
             </div>
 
             {/* Shape Tools Panel */}

@@ -6,7 +6,8 @@ import Toast from '../components/Toast';
 import ProjectSelectionModal from '../components/ProjectSelectionModal';
 import EditedProductPreview from '../components/EditedProductPreview';
 import { useAuthStore } from '../store/authStore';
-import { generateProjectPDF } from '../utils/pdfGenerator';
+import { generateProductPDF, generateProjectPDF } from '../utils/pdfGenerator';
+import { apiService, API_ORIGIN } from '../services/api';
 
 const FALLBACK_IMAGE = '/test.png';
 
@@ -18,8 +19,6 @@ const TabbedRanges = () => {
   const closeToast = useStore((state) => state.closeToast);
   const collection = useStore((state) => state.collection);
   const removeFromCollection = useStore((state) => state.removeFromCollection);
-  const pendingCollection = useStore((state) => state.pendingCollection);
-  const addToCollection = useStore((state) => state.addToCollection);
   const pendingPdfCollection = useStore((state) => state.pendingPdfCollection);
   const savePendingAsPdf = useStore((state) => state.savePendingAsPdf);
   const fetchCollection = useStore((state) => state.fetchCollection);
@@ -111,31 +110,31 @@ const TabbedRanges = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/30 to-cyan-50/40 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 mb-4 animate-pulse">
+        <div className="text-center mb-12">
+          <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 mb-2">
             Graphic Configurator
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm text-gray-600 max-w-2xl mx-auto">
             Discover and customize your perfect product collection with selection, collection, projects, and PDF configurations.
           </p>
         </div>
-        <div className="mb-16">
-          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
-            <nav className="-mb-px flex justify-center p-6 space-x-12" aria-label="Tabs">
+        <div className="mb-12">
+          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+            <nav className="-mb-px flex justify-center p-3 sm:p-4 space-x-2 sm:space-x-4" aria-label="Tabs">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative px-8 py-4 text-xl font-bold rounded-xl transition-all duration-500 transform ${activeTab === tab.id
-                    ? 'text-white bg-gradient-to-r from-indigo-500 to-purple-600 shadow-xl scale-105'
-                    : 'text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 hover:scale-105'
+                  className={`relative px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 ${activeTab === tab.id
+                    ? 'text-white bg-gradient-to-r from-teal-600 to-cyan-600 shadow-lg'
+                    : 'text-gray-600 hover:text-teal-600 hover:bg-teal-50'
                     }`}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl opacity-20 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg opacity-20"></div>
                   )}
                 </button>
               ))}
@@ -154,24 +153,11 @@ const TabbedRanges = () => {
             position="bottom"
           />
         )}
-        {pendingCollection.length > 0 && activeTab !== 'selection' && (
-          <div className="fixed bottom-6 right-6 z-50">
-            <button
-              onClick={savePendingAsPdf}
-              className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 flex items-center space-x-3"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>Save as PDF ({pendingCollection.length})</span>
-            </button>
-          </div>
-        )}
         {pendingPdfCollection.length > 0 && (activeTab === 'projects' || activeTab === 'pdf-configurations') && (
           <div className="fixed bottom-6 right-6 z-50">
             <button
               onClick={savePendingAsPdf}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-4 px-8 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 flex items-center space-x-3"
+              className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold py-3 px-6 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center space-x-2 text-sm"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -190,7 +176,7 @@ const SelectionContent = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { ranges, getConfigurableProductsByRange, getRangeById } = useCatalog();
-  const [selectedRange, setSelectedRange] = useState("");
+  const [selectedRange, setSelectedRange] = useState('');
   const addToPending = useStore((s) => s.addToPending);
   const productEdits = useStore((s) => s.productEdits);
   const getProductEdits = useStore((s) => s.getProductEdits);
@@ -210,48 +196,62 @@ const SelectionContent = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600 rounded-full mb-6 shadow-2xl animate-bounce">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      {/* Page header */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full mb-3 shadow-lg">
+          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+            />
           </svg>
         </div>
-        <h2 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 mb-6 animate-pulse">
-          Product Selection
+        <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600 mb-2">
+          Product selection
         </h2>
-        <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-          Discover our premium collection of products. Choose from different ranges and customize your perfect selection.
+        <p className="text-sm text-gray-600 max-w-3xl mx-auto leading-relaxed">
+          Start by choosing a range, then pick the products you want to configure in the Collection tab.
         </p>
       </div>
 
-      <div className="mb-16 flex justify-center">
-        <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-30 animate-pulse"></div>
-          <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-white/50">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl mb-4 shadow-lg">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      {/* Range selector */}
+      <div className="mb-8 flex justify-center">
+        <div className="relative w-full max-w-2xl">
+          <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20" />
+          <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-teal-100">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl mb-2 shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
                 </svg>
               </div>
-              <label htmlFor="range-select" className="block text-2xl font-bold text-gray-800 mb-2">
-                Choose Your Range
+              <label htmlFor="range-select" className="block text-sm font-semibold text-gray-900 mb-1">
+                Choose a range
               </label>
-              <p className="text-gray-600 text-lg">Select a product category to explore</p>
+              <p className="text-gray-500 text-xs">This controls which products are shown below.</p>
             </div>
             <select
               id="range-select"
               value={selectedRange}
               onChange={(e) => setSelectedRange(e.target.value)}
-              className="block w-full px-8 py-5 text-xl font-semibold border-3 border-emerald-200 rounded-2xl shadow-lg focus:outline-none focus:ring-4 focus:ring-emerald-300 focus:border-emerald-500 bg-gradient-to-r from-white to-emerald-50 transition-all duration-300 hover:shadow-xl"
+              className="block w-full px-4 py-3 text-sm font-medium border border-teal-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 bg-gradient-to-r from-white to-teal-50/50 transition-all duration-200 hover:shadow-md"
             >
               {ranges.length === 0 ? (
                 <option value="">No ranges available</option>
               ) : (
                 <>
-                  <option value="" className="text-lg py-2">Select range</option>
+                  <option value="" className="text-base py-2">
+                    Select range
+                  </option>
                   {ranges.map((range) => (
-                    <option key={range.id} value={range.id} className="text-lg py-2">
+                    <option key={range.id} value={range.id} className="text-base py-2">
                       {range.name}
                     </option>
                   ))}
@@ -263,36 +263,55 @@ const SelectionContent = () => {
       </div>
 
       {!selectedRangeData ? (
-        <div className="text-center py-16 bg-white/80 rounded-2xl border border-emerald-100">
-          <p className="text-gray-600 text-lg">Select a range above to view configurable products.</p>
+        <div className="text-center py-10 bg-white/90 rounded-xl border border-teal-100">
+          <p className="text-gray-600 text-sm">
+            Select a range above to view configurable products.
+          </p>
         </div>
       ) : (
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-600 rounded-3xl blur opacity-20"></div>
-          <div className="relative bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 rounded-3xl p-12 shadow-2xl border border-emerald-100">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl mb-6 shadow-xl">
-                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
+          <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-15" />
+          <div className="relative bg-gradient-to-br from-teal-50/50 via-cyan-50/30 to-white rounded-2xl p-6 lg:p-8 shadow-xl border border-teal-100">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{selectedRangeData.name}</h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Browse the products in this range and add them to your collection.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-4xl font-bold text-gray-800 mb-4">{selectedRangeData.name}</h3>
-              <p className="text-xl text-gray-700 max-w-2xl mx-auto leading-relaxed">{selectedRangeData.description}</p>
+              <div className="text-xs text-gray-600 lg:text-right">
+                <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/80 border border-teal-100 text-teal-700 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                  Configurable products: {selectedProducts.length}
+                </span>
+              </div>
             </div>
 
-            {/* Compact Jung Group Style Grid */}
+            {/* Products grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {selectedProducts.map((product) => {
                 const edits = getProductEdits(product.id);
                 return (
-                  <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-emerald-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
+                  <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-teal-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
                     {/* Compact Image Preview */}
                     <div className="relative aspect-square bg-gray-100 overflow-hidden">
                       {edits && edits.elements && edits.elements.length > 0 ? (
                         <EditedProductPreview product={product} edits={edits} width={300} height={300} />
                       ) : (
                         <img
-                          src={product.baseImageUrl || product.images?.[0] || FALLBACK_IMAGE}
+                          src={product.configuratorImageUrl || product.baseImageUrl || product.images?.[0] || FALLBACK_IMAGE}
                           alt={product.imageAlt || `${product.name} - High Quality Product`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           crossOrigin="anonymous"
@@ -314,7 +333,7 @@ const SelectionContent = () => {
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                         <button
                           onClick={() => addToPending(product)}
-                          className="p-2 bg-emerald-500 hover:bg-emerald-600 rounded-lg text-white transition-colors"
+                          className="p-2 bg-teal-500 hover:bg-teal-600 rounded-lg text-white transition-colors"
                           title="Add to Collection"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,10 +348,10 @@ const SelectionContent = () => {
                       <h4 className="text-sm font-semibold text-gray-900 truncate mb-1">{product.name}</h4>
                       <p className="text-xs text-gray-500 line-clamp-2 mb-2">{product.description}</p>
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <span className="text-xs text-emerald-600 font-medium">Add to Collection, then configure in Collection tab</span>
+                        <span className="text-xs text-teal-600 font-medium">Add to Collection, then configure in Collection tab</span>
                         <button
                           onClick={() => addToPending(product)}
-                          className="p-1.5 hover:bg-emerald-50 rounded text-emerald-600 transition-colors"
+                          className="p-1.5 hover:bg-teal-50 rounded text-teal-600 transition-colors"
                           title="Add to Collection"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,7 +372,10 @@ const SelectionContent = () => {
 };
 
 const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, onDelete }) => {
-  const { addProductsToProject, getProductEdits } = useStore();
+  const {
+    addProductsToProject,
+    editsByInstanceId,
+  } = useStore();
   const navigate = useNavigate();
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -404,50 +426,50 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-full mb-6 shadow-2xl animate-bounce">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full mb-4 shadow-xl">
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
         </div>
-        <h2 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 mb-6 animate-pulse">
+        <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600 mb-2">
           Your Collection
         </h2>
-        <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
+        <p className="text-sm text-gray-700 max-w-3xl mx-auto leading-relaxed">
           Manage and customize your selected products. Edit, duplicate, or organize them into projects.
         </p>
       </div>
 
       {loading && !collection?.length ? (
-        <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading collection…</p>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mx-auto mb-3" />
+          <p className="text-gray-600 text-sm">Loading collection…</p>
         </div>
       ) : error && !collection?.length ? (
-        <div className="text-center py-16 rounded-2xl bg-red-50 border border-red-200 max-w-xl mx-auto">
-          <p className="text-red-700 font-medium mb-2">Failed to load collection</p>
-          <p className="text-red-600 text-sm mb-4">{error}</p>
-          <button onClick={onRetry} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+        <div className="text-center py-12 rounded-xl bg-red-50 border border-red-200 max-w-xl mx-auto">
+          <p className="text-red-700 font-medium text-sm mb-2">Failed to load collection</p>
+          <p className="text-red-600 text-xs mb-4">{error}</p>
+          <button onClick={onRetry} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
             Retry
           </button>
         </div>
       ) : collection.length === 0 ? (
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 rounded-3xl blur opacity-30"></div>
-          <div className="relative text-center py-24 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-3xl border-2 border-dashed border-indigo-200 shadow-2xl">
-            <div className="text-9xl mb-8 animate-bounce">📦</div>
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl mb-6 shadow-xl">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20"></div>
+          <div className="relative text-center py-16 bg-gradient-to-br from-teal-50/50 via-cyan-50/30 to-white rounded-2xl border-2 border-dashed border-teal-200 shadow-xl">
+            <div className="text-6xl mb-6">📦</div>
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl mb-4 shadow-lg">
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
-            <h3 className="text-3xl font-bold text-gray-800 mb-6">Your collection is empty</h3>
-            <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">Your collection is empty</h3>
+            <p className="text-gray-600 text-sm mb-6 max-w-2xl mx-auto leading-relaxed">
               No products added to collection yet. Start by selecting products from the Selection tab.
             </p>
             <div className="flex justify-center">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg border border-white/50">
-                <p className="text-indigo-600 font-semibold text-lg">💡 Tip: Click &quot;Add to Collection&quot; on products you like!</p>
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl px-6 py-3 shadow-lg border border-teal-100">
+                <p className="text-teal-700 font-semibold text-sm">💡 Tip: Click &quot;Add to Collection&quot; on products you like!</p>
               </div>
             </div>
           </div>
@@ -456,9 +478,9 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
         <>
           {/* Compact Icon-Based Bulk Actions Bar */}
           {selectedProducts.size > 0 && (
-            <div className="mb-6 p-3 bg-white border-2 border-blue-200 rounded-xl shadow-sm flex items-center justify-between">
+            <div className="mb-6 p-3 bg-white border-2 border-teal-200 rounded-xl shadow-sm flex items-center justify-between">
               <div className="text-gray-700 font-semibold text-sm flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {selectedProducts.size} selected
@@ -466,7 +488,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleAddToProjects()}
-                  className="p-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
+                  className="p-2.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-600 transition-colors"
                   title="Add to Project"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -490,52 +512,61 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
             {collection.filter(item => item).map((item, idx) => {
               const itemKey = item._instanceId || item.id;
               const isSelected = selectedProducts.has(itemKey);
+              const itemEdits =
+                item.edits ||
+                (item._instanceId ? editsByInstanceId[item._instanceId] : null);
+              const hasVisualEdits =
+                !!itemEdits?.editedImage ||
+                (Array.isArray(itemEdits?.elements) && itemEdits.elements.length > 0);
+              const previewProduct = itemEdits?.editedImage
+                ? { ...item, editedImage: itemEdits.editedImage }
+                : item;
               return (
-                <div key={`${item._instanceId || item.id}_${idx}`} className={`group relative ${isSelected ? 'ring-4 ring-blue-500' : ''}`}>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
-                  <div className={`relative bg-white rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-3 hover:scale-105 border-2 ${isSelected ? 'border-blue-500' : 'border-gray-100'} overflow-hidden`}>
+                <div key={`${item._instanceId || item.id}_${idx}`} className={`group relative ${isSelected ? 'ring-4 ring-teal-500' : ''}`}>
+                  <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-300"></div>
+                  <div className={`relative bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 border ${isSelected ? 'border-teal-500' : 'border-slate-200'} overflow-hidden`}>
 
                     {/* Selection Checkbox */}
-                    <div className="absolute top-4 left-4 z-20">
+                    <div className="absolute top-3 left-3 z-20">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelection(item)}
-                        className="w-6 h-6 text-blue-600 bg-white border-2 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                        className="w-5 h-5 text-teal-600 bg-white border-2 border-gray-300 rounded focus:ring-teal-500 cursor-pointer"
                       />
                     </div>
 
-                    <div className="absolute top-4 right-4 z-10">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="absolute top-3 right-3 z-10">
+                      <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M5 12h.01M12 12h.01M12 12h.01M19 12h.01M19 12h.01M5 19h.01M5 19h.01M12 19h.01M12 19h.01M19 19h.01M19 19h.01M5 5h.01M5 5h.01M12 5h.01M12 5h.01M19 5h.01M19 5h.01" />
                         </svg>
                       </div>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-2xl mb-6 -mx-2 -mt-2">
-                      {item.edits && item.edits.elements && item.edits.elements.length > 0 ? (
-                        <div className="w-full h-56 rounded-2xl shadow-lg overflow-hidden">
-                          <EditedProductPreview product={item} edits={item.edits} width={500} height={224} />
+                    <div className="relative overflow-hidden rounded-2xl mb-5 aspect-[4/3] bg-slate-50">
+                      {hasVisualEdits ? (
+                        <div className="w-full h-full rounded-2xl shadow-sm overflow-hidden border border-slate-100 flex items-center justify-center">
+                          <EditedProductPreview product={previewProduct} edits={itemEdits} width={277} height={208} />
                         </div>
                       ) : (
                         <img
-                          src={item.baseImageUrl || item.images?.[0] || FALLBACK_IMAGE}
+                          src={item.configuratorImageUrl || item.baseImageUrl || item.images?.[0] || FALLBACK_IMAGE}
                           alt={item.imageAlt || `${item.name} - High Quality Product`}
-                          className="w-full h-56 object-cover rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-700"
+                          className="w-full h-full object-contain rounded-2xl shadow-sm border border-slate-100 group-hover:scale-105 transition-transform duration-500"
                           crossOrigin="anonymous"
                           onError={(e) => {
                             e.currentTarget.src = FALLBACK_IMAGE;
                           }}
                         />
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="absolute top-4 left-4">
-                        <div className="bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1 shadow-lg">
-                          <span className="text-sm font-bold text-indigo-600">#{idx + 1}</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute top-3 left-3">
+                        <div className="bg-white/90 backdrop-blur-sm rounded-lg px-2.5 py-1 shadow-lg">
+                          <span className="text-xs font-bold text-teal-600">#{idx + 1}</span>
                         </div>
                       </div>
-                      {item.edits && item.edits.elements && item.edits.elements.length > 0 && (
+                      {hasVisualEdits && (
                         <div className="absolute top-4 right-4 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 z-10 shadow-lg">
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -545,19 +576,23 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                       )}
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       <div>
-                        <h4 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors duration-300">{item.name}</h4>
-                        <p className="text-gray-600 text-base leading-relaxed">{item.description}</p>
+                        <h4 className="text-base font-bold text-gray-800 mb-0.5 group-hover:text-teal-600 transition-colors duration-300">
+                          {item.name}
+                        </h4>
+                        <p className="text-gray-600 text-xs leading-relaxed line-clamp-2">
+                          {item.description}
+                        </p>
                       </div>
 
-                      {/* Compact Icon-Based Actions */}
-                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleStartEditing(item)}
-                            className="p-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors group relative"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-600 transition-colors"
                             title="Edit Product"
+                            aria-label="Edit product"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -565,8 +600,9 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                           </button>
                           <button
                             onClick={() => onDuplicate(item)}
-                            className="p-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors group relative"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors"
                             title="Duplicate Product"
+                            aria-label="Duplicate product"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -574,33 +610,27 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                           </button>
                           <button
                             onClick={() => onDelete(item._instanceId || item.id)}
-                            className="p-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors group relative"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
                             title="Delete Product"
+                            aria-label="Delete product"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleAddToProjects(item)}
-                            className="p-2.5 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors group relative"
+                            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-600 transition-colors"
                             title="Add to Project"
+                            aria-label="Add to project"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                             </svg>
                           </button>
-                          <button
-                            onClick={() => handleAddProductToPdf(item)}
-                            className="p-2.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-600 transition-colors group relative"
-                            title="Add to PDF"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                          </button>
+                          <span className="text-xs font-medium text-slate-500">Add to project</span>
                         </div>
                       </div>
                     </div>
@@ -627,14 +657,37 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
 };
 
 const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
-  const { projects, productEdits, addProductsToPdf, savePendingAsPdf, showToast, duplicateProject, deleteProject, fetchPdfConfigurations } = useStore();
+  const {
+    projects,
+    collection,
+    productEdits,
+    editsByInstanceId,
+    addProductsToPdf,
+    savePendingAsPdf,
+    showToast,
+    duplicateProject,
+    deleteProject,
+    fetchPdfConfigurations,
+    removeProductFromProject,
+    updateProjectName,
+  } = useStore();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [exportingProjectId, setExportingProjectId] = useState(null);
   const [duplicatingId, setDuplicatingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
 
   const projectsWithProducts = projects.filter((p) => p.products && p.products.length > 0);
+
+  useEffect(() => {
+    if (!selectedProjectId && projectsWithProducts.length > 0) {
+      setSelectedProjectId(projectsWithProducts[0].id);
+    }
+    if (selectedProjectId && !projectsWithProducts.some((p) => p.id === selectedProjectId)) {
+      setSelectedProjectId(projectsWithProducts[0]?.id || null);
+    }
+  }, [projectsWithProducts, selectedProjectId]);
 
   const handleAddProjectToPdf = (project) => {
     const added = addProductsToPdf(project?.products || [], project?.name, project?.id);
@@ -678,6 +731,22 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     }
   };
 
+  // Build product with edits + editedImage (use project snapshot so re-editing in collection does not change project/PDF)
+  const getEnhancedProductForPdf = (product) => {
+    const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
+    const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
+    const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
+    const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+    const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
+    return {
+      ...product,
+      edits: edits || null,
+      editedImage: editedImage || null,
+      configuratorImageUrl: baseImg || product.configuratorImageUrl || product.baseImageUrl,
+      baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
+    };
+  };
+
   const handleExportProjectPdf = async (project) => {
     if (!project?.products || project.products.length === 0) {
       showToast('No products available to export.');
@@ -685,11 +754,18 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     }
     try {
       setExportingProjectId(project.id);
-      await generateProjectPDF(project, { user });
+      const enhancedProducts = project.products.map(getEnhancedProductForPdf);
+      await generateProjectPDF({ ...project, products: enhancedProducts }, { user });
+      const snapshot = (project.products || []).map((p) => ({
+        product: p.id || p._id,
+        instanceId: p._instanceId || null,
+        edits: p.edits || {},
+      }));
       await apiService.pdf.create({
         projectId: project.id,
         projectName: project.name || 'Unnamed Project',
         productCount: project.products.length,
+        products: snapshot,
       });
       await fetchPdfConfigurations();
       showToast('PDF exported and added to Exported projects.');
@@ -700,171 +776,222 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     }
   };
 
+  const handleExportSingleProductPdf = async (project, product) => {
+    try {
+      const productWithEdits = getEnhancedProductForPdf(product);
+      await generateProductPDF([productWithEdits], {
+        user,
+        projectName: `${project?.name || 'Project'} - ${product?.name || 'Product'}`,
+      });
+      await apiService.pdf.create({
+        projectId: project?.id || null,
+        projectName: `${project?.name || 'Project'} - ${product?.name || 'Product'}`,
+        productCount: 1,
+        products: [
+          {
+            product: product?.id || product?._id,
+            instanceId: product?._instanceId || null,
+            edits: productWithEdits.edits || {},
+          },
+        ],
+      });
+      await fetchPdfConfigurations();
+      showToast('Single product PDF exported and saved to Exported projects.');
+    } catch (e) {
+      showToast(e?.message || 'Failed to export product PDF.');
+    }
+  };
+
+  const handleRemoveProduct = async (projectId, product) => {
+    const removeKey = product?._instanceId || product?.instanceId || product?.id || product?._id || null;
+    if (!removeKey) {
+      showToast('Could not remove product: missing identifier.');
+      return;
+    }
+    await removeProductFromProject(projectId, removeKey);
+  };
+
+  const handleRenameProject = async (project) => {
+    const nextName = window.prompt('Rename project', project?.name || '');
+    if (!nextName || !nextName.trim() || nextName.trim() === project?.name) return;
+    await updateProjectName(project.id, nextName.trim());
+  };
+
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-16">
-        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 rounded-full mb-6 shadow-2xl animate-bounce">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full mb-4 shadow-xl">
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h2 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 mb-6 animate-pulse">
+        <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600 mb-2">
           Your Projects
         </h2>
-        <p className="text-xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
+        <p className="text-sm text-gray-700 max-w-3xl mx-auto leading-relaxed">
           View and manage your saved projects. Edit products, generate PDFs, and organize your work efficiently.
         </p>
       </div>
 
       {loading && !projectsWithProducts.length ? (
-        <div className="text-center py-16">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading projects…</p>
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-600 mx-auto mb-3" />
+          <p className="text-gray-600 text-sm">Loading projects…</p>
         </div>
       ) : error && !projectsWithProducts.length ? (
-        <div className="text-center py-16 rounded-2xl bg-red-50 border border-red-200 max-w-xl mx-auto">
-          <p className="text-red-700 font-medium mb-2">Failed to load projects</p>
-          <p className="text-red-600 text-sm mb-4">{error}</p>
-          <button onClick={onRetry} className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700">
+        <div className="text-center py-12 rounded-xl bg-red-50 border border-red-200 max-w-xl mx-auto">
+          <p className="text-red-700 font-medium text-sm mb-2">Failed to load projects</p>
+          <p className="text-red-600 text-xs mb-4">{error}</p>
+          <button onClick={onRetry} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm">
             Retry
           </button>
         </div>
       ) : projectsWithProducts.length === 0 ? (
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-violet-400 via-purple-500 to-indigo-600 rounded-3xl blur opacity-30"></div>
-          <div className="relative text-center py-24 bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50 rounded-3xl border-2 border-dashed border-indigo-200 shadow-2xl">
-            <div className="text-9xl mb-8 animate-bounce">🚀</div>
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-2xl mb-6 shadow-xl">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20"></div>
+          <div className="relative text-center py-16 bg-gradient-to-br from-teal-50/50 via-cyan-50/30 to-white rounded-2xl border-2 border-dashed border-teal-200 shadow-xl">
+            <div className="text-6xl mb-6">🚀</div>
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl mb-4 shadow-lg">
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
-            <h3 className="text-3xl font-bold text-gray-800 mb-6">No projects yet</h3>
-            <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto leading-relaxed">
+            <h3 className="text-lg font-bold text-gray-800 mb-3">No projects yet</h3>
+            <p className="text-gray-600 text-sm mb-6 max-w-2xl mx-auto leading-relaxed">
               Start building your projects by adding edited products from your collection.
             </p>
             <div className="flex justify-center">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl px-8 py-4 shadow-lg border border-white/50">
-                <p className="text-indigo-600 font-semibold text-lg">💡 Tip: Edit products in your collection and add them to projects!</p>
+              <div className="bg-white/80 backdrop-blur-sm rounded-xl px-6 py-3 shadow-lg border border-teal-100">
+                <p className="text-teal-700 font-semibold text-sm">💡 Tip: Edit products in your collection and add them to projects!</p>
               </div>
             </div>
           </div>
         </div>
       ) : (
         <div className="space-y-8">
-          {projectsWithProducts.map((project) => (
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="text-left p-4 font-semibold">Description</th>
+                  <th className="text-left p-4 font-semibold">Content</th>
+                  <th className="text-left p-4 font-semibold">Created</th>
+                  <th className="text-left p-4 font-semibold">Owner</th>
+                  <th className="text-left p-4 font-semibold">Actions</th>
+                  <th className="text-left p-4 font-semibold">Select</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projectsWithProducts.map((project) => (
+                  <tr
+                    key={project.id}
+                    onClick={() => setSelectedProjectId(project.id)}
+                    className={`border-t cursor-pointer ${selectedProjectId === project.id ? 'bg-teal-50' : 'bg-white hover:bg-teal-50/40'}`}
+                  >
+                    <td className="p-4 font-medium text-gray-900">{project.name}</td>
+                    <td className="p-4 text-gray-700">{project.products.length} Articles</td>
+                    <td className="p-4 text-gray-600">{new Date(project.createdAt).toLocaleDateString('en-GB')}</td>
+                    <td className="p-4 text-gray-600">Personal</td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => {
+                          setSelectedProjectId(project.id);
+                          handleRenameProject(project);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedProjectId(project.id);
+                        }}
+                        className={`w-9 h-9 rounded-full text-lg leading-none transition-colors ${
+                          selectedProjectId === project.id
+                            ? 'bg-teal-500 text-white'
+                            : 'bg-teal-500/80 text-white hover:bg-teal-600'
+                        }`}
+                        title={selectedProjectId === project.id ? 'Project selected' : 'Select project'}
+                      >
+                        {selectedProjectId === project.id ? '✓' : '+'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {projectsWithProducts.filter((p) => p.id === selectedProjectId).map((project) => (
             <div key={project.id} className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-violet-400 via-purple-500 to-indigo-600 rounded-3xl blur opacity-20"></div>
-              <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
-                {/* Project Header */}
-                <div className="bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-600 p-6">
-                  <div className="flex items-center justify-between">
+              <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-15"></div>
+              <div className="relative bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-teal-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-teal-500 to-cyan-600 p-5">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <h3 className="text-2xl font-bold text-white mb-1">{project.name}</h3>
-                      <p className="text-violet-100 text-sm">{project.products.length} product{project.products.length !== 1 ? 's' : ''}</p>
+                      <h3 className="text-lg font-bold text-white mb-0.5">{project.name}</h3>
+                      <p className="text-teal-100 text-xs">{project.products.length} Articles</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        onClick={() => handleAddProjectToPdf(project)}
-                        className="p-2.5 bg-white/90 hover:bg-white text-violet-700 rounded-lg transition-colors"
-                        title="Add Project to PDF"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
+                      <button onClick={() => handleAddProjectToPdf(project)} className="p-2 bg-white/90 hover:bg-white text-teal-700 rounded-lg transition-colors" title="Add project to PDF list">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                       </button>
-                      <button
-                        onClick={() => handleDuplicateProject(project)}
-                        disabled={duplicatingId === project.id}
-                        className="p-2.5 bg-amber-400/90 hover:bg-amber-400 text-violet-900 rounded-lg transition-colors disabled:opacity-60"
-                        title="Duplicate Project"
-                      >
-                        {duplicatingId === project.id ? (
-                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        )}
+                      <button onClick={() => handleExportProjectPdf(project)} disabled={exportingProjectId === project.id} className="p-2 bg-teal-700 hover:bg-teal-800 disabled:bg-teal-400 text-white rounded-lg transition-colors" title="Export complete project PDF">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                       </button>
-                      <button
-                        onClick={() => handleExportProjectPdf(project)}
-                        disabled={exportingProjectId === project.id}
-                        className="p-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-lg transition-colors"
-                        title="Export Project PDF"
-                      >
-                        {exportingProjectId === project.id ? (
-                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                          </svg>
-                        )}
+                      <button onClick={() => handleDuplicateProject(project)} disabled={duplicatingId === project.id} className="p-2 bg-amber-400/90 hover:bg-amber-400 text-teal-900 rounded-lg transition-colors disabled:opacity-60" title="Duplicate project">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                       </button>
-                      <button
-                        onClick={() => handleDeleteProject(project)}
-                        className="p-2.5 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors"
-                        title="Delete Project"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                      <button onClick={() => handleDeleteProject(project)} className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-lg transition-colors" title="Delete project">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Products Grid - WYSIWYG Display */}
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {project.products.map((product, idx) => {
-                      const edits = product.edits || productEdits[product.id] || null;
+                      // Use project snapshot (product.edits) so re-editing in collection does not change project
+                      const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
+                      const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
+                      const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
                       const productWithEdits = edits ? { ...product, edits } : product;
+                      const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+                      const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
+                      const previewProduct = {
+                        ...product,
+                        editedImage: editedImage || null,
+                        configuratorImageUrl: baseImg || product.configuratorImageUrl || product.baseImageUrl,
+                        baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
+                      };
                       return (
                         <div key={`${product._instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
                           <div className="mb-4">
-                            <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-violet-600 transition-colors">
-                              {product.name}
-                            </h4>
+                            <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-violet-600 transition-colors">{product.name}</h4>
                             <p className="text-sm text-gray-600">{product.description}</p>
                           </div>
-
-                          {/* Visual Preview of Edited Product */}
                           <div className="mb-4 bg-white rounded-lg p-2 border border-gray-200">
-                            <EditedProductPreview
-                              product={product}
-                              edits={edits}
-                              width={280}
-                              height={180}
-                            />
+                            <EditedProductPreview key={`preview_${product._instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
                           </div>
-
-                          {/* Action: Add to PDF only (configurator is only in Collection tab) */}
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
+                            <button onClick={() => handleExportSingleProductPdf(project, productWithEdits)} className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors" title="Export this product PDF">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                            </button>
+                            <button onClick={() => handleAddProductToPdf(productWithEdits)} className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors" title="Add to PDF list">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                            </button>
                             <button
-                              onClick={() => handleAddProductToPdf(productWithEdits)}
-                              className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors"
-                              title="Add to PDF"
+                              onClick={() => handleRemoveProduct(project.id, product)}
+                              className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+                              title="Remove from project"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                              </svg>
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
-
-                          {/* Edit Status Badge */}
-                          {edits && (
-                            <div className="mt-2 text-xs text-green-600 font-medium flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Edited ({edits.elements?.length || 0} elements)
-                            </div>
-                          )}
                         </div>
                       );
                     })}
@@ -989,16 +1116,16 @@ const PDFConfigurationsContent = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="text-center mb-12">
-        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl mb-4 shadow-xl">
-          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-xl mb-3 shadow-lg">
+          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h2 className="text-4xl font-bold text-gray-900 mb-2">
+        <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600 mb-1">
           Exported projects
         </h2>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="text-sm text-gray-600 max-w-2xl mx-auto">
           Projects you have exported to PDF. Re-export any time with the latest configuration.
         </p>
       </div>

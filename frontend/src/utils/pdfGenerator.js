@@ -101,6 +101,31 @@ function drawElementOnContext(ctx, element, loadedImages, imageElements) {
       ctx.textBaseline = "top";
       ctx.fillText(element.text || element.emoji || "", x, y);
     });
+  } else if (element.type === "mdiIcon" && element.pathData) {
+    drawWithRotation(() => {
+      const iconW = element.width ?? 34;
+      const iconH = element.height ?? 34;
+      const sx = iconW / 24;
+      const sy = iconH / 24;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(sx, sy);
+      if (typeof Path2D !== "undefined") {
+        const p = new Path2D(element.pathData);
+        const fillColor = element.fill ?? element.color ?? "#111827";
+        const strokeColor = element.stroke ?? "transparent";
+        if (fillColor && fillColor !== "transparent") {
+          ctx.fillStyle = fillColor;
+          ctx.fill(p);
+        }
+        if (strokeColor && strokeColor !== "transparent") {
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = Math.max(0.5, (element.strokeWidth ?? 1) / Math.max(sx, sy));
+          ctx.stroke(p);
+        }
+      }
+      ctx.restore();
+    });
   } else if (element.type === "image" && element.src) {
     const imgIndex = imageElements.indexOf(element);
     if (imgIndex >= 0 && loadedImages[imgIndex]) {
@@ -183,9 +208,11 @@ function drawElementOnContext(ctx, element, loadedImages, imageElements) {
   }
 }
 
-// Thumbnail size for product images in PDF (smaller = less memory and file size)
-const PDF_PRODUCT_THUMB_WIDTH = 120;
-const PDF_PRODUCT_THUMB_HEIGHT = 90;
+// Product image size in PDF (larger for better visibility; each product in fixed section)
+const PDF_PRODUCT_THUMB_WIDTH = 200;
+const PDF_PRODUCT_THUMB_HEIGHT = 150;
+// Fixed row height per product (mm) for consistent layout
+const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 140;
 // JPEG quality for embedded images (0.75–0.85 balances size and quality)
 const PDF_JPEG_QUALITY = 0.82;
 
@@ -213,22 +240,35 @@ const renderEditedProduct = async (
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
 
-  const originalImageUrl = product.baseImageUrl || product.image;
+  // Prefer configurator image so PDF matches the edited/configurator view
+  const originalImageUrl =
+    product.configuratorImageUrl || product.baseImageUrl || product.image;
+  if (!originalImageUrl || typeof originalImageUrl !== "string") {
+    console.warn("[PDF] renderEditedProduct: no base image URL for product", product?.id ?? product?._instanceId);
+  }
   try {
     const baseImg = await loadImage(originalImageUrl);
-    ctx.drawImage(baseImg, 0, 0, w, h);
+    const scaleX = w / EDITOR_CANVAS_WIDTH;
+    const scaleY = h / EDITOR_CANVAS_HEIGHT;
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
+    // Draw base image fitted in editor space (800x600) to avoid distortion
+    const iw = baseImg.naturalWidth || baseImg.width || EDITOR_CANVAS_WIDTH;
+    const ih = baseImg.naturalHeight || baseImg.height || EDITOR_CANVAS_HEIGHT;
+    const fitScale = Math.min(EDITOR_CANVAS_WIDTH / iw, EDITOR_CANVAS_HEIGHT / ih);
+    const drawW = iw * fitScale;
+    const drawH = ih * fitScale;
+    const bx = (EDITOR_CANVAS_WIDTH - drawW) / 2;
+    const by = (EDITOR_CANVAS_HEIGHT - drawH) / 2;
+    ctx.drawImage(baseImg, 0, 0, iw, ih, bx, by, drawW, drawH);
     if (product.edits?.elements?.length > 0) {
       const imageElements = product.edits.elements.filter((el) => el.type === "image" && el.src);
       const loadedImages = await Promise.all(imageElements.map((el) => loadImage(el.src)));
-      const scaleX = w / EDITOR_CANVAS_WIDTH;
-      const scaleY = h / EDITOR_CANVAS_HEIGHT;
-      ctx.save();
-      ctx.scale(scaleX, scaleY);
       product.edits.elements.forEach((element) => {
         drawElementOnContext(ctx, element, loadedImages, imageElements);
       });
-      ctx.restore();
     }
+    ctx.restore();
     if (!ensureCanvasReady(canvas)) throw new Error("[PDF] Edited product canvas has invalid dimensions");
     const mimeType = asJpeg ? "image/jpeg" : "image/png";
     const dataUrl = asJpeg ? canvas.toDataURL(mimeType, jpegQuality) : canvas.toDataURL(mimeType);
@@ -384,7 +424,7 @@ export const generateProductPDF = async (products, options = {}) => {
       projectName,
       user,
       filenamePrefix = "Wireeo-Customer-Report",
-      companyName: companyNameOption = "WIREEO",
+      companyName: companyNameOption = "",
     } = options || {};
 
     const pdf = new jsPDF({
@@ -406,6 +446,49 @@ export const generateProductPDF = async (products, options = {}) => {
       el.style.lineHeight = "1.4";
       parent.appendChild(el);
       return el;
+    };
+
+    const addBrandHeader = (parent) => {
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "flex";
+      wrapper.style.alignItems = "center";
+      wrapper.style.justifyContent = "space-between";
+      wrapper.style.marginBottom = "20px";
+
+      const left = document.createElement("div");
+      left.style.display = "flex";
+      left.style.alignItems = "center";
+      left.style.gap = "12px";
+
+      const logo = document.createElement("img");
+      logo.src = `${window.location.origin}/assets/Logowireeo.png`;
+      logo.alt = "Wireeo";
+      logo.style.height = "40px";
+      logo.style.width = "auto";
+      logo.style.maxWidth = "160px";
+      logo.style.objectFit = "contain";
+      logo.onerror = () => {
+        logo.style.display = "none";
+      };
+      left.appendChild(logo);
+
+      const title = document.createElement("div");
+      title.textContent = companyNameOption;
+      title.style.fontSize = "18px";
+      title.style.fontWeight = "700";
+      title.style.letterSpacing = "0.06em";
+      title.style.color = "#1f2937";
+      left.appendChild(title);
+
+      const right = document.createElement("div");
+      right.textContent = "Customer Report";
+      right.style.fontSize = "11px";
+      right.style.fontWeight = "600";
+      right.style.color = "#6b7280";
+
+      wrapper.appendChild(left);
+      wrapper.appendChild(right);
+      parent.appendChild(wrapper);
     };
 
     const footerLegal = "The current terms and conditions of sale and delivery can always be found on our website at: wireeo.com/terms";
@@ -444,7 +527,7 @@ export const generateProductPDF = async (products, options = {}) => {
     const page1 = createPageWrapper();
     page1.style.padding = "40px 50px 50px";
 
-    addText(page1, companyNameOption, 18, "#1f2937", 20);
+    addBrandHeader(page1);
     addText(page1, "Customer:", 10, "#6b7280", 2);
     addText(page1, user?.name || user?.companyName || "—", 12, "#1f2937", 2);
     if (user?.companyName && user?.name) addText(page1, user.companyName, 11, "#374151", 2);
@@ -482,26 +565,33 @@ export const generateProductPDF = async (products, options = {}) => {
     safeProducts.forEach((product, idx) => {
       const tr = document.createElement("tr");
       tr.style.borderBottom = "1px solid #e5e7eb";
+      tr.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
       const imgTd = document.createElement("td");
-      imgTd.style.padding = "8px";
+      imgTd.style.padding = "12px";
       imgTd.style.verticalAlign = "middle";
-      imgTd.style.width = "72px";
+      imgTd.style.width = "120px";
+      imgTd.style.minWidth = "120px";
+      imgTd.style.boxSizing = "border-box";
       const thumbUrl = productThumbUrls[idx];
       if (thumbUrl) {
         const img = document.createElement("img");
         img.src = thumbUrl;
         img.alt = product?.name || "";
         img.loading = "eager";
-        img.style.width = "64px";
-        img.style.height = "48px";
+        img.style.width = "100px";
+        img.style.height = "75px";
+        img.style.minWidth = "100px";
+        img.style.minHeight = "75px";
         img.style.objectFit = "contain";
         img.style.display = "block";
         img.style.backgroundColor = "#f3f4f6";
         imgTd.appendChild(img);
       } else {
         const placeholder = document.createElement("div");
-        placeholder.style.width = "64px";
-        placeholder.style.height = "48px";
+        placeholder.style.width = "100px";
+        placeholder.style.height = "75px";
+        placeholder.style.minWidth = "100px";
+        placeholder.style.minHeight = "75px";
         placeholder.style.backgroundColor = "#f3f4f6";
         placeholder.style.display = "flex";
         placeholder.style.alignItems = "center";
@@ -514,19 +604,22 @@ export const generateProductPDF = async (products, options = {}) => {
       tr.appendChild(imgTd);
       const itemNo = document.createElement("td");
       itemNo.style.padding = "12px";
-      itemNo.style.verticalAlign = "top";
+      itemNo.style.verticalAlign = "middle";
+      itemNo.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
       itemNo.textContent = product?.name || product?.sku || "—";
       tr.appendChild(itemNo);
       const desc = document.createElement("td");
       desc.style.padding = "12px";
-      desc.style.verticalAlign = "top";
+      desc.style.verticalAlign = "middle";
+      desc.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
+      const cfg = product?.edits?.configuration || {};
       const descLines = [
         product?.name || "—",
         product?.description || "",
-        "Individual labelling:",
-        "Floor:",
-        "Room:",
-        "Processing: Print",
+        `Individual labelling: ${cfg.individualLabeling || cfg.individualLabel || "—"}`,
+        `Floor: ${cfg.floor || "—"}`,
+        `Room: ${cfg.room || "—"}`,
+        `Processing: ${cfg.processingType || "Print"}`,
         "1x incl. Processing fee",
         `Filename: ${product?.sku || product?.id || "—"}`,
         "1x",
@@ -539,7 +632,8 @@ export const generateProductPDF = async (products, options = {}) => {
       tr.appendChild(desc);
       const piece = document.createElement("td");
       piece.style.padding = "12px";
-      piece.style.verticalAlign = "top";
+      piece.style.verticalAlign = "middle";
+      piece.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
       piece.textContent = "1x";
       tr.appendChild(piece);
       tbody1.appendChild(tr);
@@ -562,7 +656,7 @@ export const generateProductPDF = async (products, options = {}) => {
     const page2 = createPageWrapper();
     page2.style.padding = "40px 50px 50px";
 
-    addText(page2, companyNameOption, 18, "#1f2937", 20);
+    addBrandHeader(page2);
     addText(page2, `Configuration number: ${configNumber}`, 11, "#1f2937", 2);
     addText(page2, `Project name: ${projectName || "—"}`, 11, "#1f2937", 2);
     addText(page2, `Date: ${reportDate}`, 11, "#1f2937", 20);
@@ -590,11 +684,12 @@ export const generateProductPDF = async (products, options = {}) => {
     safeProducts.forEach((product, idx) => {
       const tr = document.createElement("tr");
       tr.style.borderBottom = "1px solid #e5e7eb";
+      const cfg = product?.edits?.configuration || {};
       const cells = [
         product?.name || product?.sku || "—",
-        String(idx + 1).padStart(2, "0"),
+        `${String(idx + 1).padStart(2, "0")} | ${cfg.individualLabeling || "No label"} | Floor ${cfg.floor || "—"} | ${cfg.room || "—"}`,
         product?.category || "—",
-        "1x",
+        `${cfg.quantity || 1}x`,
         "1x",
         product?.sku || product?.id || "—",
       ];

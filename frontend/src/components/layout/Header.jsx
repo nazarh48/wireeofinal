@@ -43,7 +43,7 @@ const Header = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center group">
-            <img src="/assets/name.png" alt="Wireeo" className="h-7 object-contain transition-transform duration-300 group-hover:scale-110" />
+            <img src="/assets/Logowireeo.png" alt="Wireeo" className="h-12 object-contain transition-transform duration-300 group-hover:scale-110" />
           </Link>
 
           {/* Desktop Navigation */}

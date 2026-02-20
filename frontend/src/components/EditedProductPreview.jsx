@@ -1,24 +1,47 @@
 import { Stage, Layer, Image, Text, Rect, Circle, Line, Path } from 'react-konva';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
 
 const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => {
   const [images, setImages] = useState({});
   const [baseImage, setBaseImage] = useState(null);
+  const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
+  const containerRef = useRef(null);
+  const [resolvedWidth, setResolvedWidth] = useState(width || 300);
 
-  // When editedImage is present (exact baked bitmap), show it so preview matches PDF
+  // Keep edited image as fallback only; render from elements first to avoid editor-grid snapshots.
   const editedImageUrl = product?.editedImage?.value || null;
+  const hasElements = Array.isArray(edits?.elements) && edits.elements.length > 0;
+
+  // Use configurator image as base so preview matches what was edited in the configurator
+  const baseImageUrl = product?.configuratorImageUrl || product?.baseImageUrl;
 
   useEffect(() => {
     if (editedImageUrl) return;
-    if (product?.baseImageUrl) {
+    let cancelled = false;
+    if (baseImageUrl) {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
-      img.src = product.baseImageUrl;
+      img.src = baseImageUrl;
       img.onload = () => {
-        setBaseImage(img);
+        if (!cancelled && img.src) {
+          setBaseImage(img);
+          setBaseImageSize({
+            width: img.naturalWidth || img.width || 0,
+            height: img.naturalHeight || img.height || 0,
+          });
+        }
       };
+    } else {
+      setBaseImage(null);
+      setBaseImageSize({ width: 0, height: 0 });
     }
+    return () => { cancelled = true; setBaseImage(null); setBaseImageSize({ width: 0, height: 0 }); };
+  }, [editedImageUrl, baseImageUrl]);
 
+  useEffect(() => {
     if (edits?.elements) {
       edits.elements
         .filter(el => el.type === 'image' && el.src)
@@ -33,7 +56,21 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
           }
         });
     }
-  }, [product, edits, editedImageUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [edits]);
+
+  useEffect(() => {
+    if (width) {
+      setResolvedWidth(width);
+      return;
+    }
+    if (!containerRef.current || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const measured = Math.max(1, Math.floor(entries?.[0]?.contentRect?.width || 0));
+      if (measured) setResolvedWidth(measured);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [width]);
 
   const renderElement = (element) => {
     const x = element.x ?? 0;
@@ -46,19 +83,29 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     const fill = element.fill ?? 'transparent';
 
     if (element.type === 'text') {
+      const fontWeight = element.fontWeight || 'normal';
+      const fontStyle = element.fontStyle || 'normal';
+      const mergedFontStyle = fontWeight === 'bold' && fontStyle === 'italic'
+        ? 'bold italic'
+        : fontWeight === 'bold'
+          ? 'bold'
+          : fontStyle === 'italic'
+            ? 'italic'
+            : 'normal';
       return (
         <Text
           key={element.id}
           text={element.text || ''}
           fontSize={element.fontSize || 24}
           fontFamily={element.fontFamily || 'Arial'}
-          fontStyle={element.fontWeight || 'normal'}
+          fontStyle={mergedFontStyle}
           fill={element.color || '#000000'}
           x={x}
           y={y}
           width={element.width ?? 200}
           height={element.height ?? 50}
           rotation={rot}
+          align={element.align || 'left'}
         />
       );
     }
@@ -77,6 +124,24 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
           rotation={rot}
           align="center"
           verticalAlign="middle"
+        />
+      );
+    }
+    if (element.type === 'mdiIcon' && element.pathData) {
+      const iconW = element.width ?? 34;
+      const iconH = element.height ?? 34;
+      return (
+        <Path
+          key={element.id}
+          data={element.pathData}
+          x={x}
+          y={y}
+          scaleX={iconW / 24}
+          scaleY={iconH / 24}
+          rotation={rot}
+          fill={element.fill ?? '#111827'}
+          stroke={element.stroke ?? 'transparent'}
+          strokeWidth={element.strokeWidth ?? 1}
         />
       );
     }
@@ -166,9 +231,16 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     return null;
   };
 
-  if (editedImageUrl) {
+  const viewWidth = Math.max(1, width || resolvedWidth || 300);
+  const viewHeight = Math.max(1, height || 200);
+
+  if (editedImageUrl && !hasElements) {
     return (
-      <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ width, height }}>
+      <div
+        ref={containerRef}
+        className="bg-gray-100 rounded-lg overflow-hidden"
+        style={{ width: width || '100%', height: viewHeight }}
+      >
         <img
           src={editedImageUrl}
           alt={product?.name || 'Edited'}
@@ -178,14 +250,18 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     );
   }
 
-  if (!edits || !edits.elements || edits.elements.length === 0) {
+  if (!hasElements) {
     return (
-      <div className="bg-gray-100 rounded-lg overflow-hidden" style={{ width, height }}>
+      <div
+        ref={containerRef}
+        className="bg-gray-100 rounded-lg overflow-hidden"
+        style={{ width: width || '100%', height: viewHeight }}
+      >
         {baseImage ? (
           <img
-            src={product?.baseImageUrl}
+            src={baseImageUrl}
             alt={product?.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -196,24 +272,35 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     );
   }
 
-  // Same coordinate space as editor (800x600) so element positions and rectangle overlay match
-  const canvasWidth = 800;
-  const canvasHeight = 600;
-  const scaleX = width / canvasWidth;
-  const scaleY = height / canvasHeight;
+  // Same coordinate space as editor (800x600) so element positions match; base image fitted to avoid distortion
+  const scale = Math.min(viewWidth / CANVAS_WIDTH, viewHeight / CANVAS_HEIGHT);
+  const offsetX = (viewWidth - CANVAS_WIDTH * scale) / 2;
+  const offsetY = (viewHeight - CANVAS_HEIGHT * scale) / 2;
+
+  const iw = baseImageSize.width || baseImage?.width || CANVAS_WIDTH;
+  const ih = baseImageSize.height || baseImage?.height || CANVAS_HEIGHT;
+  const fitScale = Math.min(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih);
+  const drawW = iw * fitScale;
+  const drawH = ih * fitScale;
+  const baseX = (CANVAS_WIDTH - drawW) / 2;
+  const baseY = (CANVAS_HEIGHT - drawH) / 2;
 
   return (
-    <div className="bg-white rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm" style={{ width, height }}>
-      <Stage width={width} height={height} scaleX={scaleX} scaleY={scaleY}>
-        <Layer>
-          {/* Base product image */}
+    <div
+      ref={containerRef}
+      className="bg-white rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm"
+      style={{ width: width || '100%', height: viewHeight }}
+    >
+      <Stage width={viewWidth} height={viewHeight}>
+        <Layer scaleX={scale} scaleY={scale} x={offsetX} y={offsetY}>
+          {/* Base product image – fitted to preserve aspect ratio (no distortion) */}
           {baseImage && (
             <Image
               image={baseImage}
-              x={0}
-              y={0}
-              width={canvasWidth}
-              height={canvasHeight}
+              x={baseX}
+              y={baseY}
+              width={drawW}
+              height={drawH}
               listening={false}
             />
           )}

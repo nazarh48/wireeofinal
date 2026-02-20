@@ -22,9 +22,21 @@ function toProductFile(f, dir, customLabel) {
 
 export async function create(req, res, next) {
   try {
-    const { name, description, range, baseImageUrl, isConfigurable, status, featured } = req.body;
+    const {
+      name,
+      productCode,
+      description,
+      technicalDetails,
+      range,
+      baseImageUrl,
+      configuratorImageUrl,
+      isConfigurable,
+      status,
+      featured,
+    } = req.body;
     const r = await Range.findById(range);
     if (!r) return res.status(400).json({ success: false, message: "Range not found" });
+    // Treat missing/undefined/false/0/"0"/"false" as non-configurable so product shows on Products page
     const boolConfigurable =
       isConfigurable === true ||
       isConfigurable === "true" ||
@@ -33,15 +45,31 @@ export async function create(req, res, next) {
     const productType = boolConfigurable ? "configurable" : "normal";
 
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
+    const configuratorFile = Array.isArray(req.files?.configuratorImage) && req.files.configuratorImage[0]
+      ? req.files.configuratorImage[0]
+      : null;
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
     const images = imageFiles.map((f) => toProductFile(f, "products"));
-    const primaryUrl = images[0]?.url || baseImageUrl || "";
-    const downloadableFiles = fileFiles.map((f) => toProductFile(f, "product-files"));
+    const configuratorUrl = configuratorFile ? toProductFile(configuratorFile, "products").url : (configuratorImageUrl || "");
+    const primaryUrl = images[0]?.url || baseImageUrl || configuratorUrl || "";
+    let fileLabels = [];
+    if (typeof req.body.fileLabels === "string" && req.body.fileLabels.trim()) {
+      try {
+        const parsed = JSON.parse(req.body.fileLabels);
+        if (Array.isArray(parsed)) fileLabels = parsed;
+      } catch (_) {}
+    }
+    const downloadableFiles = fileFiles.map((f, i) =>
+      toProductFile(f, "product-files", fileLabels[i]),
+    );
     const product = await Product.create({
       name,
+      productCode: productCode || "",
       description: description || "",
+      technicalDetails: technicalDetails || "",
       range,
       baseImageUrl: primaryUrl,
+      configuratorImageUrl: configuratorUrl,
       images,
       isConfigurable: !!boolConfigurable,
       productType,
@@ -127,17 +155,36 @@ function parseBodyFiles(bodyFiles) {
 
 export async function update(req, res, next) {
   try {
-    const { name, description, range, baseImageUrl, isConfigurable, status, featured, downloadableFiles: bodyFilesRaw } = req.body;
+    const {
+      name,
+      productCode,
+      description,
+      technicalDetails,
+      range,
+      baseImageUrl,
+      configuratorImageUrl,
+      isConfigurable,
+      status,
+      featured,
+      downloadableFiles: bodyFilesRaw,
+    } = req.body;
     const bodyFiles = parseBodyFiles(bodyFilesRaw);
     if (range !== undefined) {
       const r = await Range.findById(range);
       if (!r) return res.status(400).json({ success: false, message: "Range not found" });
     }
+    const configuratorFile = Array.isArray(req.files?.configuratorImage) && req.files.configuratorImage[0]
+      ? req.files.configuratorImage[0]
+      : null;
     const updates = {};
     if (name !== undefined) updates.name = name;
+    if (productCode !== undefined) updates.productCode = productCode;
     if (description !== undefined) updates.description = description;
+    if (technicalDetails !== undefined) updates.technicalDetails = technicalDetails;
     if (range !== undefined) updates.range = range;
     if (baseImageUrl !== undefined) updates.baseImageUrl = baseImageUrl;
+    if (configuratorFile) updates.configuratorImageUrl = toProductFile(configuratorFile, "products").url;
+    else if (configuratorImageUrl !== undefined) updates.configuratorImageUrl = configuratorImageUrl;
     if (isConfigurable !== undefined) {
       const boolConfigurable =
         isConfigurable === true ||

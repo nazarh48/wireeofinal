@@ -12,7 +12,9 @@ const statusOptions = [
 
 function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [productCode, setProductCode] = useState(initial?.productCode ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [technicalDetails, setTechnicalDetails] = useState(initial?.technicalDetails ?? "");
   const [rangeId, setRangeId] = useState(initial?.rangeId ?? (ranges[0]?.id ?? ""));
   const [configurable, setConfigurable] = useState(!!initial?.configurable);
   const [status, setStatus] = useState(initial?.status ?? "active");
@@ -23,13 +25,20 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
     if (imgs.length) return imgs;
     return initial?.baseImageUrl ? [initial.baseImageUrl] : [];
   });
+  const [configuratorImageFile, setConfiguratorImageFile] = useState(null);
+  const [configuratorPreview, setConfiguratorPreview] = useState(initial?.configuratorImageUrl ?? "");
+  const [existingAttachments, setExistingAttachments] = useState(() =>
+    Array.isArray(initial?.downloadableFiles) ? initial.downloadableFiles : []
+  );
+  const [removedAttachmentIndices, setRemovedAttachmentIndices] = useState(new Set());
+  const [newAttachmentFiles, setNewAttachmentFiles] = useState([]);
 
   useEffect(() => {
     return () => {
-      // revoke object URLs
       previews.forEach((u) => {
         if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
       });
+      if (typeof configuratorPreview === "string" && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -46,17 +55,26 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       setError("Please select a range.");
       return;
     }
-    if (!initial && imagesFiles.length === 0) {
-      setError("Please upload at least one product image.");
+    const hasGallery = imagesFiles.length > 0 || (initial && Array.isArray(initial.images) && initial.images.length > 0);
+    const hasConfigurator = !!configuratorImageFile || !!(initial?.configuratorImageUrl);
+    if (!initial && !hasGallery && !hasConfigurator) {
+      setError("Please upload at least one gallery image or configurator image.");
       return;
     }
+    const keptAttachments = existingAttachments.filter((_, i) => !removedAttachmentIndices.has(i));
+    const downloadFiles = newAttachmentFiles.map(({ file, label }) => ({ file, label: label || file?.name || "Download" }));
     onSubmit({
       name: t,
+      productCode: productCode.trim(),
       description: description.trim(),
+      technicalDetails: technicalDetails.trim(),
       rangeId,
       configurable,
       status,
       imagesFiles,
+      configuratorImageFile: configuratorImageFile || undefined,
+      downloadableFiles: initial ? keptAttachments : undefined,
+      downloadFiles: downloadFiles.length ? downloadFiles : undefined,
     });
   };
 
@@ -76,8 +94,18 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow"
           placeholder="e.g. Cable XYZ 2.5mm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Product code</label>
+        <input
+          type="text"
+          value={productCode}
+          onChange={(e) => setProductCode(e.target.value)}
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow"
+          placeholder="e.g. iX3-001"
         />
       </div>
       <div>
@@ -86,8 +114,18 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none transition-shadow"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none transition-shadow"
           placeholder="Short product description"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Technical details</label>
+        <textarea
+          value={technicalDetails}
+          onChange={(e) => setTechnicalDetails(e.target.value)}
+          rows={4}
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none transition-shadow"
+          placeholder="Technical specifications, dimensions, etc."
         />
       </div>
       <div>
@@ -95,7 +133,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
         <select
           value={rangeId}
           onChange={(e) => setRangeId(e.target.value)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-shadow"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-shadow"
         >
           <option value="">Select range</option>
           {ranges.map((r) => (
@@ -104,8 +142,44 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
         </select>
       </div>
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Product images</label>
-        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors">
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (for configurator)</label>
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
+          <span className="text-sm text-slate-500 mt-1">Click to upload configurator image</span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (configuratorPreview && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
+              setConfiguratorImageFile(file || null);
+              setConfiguratorPreview(file ? URL.createObjectURL(file) : (initial?.configuratorImageUrl ?? ""));
+            }}
+          />
+        </label>
+        {(configuratorPreview || configuratorImageFile) && (
+          <div className="mt-3 flex items-start gap-2">
+            <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
+              <img src={configuratorPreview} alt="" className="w-full h-full object-cover" />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (configuratorPreview && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
+                setConfiguratorImageFile(null);
+                setConfiguratorPreview(initial?.configuratorImageUrl ?? "");
+              }}
+              className="mt-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-slate-500">Optional. Used in the graphic configurator.</p>
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (for gallery)</label>
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
           <span className="text-sm text-slate-500 mt-1">Click to upload or drag and drop</span>
           <input
             type="file"
@@ -118,20 +192,38 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
                 if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
               });
               setImagesFiles(files);
-              setPreviews(files.map((f) => URL.createObjectURL(f)));
+              setPreviews(files.length ? files.map((f) => URL.createObjectURL(f)) : (Array.isArray(initial?.images) ? initial.images : initial?.baseImageUrl ? [initial.baseImageUrl] : []));
             }}
           />
         </label>
         {previews.length > 0 && (
           <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {previews.slice(0, 8).map((src, idx) => (
-              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+            {previews.slice(0, 10).map((src, idx) => (
+              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group">
                 <img src={src} alt="" className="w-full h-full object-cover" />
+                {imagesFiles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextFiles = imagesFiles.filter((_, i) => i !== idx);
+                      const nextPreviews = nextFiles.length
+                        ? nextFiles.map((f) => URL.createObjectURL(f))
+                        : (Array.isArray(initial?.images) && initial.images.length ? initial.images : initial?.baseImageUrl ? [initial.baseImageUrl] : []);
+                      if (typeof src === "string" && src.startsWith("blob:")) URL.revokeObjectURL(src);
+                      setImagesFiles(nextFiles);
+                      setPreviews(nextPreviews);
+                    }}
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl text-white text-sm font-medium hover:bg-red-500/70"
+                    aria-label="Remove image"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-500">Up to 10 images. When editing, leaving unchanged keeps existing images.</p>
+        <p className="mt-2 text-xs text-slate-500">Up to 10 images for product page gallery. You can remove an image before saving. When editing, leaving unchanged keeps existing images.</p>
       </div>
       <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
         <input
@@ -139,7 +231,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           id="configurable"
           checked={configurable}
           onChange={(e) => setConfigurable(e.target.checked)}
-          className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+          className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
         />
         <label htmlFor="configurable" className="text-sm font-medium text-slate-700">
           Configurable (use in configurator, collections, projects, PDF)
@@ -150,18 +242,76 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white transition-shadow"
+          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-shadow"
         >
           {statusOptions.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
       </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Attachment files</label>
+        <p className="text-xs text-slate-500 mb-2">PDFs, datasheets, etc. Shown on the product page.</p>
+        {existingAttachments.filter((_, i) => !removedAttachmentIndices.has(i)).length > 0 && (
+          <ul className="mb-3 space-y-2">
+            {existingAttachments.map((att, i) => {
+              if (removedAttachmentIndices.has(i)) return null;
+              return (
+                <li key={i} className="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                  <span className="text-sm text-slate-700 truncate">{att.label || att.originalName || att.filename}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRemovedAttachmentIndices((s) => new Set([...s, i]))}
+                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {newAttachmentFiles.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-2 mb-2">
+            <input
+              type="text"
+              placeholder="Label (optional)"
+              value={item.label}
+              onChange={(e) => {
+                const next = [...newAttachmentFiles];
+                next[idx] = { ...next[idx], label: e.target.value };
+                setNewAttachmentFiles(next);
+              }}
+              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+            <span className="text-sm text-slate-500 truncate max-w-[120px]">{item.file?.name}</span>
+            <button
+              type="button"
+              onClick={() => setNewAttachmentFiles((a) => a.filter((_, i) => i !== idx))}
+              className="text-red-600 hover:text-red-700 text-sm"
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+        <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
+          <span className="text-sm text-slate-500">Add attachment file</span>
+          <input
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) setNewAttachmentFiles((a) => [...a, { file, label: "" }]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
       <div className="flex gap-3 pt-2 border-t border-slate-200">
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          className="flex-1 px-4 py-3 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors"
         >
           {loading ? "Saving…" : initial ? "Update" : "Create"}
         </button>
@@ -220,7 +370,7 @@ export default function ProductsManagement() {
     try {
       await updateProduct(editing.id, {
         ...payload,
-        downloadableFiles: editing.downloadableFiles || [],
+        downloadableFiles: payload.downloadableFiles ?? editing.downloadableFiles ?? [],
       });
       logActivity({ type: "product_updated", label: `Product "${payload.name}" updated`, meta: { id: editing.id } });
       setEditing(null);
@@ -258,7 +408,7 @@ export default function ProductsManagement() {
         <button
           onClick={() => setShowCreate(true)}
           disabled={activeRanges.length === 0}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <IconPlus className="w-5 h-5" />
           Add product
@@ -278,7 +428,7 @@ export default function ProductsManagement() {
             <button
               onClick={() => setShowCreate(true)}
               disabled={activeRanges.length === 0}
-              className="text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
+              className="text-teal-600 hover:text-teal-700 font-medium disabled:opacity-50"
             >
               Create your first product
             </button>
@@ -305,11 +455,12 @@ export default function ProductsManagement() {
                       <p className="font-medium text-slate-900 truncate">{p.name}</p>
                       <p className="text-sm text-slate-500 truncate">{p.description || "—"}</p>
                       <div className="flex gap-2 mt-1 flex-wrap">
+                        {p.productCode && <span className="text-xs text-teal-600 font-medium">{p.productCode}</span>}
                         <span className="text-xs text-slate-400">{range?.name ?? "—"}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${p.configurable ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-600"}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded ${p.configurable ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-600"}`}>
                           {p.configurable ? "Configurable" : "Normal"}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${p.status === "active" ? "bg-emerald-100 text-emerald-800" : p.status === "draft" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded ${p.status === "active" ? "bg-teal-100 text-teal-800" : p.status === "draft" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
                           {p.status}
                         </span>
                       </div>
@@ -318,7 +469,7 @@ export default function ProductsManagement() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => setEditing(p)}
-                      className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                      className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
                       aria-label="Edit"
                     >
                       <IconPencil />

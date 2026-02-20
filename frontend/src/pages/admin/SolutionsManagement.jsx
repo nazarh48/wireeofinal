@@ -8,19 +8,40 @@ const statusOptions = [
   { value: "inactive", label: "Inactive" },
 ];
 
+function featuresToText(initial) {
+  const raw = initial?.features;
+  if (Array.isArray(raw)) return raw.join("\n");
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.join("\n");
+      }
+    } catch {
+      // not JSON, fall through
+    }
+    return raw;
+  }
+  return "";
+}
+
 function SolutionForm({ initial, onSubmit, onCancel, loading }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "");
   const [image, setImage] = useState(initial?.image ?? "");
-  const [featuresText, setFeaturesText] = useState(
-    Array.isArray(initial?.features) ? initial.features.join("\n") : ""
-  );
+  const [featuresText, setFeaturesText] = useState(featuresToText(initial));
   const [order, setOrder] = useState(initial?.order ?? 0);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [imageFiles, setImageFiles] = useState([]);
   const [fileFiles, setFileFiles] = useState([]);
   const [error, setError] = useState("");
+
+  // Keep textarea in sync when editing different solutions,
+  // and always convert any JSON-like value to plain text lines.
+  useEffect(() => {
+    setFeaturesText(featuresToText(initial));
+  }, [initial]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -104,6 +125,7 @@ function SolutionForm({ initial, onSubmit, onCancel, loading }) {
         <label className="block text-sm font-medium text-slate-700 mb-1">Additional images</label>
         <input
           type="file"
+          name="images"
           accept="image/*"
           multiple
           onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
@@ -114,6 +136,7 @@ function SolutionForm({ initial, onSubmit, onCancel, loading }) {
         <label className="block text-sm font-medium text-slate-700 mb-1">Downloadable files</label>
         <input
           type="file"
+          name="files"
           multiple
           onChange={(e) => setFileFiles(Array.from(e.target.files || []))}
           className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700"
@@ -231,7 +254,6 @@ export default function SolutionsManagement() {
   };
 
   const handleDelete = async (sol) => {
-    if (!window.confirm(`Delete "${sol.title}"?`)) return;
     setSubmitLoading(true);
     setError("");
     try {
@@ -276,35 +298,57 @@ export default function SolutionsManagement() {
           </div>
         ) : (
           <ul className="divide-y divide-slate-200">
-            {solutions.map((s) => (
-              <li key={s._id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                <div className="flex items-center gap-4">
-                  {(s.image || (Array.isArray(s.images) && s.images[0])) && (
-                    <img
-                      src={getImageUrl(s.image || (s.images && s.images[0] && (s.images[0].url || s.images[0])) || "")}
-                      alt=""
-                      className="w-16 h-16 object-cover rounded-lg border border-slate-200"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                  )}
-                  <div>
-                    <p className="font-medium text-slate-900">{s.title}</p>
-                    <p className="text-sm text-slate-500 line-clamp-1">{s.description || "—"}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
-                      {s.status}
-                    </span>
+            {solutions.map((s) => {
+              const firstImage =
+                Array.isArray(s.images) && s.images[0]
+                  ? (s.images[0].url || s.images[0])
+                  : null;
+              const imgSrc = getImageUrl(firstImage || s.image || "");
+
+              return (
+                <li key={s._id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
+                  <div className="flex items-center gap-4">
+                    {imgSrc && (
+                      <img
+                        src={imgSrc}
+                        alt=""
+                        className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                      />
+                    )}
+                    <div>
+                      <p className="font-medium text-slate-900">{s.title}</p>
+                      <p className="text-sm text-slate-500 line-clamp-1">{s.description || "—"}</p>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${
+                          s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setEditing(s)} className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg" aria-label="Edit">
-                    <IconPencil />
-                  </button>
-                  <button onClick={() => setDeleting(s)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" aria-label="Delete">
-                    <IconTrash />
-                  </button>
-                </div>
-              </li>
-            ))}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditing(s)}
+                      className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                      aria-label="Edit"
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      onClick={() => setDeleting(s)}
+                      className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      aria-label="Delete"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

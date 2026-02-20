@@ -30,6 +30,9 @@ const normalizeProduct = (product, edits = null) => {
   const normalized = {
     ...product,
     baseImageUrl: normalizeImageUrl(baseImageUrlRaw),
+    configuratorImageUrl: normalizeImageUrl(
+      product.configuratorImageUrl || baseImageUrlRaw,
+    ),
     images: normalizedImages,
     configurable: isConfigurableProduct(product),
   };
@@ -66,6 +69,25 @@ const useStore = create((set, get) => ({
         toast: {
           open: true,
           message: "Only configurable products can be added to the collection.",
+          actionLabel: null,
+          onAction: null,
+        },
+      });
+      return;
+    }
+    const productId = product.id ?? product._id;
+    const state = get();
+    const alreadyInPending = (state.pendingCollection || []).some(
+      (p) => (p.id ?? p._id) === productId
+    );
+    const alreadyInCollection = (state.collection || []).some(
+      (p) => (p.id ?? p._id) === productId
+    );
+    if (alreadyInPending || alreadyInCollection) {
+      set({
+        toast: {
+          open: true,
+          message: "This product is already in your collection. Use Duplicate in the Collection tab if you need another copy.",
           actionLabel: null,
           onAction: null,
         },
@@ -234,6 +256,26 @@ const useStore = create((set, get) => ({
             };
           }
           try {
+            if (instanceId) {
+              try {
+                const instanceRes = await apiService.canvas.getByInstance(instanceId);
+                const instanceEdit = instanceRes?.edit || instanceRes?.instanceEdit || null;
+                if (instanceEdit?.canvasData || instanceEdit?.editedImage) {
+                  return {
+                    ...product,
+                    edits: {
+                      elements: instanceEdit.canvasData || [],
+                      configuration: instanceEdit.layoutConfig || {},
+                    },
+                    editedImage: instanceEdit.editedImage || null,
+                  };
+                }
+                return product;
+              } catch {
+                // Keep instance edits isolated from product-level edits.
+                return product;
+              }
+            }
             const editRes = await apiService.canvas.getByProduct(product.id);
             if (editRes?.edit?.canvasData) {
               return {
@@ -242,6 +284,7 @@ const useStore = create((set, get) => ({
                   elements: editRes.edit.canvasData || [],
                   configuration: editRes.edit.layoutConfig || {},
                 },
+                editedImage: editRes.edit.editedImage || null,
               };
             }
           } catch (e) {
@@ -254,8 +297,45 @@ const useStore = create((set, get) => ({
         }),
       );
 
+      // Build updates: only add/update entries for instances that have edits (never remove any key).
+      const currentEdits = get().editsByInstanceId;
+      const nextEditsByInstanceId = { ...currentEdits };
+      collectWithEdits.forEach((item) => {
+        const instanceId = item?._instanceId;
+        if (!instanceId) return;
+        const hasElements =
+          Array.isArray(item?.edits?.elements) && item.edits.elements.length > 0;
+        const hasEditedImage = !!item?.editedImage;
+        const hasConfiguration =
+          item?.edits?.configuration &&
+          typeof item.edits.configuration === "object" &&
+          Object.keys(item.edits.configuration).length > 0;
+        const hasAnyEdits = hasElements || hasEditedImage || hasConfiguration;
+        if (!hasAnyEdits) return;
+        nextEditsByInstanceId[instanceId] = {
+          elements: item?.edits?.elements || [],
+          configuration: item?.edits?.configuration || {},
+          editedImage: item?.editedImage || null,
+          lastSaved: new Date().toISOString(),
+        };
+      });
+
+      // Never replace editsByInstanceId: merge with latest so every product keeps its edits (never remove editing from other products).
+      const latestEditsCollection = get().editsByInstanceId;
+      const allInstanceIds = new Set([
+        ...Object.keys(latestEditsCollection),
+        ...Object.keys(nextEditsByInstanceId),
+      ]);
+      const mergedCollectionEdits = {};
+      allInstanceIds.forEach((id) => {
+        mergedCollectionEdits[id] =
+          nextEditsByInstanceId[id] !== undefined
+            ? nextEditsByInstanceId[id]
+            : latestEditsCollection[id];
+      });
       set({
         collection: collectWithEdits,
+        editsByInstanceId: mergedCollectionEdits,
         collectionLoading: false,
         collectionError: null,
       });
@@ -288,29 +368,55 @@ const useStore = create((set, get) => ({
               const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
               if (instanceEdits) {
                 const normalized = normalizeProduct(p, instanceEdits);
+                const el = instanceEdits.elements;
+                const configuratorImageUrl = normalized?.configuratorImageUrl || normalized?.baseImageUrl || "";
+                const baseImageUrl = normalized?.baseImageUrl || normalized?.configuratorImageUrl || "";
                 return {
                   ...(typeof p === "object" ? normalized : {}),
                   id: p?._id ?? p?.id ?? p,
                   _instanceId: instanceId,
                   edits: {
-                    elements: instanceEdits.elements || [],
+                    elements: Array.isArray(el) ? el : (el?.elements || []),
                     configuration: instanceEdits.configuration || {},
                   },
                   editedImage: instanceEdits.editedImage || null,
+                  configuratorImageUrl,
+                  baseImageUrl,
                 };
               }
               const normalized = normalizeProduct(p, item.edits || {});
               let canvasEdits = item.edits || {};
+              let editedImage = null;
               if (!canvasEdits.elements) {
                 try {
-                  const editRes = await apiService.canvas.getByProduct(
-                    p?._id || p?.id,
-                  );
-                  if (editRes?.edit?.canvasData) {
-                    canvasEdits = {
-                      elements: editRes.edit.canvasData || [],
-                      configuration: editRes.edit.layoutConfig || {},
-                    };
+                  if (instanceId) {
+                    try {
+                      const instanceRes = await apiService.canvas.getByInstance(instanceId);
+                      const instanceEdit = instanceRes?.edit || instanceRes?.instanceEdit || null;
+                      if (instanceEdit?.canvasData || instanceEdit?.editedImage) {
+                        const raw = instanceEdit.canvasData;
+                        canvasEdits = {
+                          elements: Array.isArray(raw) ? raw : (raw?.elements || []),
+                          configuration: instanceEdit.layoutConfig || {},
+                        };
+                        editedImage = instanceEdit.editedImage || null;
+                      }
+                    } catch {
+                      // Keep instance edits isolated from product-level edits.
+                      canvasEdits = item.edits || {};
+                    }
+                  } else if (!canvasEdits.elements) {
+                    const editRes = await apiService.canvas.getByProduct(
+                      p?._id || p?.id,
+                    );
+                    if (editRes?.edit?.canvasData) {
+                      const raw = editRes.edit.canvasData;
+                      canvasEdits = {
+                        elements: Array.isArray(raw) ? raw : (raw?.elements || []),
+                        configuration: editRes.edit.layoutConfig || {},
+                      };
+                      editedImage = editRes.edit.editedImage || null;
+                    }
                   }
                 } catch (e) {
                   console.error(
@@ -319,11 +425,21 @@ const useStore = create((set, get) => ({
                   );
                 }
               }
+              const safeEdits = {
+                elements: Array.isArray(canvasEdits?.elements) ? canvasEdits.elements : [],
+                configuration: canvasEdits?.configuration || {},
+              };
+              // Ensure configurator image is always set so project shows the same base as configurator/edited view
+              const configuratorImageUrl = normalized?.configuratorImageUrl || normalized?.baseImageUrl || "";
+              const baseImageUrl = normalized?.baseImageUrl || normalized?.configuratorImageUrl || "";
               return {
                 ...(typeof p === "object" ? normalized : {}),
                 id: p?._id ?? p?.id ?? p,
                 _instanceId: instanceId,
-                edits: canvasEdits,
+                edits: safeEdits,
+                editedImage: editedImage || null,
+                configuratorImageUrl,
+                baseImageUrl,
               };
             }),
           ),
@@ -331,7 +447,51 @@ const useStore = create((set, get) => ({
         })),
       );
 
-      set({ projects, projectsLoading: false, projectsError: null });
+      // Build updates: only add/update entries for instances that have edits (never remove any key).
+      const currentEditsProjects = get().editsByInstanceId;
+      const nextEditsByInstanceIdProjects = { ...currentEditsProjects };
+      projects.forEach((project) => {
+        (project?.products || []).forEach((product) => {
+          const instanceId = product?._instanceId;
+          if (!instanceId) return;
+          const hasElements =
+            Array.isArray(product?.edits?.elements) &&
+            product.edits.elements.length > 0;
+          const hasEditedImage = !!product?.editedImage;
+          const hasConfiguration =
+            product?.edits?.configuration &&
+            typeof product.edits.configuration === "object" &&
+            Object.keys(product.edits.configuration).length > 0;
+          const hasAnyEdits = hasElements || hasEditedImage || hasConfiguration;
+          if (!hasAnyEdits) return;
+          nextEditsByInstanceIdProjects[instanceId] = {
+            elements: product?.edits?.elements || [],
+            configuration: product?.edits?.configuration || {},
+            editedImage: product?.editedImage || null,
+            lastSaved: new Date().toISOString(),
+          };
+        });
+      });
+
+      // Never replace editsByInstanceId: merge with latest so every product keeps its edits (never remove editing from other products).
+      const latestEdits = get().editsByInstanceId;
+      const allInstanceIdsProjects = new Set([
+        ...Object.keys(latestEdits),
+        ...Object.keys(nextEditsByInstanceIdProjects),
+      ]);
+      const mergedProjectsEdits = {};
+      allInstanceIdsProjects.forEach((id) => {
+        mergedProjectsEdits[id] =
+          nextEditsByInstanceIdProjects[id] !== undefined
+            ? nextEditsByInstanceIdProjects[id]
+            : latestEdits[id];
+      });
+      set({
+        projects,
+        editsByInstanceId: mergedProjectsEdits,
+        projectsLoading: false,
+        projectsError: null,
+      });
       return projects;
     } catch (e) {
       set({
@@ -457,57 +617,20 @@ const useStore = create((set, get) => ({
       return false;
     }
     try {
-      const state = get();
-      // Get original edits from instance (editsByInstanceId) or product-level fallback
-      const originalEdits = instanceId
-        ? state.editsByInstanceId[instanceId] || product.edits || null
-        : product.edits || null;
-
-      // Add product to collection (creates new instance via API)
-      await apiService.collections.add([product.id]);
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const updatedCollection = await get().fetchCollection();
-
-      const productInstances = updatedCollection.filter(
-        (item) => item.id === product.id,
-      );
-      if (productInstances.length === 0) {
-        get().showToast("Failed to find duplicated product.");
+      if (!instanceId) {
+        get().showToast("Could not duplicate: missing product instance id.");
         return false;
       }
-
-      const sortedInstances = productInstances.sort((a, b) => {
-        const aId = a._instanceId || "";
-        const bId = b._instanceId || "";
-        return bId.localeCompare(aId);
-      });
-      const newInstance = sortedInstances[0];
-
-      // Copy edits to new instance in editsByInstanceId (per-instance) so duplicate has its own copy
-      if (newInstance && originalEdits && originalEdits.elements) {
-        const deepCopiedEdits = {
-          elements: JSON.parse(JSON.stringify(originalEdits.elements || [])),
-          configuration: JSON.parse(
-            JSON.stringify(originalEdits.configuration || {}),
-          ),
-          lastSaved: new Date().toISOString(),
-        };
-        if (originalEdits.editedImage) {
-          deepCopiedEdits.editedImage = { ...originalEdits.editedImage };
-        }
-
-        set((s) => ({
-          editsByInstanceId: {
-            ...s.editsByInstanceId,
-            [newInstance._instanceId]: deepCopiedEdits,
-          },
-        }));
+      const res = await apiService.collections.duplicateItem(instanceId);
+      const duplicatedItem = res?.item || null;
+      const newInstanceId = res?.newInstanceId || duplicatedItem?.instanceId || null;
+      await get().fetchCollection();
+      if (!newInstanceId) {
+        get().showToast("Product duplicated, but new instance id was not returned.");
+        return true;
       }
-
       get().showToast(
-        "Product duplicated successfully with all edits preserved.",
+        "Product duplicated successfully as a separate item.",
       );
       return true;
     } catch (e) {
@@ -683,6 +806,35 @@ const useStore = create((set, get) => ({
       });
     }
   },
+  removeProductFromProject: async (projectId, instanceId) => {
+    if (!projectId || !instanceId) {
+      get().showToast("Could not remove product: missing project/product reference.");
+      return false;
+    }
+    try {
+      await apiService.projects.removeProduct({ projectId, instanceId });
+      await get().fetchProjects();
+      set({
+        toast: {
+          open: true,
+          message: "Product removed from project",
+          actionLabel: null,
+          onAction: null,
+        },
+      });
+      return true;
+    } catch (e) {
+      set({
+        toast: {
+          open: true,
+          message: e?.message || "Failed to remove product from project",
+          actionLabel: null,
+          onAction: null,
+        },
+      });
+      return false;
+    }
+  },
   deleteProject: async (projectId) => {
     try {
       await apiService.projects.remove(projectId);
@@ -809,11 +961,27 @@ const useStore = create((set, get) => ({
       if (instanceId) {
         existingEdits = state.editsByInstanceId[instanceId] || state.pendingEdits[instanceId] || null;
       }
-      if (!existingEdits) {
+      // For instance editing, never fall back to product-level edits.
+      // This keeps duplicated instances fully isolated.
+      if (!existingEdits && !instanceId) {
         existingEdits = state.productEdits[product?.id] || null;
       }
       const rawElements = existingEdits?.elements || [];
       const elements = normalizeElements(rawElements);
+      const existingCfg = existingEdits?.configuration || {};
+      const nextConfig = {
+        id:
+          existingCfg.id ||
+          `config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        productId: product?.id,
+        isValid: existingCfg.isValid || false,
+        lastModified: existingCfg.lastModified || null,
+        // Ensure editor form fields are reset per product/instance unless persisted.
+        processingType: existingCfg.processingType || "Colour printing",
+        individualLabeling: existingCfg.individualLabeling || "",
+        room: existingCfg.room || "",
+        floor: String(existingCfg.floor ?? "1"),
+      };
       return {
         configurator: {
           ...state.configurator,
@@ -825,15 +993,8 @@ const useStore = create((set, get) => ({
           activeTool: "select",
           history: [JSON.parse(JSON.stringify(elements))],
           historyIndex: 0,
-          configuration: {
-            ...state.configurator.configuration,
-            productId: product?.id,
-            id:
-              existingEdits?.configuration?.id ||
-              `config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            isValid: existingEdits?.configuration?.isValid || false,
-            lastModified: existingEdits?.configuration?.lastModified || null,
-          },
+          // Do not carry previous product configuration into a newly opened product.
+          configuration: nextConfig,
           validationErrors: [],
         },
       };
@@ -841,63 +1002,121 @@ const useStore = create((set, get) => ({
 
   // Save product edits. When instanceId is provided, save to editsByInstanceId (per-instance); otherwise to productEdits (per-product).
   // editedImageDataURL: optional base64 data URL from Konva stage export; stored so PDF uses exact edited image.
-  saveProductEdits: (productId, instanceId = null, editedImageDataURL = null) =>
-    set((state) => {
-      if (!productId || !state.configurator.product) return state;
+  saveProductEdits: async (productId, instanceId = null, editedImageDataURL = null) => {
+    const state = get();
+    if (!productId || !state.configurator.product) return false;
+    const existingInstanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
+    const existingProductEdits = !instanceId ? state.productEdits[productId] : null;
 
-      const edits = {
-        elements: [...state.configurator.elements],
-        configuration: { ...state.configurator.configuration },
-        lastSaved: new Date().toISOString(),
+    const edits = {
+      elements: [...state.configurator.elements],
+      configuration: { ...state.configurator.configuration },
+      lastSaved: new Date().toISOString(),
+    };
+    if (editedImageDataURL && editedImageDataURL.length <= 1_500_000) {
+      edits.editedImage = {
+        type: "base64",
+        value: editedImageDataURL,
+        updatedAt: edits.lastSaved,
       };
-      if (editedImageDataURL) {
-        edits.editedImage = {
-          type: "base64",
-          value: editedImageDataURL,
-          updatedAt: edits.lastSaved,
-        };
-      }
+    } else if (instanceId && existingInstanceEdits?.editedImage) {
+      edits.editedImage = existingInstanceEdits.editedImage;
+    } else if (!instanceId && existingProductEdits?.editedImage) {
+      edits.editedImage = existingProductEdits.editedImage;
+    }
 
-      if (instanceId) {
-        // Per-instance: store in editsByInstanceId; do NOT overwrite product-level so other instances stay independent.
-        const nextEditsByInstanceId = {
-          ...state.editsByInstanceId,
+    // Always update local state first for responsive UI.
+    if (instanceId) {
+      set((s) => ({
+        editsByInstanceId: {
+          ...s.editsByInstanceId,
           [instanceId]: edits,
-        };
-        // Persist to backend using instance-level endpoint
-        apiService.canvas
-          .saveInstance({
+        },
+      }));
+    } else {
+      set((s) => ({
+        productEdits: {
+          ...s.productEdits,
+          [productId]: edits,
+        },
+      }));
+    }
+
+    try {
+      if (instanceId) {
+        let saveRes;
+        try {
+          saveRes = await apiService.canvas.saveInstance({
             instanceId,
             productId,
             canvasData: edits.elements,
             textOverlays: edits.elements.filter((el) => el.type === "text"),
             layoutConfig: edits.configuration,
-            editedImage: edits.editedImage || null,
-          })
-          .catch((err) => {
-            console.error("Failed to save instance edits to backend:", err);
+            // Do not upload heavy editedImage snapshots to backend; it causes large payload failures.
+            editedImage: null,
           });
-        return { editsByInstanceId: nextEditsByInstanceId };
+        } catch (err) {
+          const status = err?.response?.status;
+          const message = `${err?.response?.data?.message || err?.message || ""}`.toLowerCase();
+          const isPayloadTooLarge =
+            status === 413 ||
+            message.includes("too large") ||
+            message.includes("entity too large") ||
+            message.includes("payload");
+          if (!isPayloadTooLarge) throw err;
+          saveRes = await apiService.canvas.saveInstance({
+            instanceId,
+            productId,
+            canvasData: edits.elements,
+            textOverlays: edits.elements.filter((el) => el.type === "text"),
+            layoutConfig: edits.configuration,
+            editedImage: null,
+          });
+        }
+        const persisted = saveRes?.edit || null;
+        if (persisted) {
+          const normalizedPersisted = {
+            elements: persisted.canvasData || edits.elements || [],
+            configuration: persisted.layoutConfig || edits.configuration || {},
+            editedImage: persisted.editedImage || edits.editedImage || null,
+            lastSaved: persisted.updatedAt || new Date().toISOString(),
+          };
+          set((s) => ({
+            editsByInstanceId: {
+              ...s.editsByInstanceId,
+              [instanceId]: normalizedPersisted,
+            },
+          }));
+        }
+        return true;
       }
 
-      // Legacy: per-product (no instanceId)
-      apiService.canvas
-        .save({
-          productId,
-          canvasData: edits.elements,
-          textOverlays: edits.elements.filter((el) => el.type === "text"),
-          layoutConfig: edits.configuration,
-        })
-        .catch((err) => {
-          console.error("Failed to save product edits to backend:", err);
-        });
-      return {
-        productEdits: {
-          ...state.productEdits,
-          [productId]: edits,
-        },
-      };
-    }),
+      const saveRes = await apiService.canvas.save({
+        productId,
+        canvasData: edits.elements,
+        textOverlays: edits.elements.filter((el) => el.type === "text"),
+        layoutConfig: edits.configuration,
+      });
+      const persisted = saveRes?.edit || null;
+      if (persisted) {
+        set((s) => ({
+          productEdits: {
+            ...s.productEdits,
+            [productId]: {
+              elements: persisted.canvasData || edits.elements || [],
+              configuration: persisted.layoutConfig || edits.configuration || {},
+              editedImage: persisted.editedImage || edits.editedImage || null,
+              lastSaved: persisted.updatedAt || new Date().toISOString(),
+            },
+          },
+        }));
+      }
+      return true;
+    } catch (err) {
+      console.error("Failed to save product edits to backend:", err);
+      return false;
+    }
+  },
 
   // Get product edits
   getProductEdits: (productId) => {
@@ -977,6 +1196,17 @@ const useStore = create((set, get) => ({
         activeTool: tool,
         selectedElementId: null,
         selectedElementIds: [],
+      },
+    })),
+  updateConfiguratorConfiguration: (updates) =>
+    set((state) => ({
+      configurator: {
+        ...state.configurator,
+        configuration: {
+          ...state.configurator.configuration,
+          ...(updates || {}),
+          lastModified: new Date().toISOString(),
+        },
       },
     })),
   // Layer management
@@ -1666,79 +1896,6 @@ const useStore = create((set, get) => ({
       get().showToast(e?.message || "Failed to re-export PDF");
       return null;
     }
-  },
-
-  // Duplicate project
-  duplicateProject: async (project) => {
-    try {
-      const newName = `${project.name} (Copy)`;
-      const res = await apiService.projects.create({
-        name: newName,
-        products: project.products || [],
-      });
-      await get().fetchProjects();
-      get().showToast(`Project "${newName}" created successfully`);
-      return res?.project || null;
-    } catch (e) {
-      get().showToast(e?.message || "Failed to duplicate project");
-      return null;
-    }
-  },
-
-  // Add products to project with instance configurations
-  addProductsToProject: async (products, projectId, projectName = null) => {
-    try {
-      const instanceIds = products.map((p) => p._instanceId).filter(Boolean);
-
-      if (projectId) {
-        // Add to existing project
-        await apiService.projects.addFromCollection({
-          projectId,
-          instanceIds,
-        });
-      } else {
-        // Create new project
-        await apiService.projects.addFromCollection({
-          projectName: projectName || "New Project",
-          instanceIds,
-        });
-      }
-
-      await get().fetchProjects();
-      get().showToast(
-        `${products.length} product${products.length !== 1 ? "s" : ""} added to project successfully`,
-        "Go to Projects",
-        () => window.dispatchEvent(new CustomEvent("navigateToProjectsTab"))
-      );
-      return true;
-    } catch (e) {
-      get().showToast(e?.message || "Failed to add products to project");
-      return false;
-    }
-  },
-
-  // Add products to PDF collection
-  addProductsToPdf: (products, projectName = null, projectId = null) => {
-    const state = get();
-    const entries = products.map((product) => ({
-      product,
-      projectName,
-      projectId,
-    }));
-
-    set({
-      pendingPdfCollection: [...state.pendingPdfCollection, ...entries],
-      pendingPdfCollectionProjectName: projectName || state.pendingPdfCollectionProjectName,
-    });
-
-    return entries.length;
-  },
-
-  clearPendingPdfCollection: () => {
-    set({
-      pendingPdfCollection: [],
-      pendingPdfCollectionProjectName: null,
-    });
   },
 }));
 

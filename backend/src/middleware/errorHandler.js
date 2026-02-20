@@ -9,6 +9,9 @@ export function errorHandler(err, req, res, next) {
     message = Object.values(err.errors)
       .map((e) => e.message)
       .join("; ");
+  } else if (err.type === "entity.too.large") {
+    status = 413;
+    message = "Payload too large";
   } else if (err.name === "CastError") {
     status = 400;
     message = "Invalid ID";

@@ -10,6 +10,7 @@ router.use(authenticate);
 
 router.get("/", ctrl.getMyCollection);
 router.post("/add", validate(collectionValidators.add), ctrl.addToCollection);
+router.post("/:instanceId/duplicate", validate(collectionValidators.instanceId), ctrl.duplicateCollectionItem);
 router.delete("/:instanceId", ctrl.removeFromCollection);
 
 export default router;

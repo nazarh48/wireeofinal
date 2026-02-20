@@ -3,9 +3,9 @@ import axios from "axios";
 export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 
-export const API_BASE_URL = import.meta.env.PROD
-  ? import.meta.env.VITE_API_URL || "https://wireeo.com/api"
-  : import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+// Dev: "/api" uses Vite proxy to backend (localhost:5000). Prod: VITE_API_URL or production URL.
+export const API_BASE_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? "https://wireeo.com/api" : "/api");
 
 /** Origin (no /api) – for same-origin requests. */
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
@@ -50,6 +50,29 @@ export const getImageUrl = (imagePath) => {
   return `${API_ORIGIN}${path}`;
 };
 
+/**
+ * Resolve the main image URL for a solution (list or detail).
+ * Matches admin logic: prefer first image in images[], then solution.image.
+ * Ensures relative paths are in /uploads/ form so getImageUrl works.
+ */
+export const getSolutionImageUrl = (solution) => {
+  if (!solution) return "";
+  const raw =
+    (Array.isArray(solution.images) && solution.images[0]
+      ? (solution.images[0].url ?? solution.images[0])
+      : null) || (solution.image && String(solution.image).trim()) || "";
+  if (!raw || typeof raw !== "string") return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:"))
+    return raw;
+  const path = raw.startsWith("/") ? raw : `/${raw}`;
+  const uploadsPath = path.startsWith("/uploads/")
+    ? path
+    : path.startsWith("/solutions/")
+      ? `/uploads${path}`
+      : `/uploads/solutions/${path.replace(/^\/+/, "")}`;
+  return getImageUrl(uploadsPath);
+};
+
 function withBearerToken(getToken) {
   return (cfg) => {
     const token = getToken();
@@ -85,6 +108,18 @@ export const apiService = {
       unwrap(await publicApi.post("/auth/login", { email, password })),
     adminLogin: async ({ email, password }) =>
       unwrap(await publicApi.post("/auth/admin/login", { email, password })),
+    verifyEmail: async (token) =>
+      unwrap(await publicApi.post("/auth/verify-email", { token })),
+    resendVerification: async (email) =>
+      unwrap(await publicApi.post("/auth/resend-verification", { email })),
+    verify2FA: async ({ email, code }) =>
+      unwrap(await publicApi.post("/auth/verify-2fa", { email, code })),
+    resend2FA: async (email) =>
+      unwrap(await publicApi.post("/auth/resend-2fa", { email })),
+    forgotPassword: async (email) =>
+      unwrap(await publicApi.post("/auth/forgot-password", { email })),
+    resetPassword: async ({ token, password }) =>
+      unwrap(await publicApi.post("/auth/reset-password", { token, password })),
   },
 
   users: {
@@ -156,6 +191,8 @@ export const apiService = {
     getMine: async () => unwrap(await userApi.get("/collections")),
     add: async (productIds) =>
       unwrap(await userApi.post("/collections/add", { productIds })),
+    duplicateItem: async (instanceId) =>
+      unwrap(await userApi.post(`/collections/${encodeURIComponent(instanceId)}/duplicate`)),
     removeItem: async (instanceId) =>
       unwrap(await userApi.delete(`/collections/${instanceId}`)),
   },
@@ -177,6 +214,8 @@ export const apiService = {
           instanceIds,
         }),
       ),
+    removeProduct: async ({ projectId, instanceId }) =>
+      unwrap(await userApi.delete(`/projects/${projectId}/products/${encodeURIComponent(instanceId)}`)),
     updateName: async (id, name) =>
       unwrap(await userApi.patch(`/projects/${id}/name`, { name })),
     remove: async (id) => unwrap(await userApi.delete(`/projects/${id}`)),
@@ -185,7 +224,7 @@ export const apiService = {
   canvas: {
     save: async ({ productId, canvasData, textOverlays, layoutConfig }) =>
       unwrap(
-        await userApi.post("/canvas/save", {
+        await userApi.put("/canvas/save", {
           productId,
           canvasData,
           textOverlays,
@@ -203,7 +242,7 @@ export const apiService = {
       editedImage,
     }) =>
       unwrap(
-        await userApi.post("/canvas/instance/save", {
+        await userApi.put("/canvas/instance/save", {
           instanceId,
           productId,
           canvasData,
@@ -242,6 +281,12 @@ export const apiService = {
 
   adminDashboard: {
     stats: async () => unwrap(await adminApi.get("/admin/dashboard/stats")),
+  },
+
+  newsletter: {
+    subscribe: async (email, source) =>
+      unwrap(await publicApi.post("/newsletter/subscribe", { email, source: source || "resources" })),
+    listSubscribers: async () => unwrap(await adminApi.get("/newsletter/subscribers")),
   },
 };
 

@@ -18,6 +18,7 @@ import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHand
 import useStore from '../../store/useStore';
 import CanvasControls from './CanvasControls';
 import { createArrowPoints } from './utils/shapeUtils';
+import { getPermittedAreasForProduct } from './permittedAreasConfig';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -50,6 +51,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const layerRef = useRef();
 
   const [images, setImages] = useState({});
+  const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
@@ -61,21 +63,40 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const [drawingPath, setDrawingPath] = useState([]);
   const [shapeStart, setShapeStart] = useState(null);
   const [selectionRect, setSelectionRect] = useState(null);
+  const permittedAreas = getPermittedAreasForProduct(
+    configurator.product?.id,
+  );
 
   useImperativeHandle(ref, () => stageRef.current);
 
-  // Load images
+  // Load images (use configuratorImageUrl when available, otherwise baseImageUrl)
   useEffect(() => {
-    if (configurator.product?.baseImageUrl) {
+    const baseForCanvas =
+      configurator.product?.configuratorImageUrl ||
+      configurator.product?.baseImageUrl;
+    if (baseForCanvas) {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
-      img.src = configurator.product.baseImageUrl;
-      img.onload = () => setImages((prev) => ({ ...prev, base: img }));
+      img.src = baseForCanvas;
+      img.onload = () => {
+        setImages((prev) => ({ ...prev, base: img }));
+        setBaseImageSize({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+      };
       img.onerror = () => {
         const fallback = new window.Image();
-        fallback.src = configurator.product.baseImageUrl;
-        fallback.onload = () => setImages((prev) => ({ ...prev, base: fallback }));
+        fallback.src = baseForCanvas;
+        fallback.onload = () => {
+          setImages((prev) => ({ ...prev, base: fallback }));
+          setBaseImageSize({ width: fallback.naturalWidth || fallback.width, height: fallback.naturalHeight || fallback.height });
+        };
       };
+    } else {
+      setImages((prev) => {
+        const next = { ...prev };
+        delete next.base;
+        return next;
+      });
+      setBaseImageSize({ width: 0, height: 0 });
     }
     configurator.elements
       .filter((el) => el.type === 'image' && el.src)
@@ -87,7 +108,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
           img.onload = () => setImages((prev) => ({ ...prev, [element.id]: img }));
         }
       });
-  }, [configurator.product?.baseImageUrl, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [configurator.product?.configuratorImageUrl, configurator.product?.baseImageUrl, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Attach transformer to selected nodes
   const selectedIds = configurator.selectedElementIds || [];
@@ -268,11 +289,57 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
       shape.x(x);
       shape.y(y);
     }
-    updateElement(id, { x, y });
-  }, [snapToGrid, updateElement]);
+    const el = configurator.elements.find((elem) => elem.id === id);
+    const width = el?.width ?? shape.width();
+    const height = el?.height ?? shape.height();
+
+    const clampWithinAreas = (rect) => {
+      if (!permittedAreas || permittedAreas.length === 0) return rect;
+      // For now we clamp into the first permitted rect only.
+      const area = permittedAreas[0];
+      const nx = Math.min(
+        Math.max(rect.x, area.x),
+        area.x + area.width - width,
+      );
+      const ny = Math.min(
+        Math.max(rect.y, area.y),
+        area.y + area.height - height,
+      );
+      return { x: nx, y: ny };
+    };
+
+    const clamped = clampWithinAreas({ x, y });
+    shape.x(clamped.x);
+    shape.y(clamped.y);
+    updateElement(id, { x: clamped.x, y: clamped.y });
+  }, [snapToGrid, updateElement, configurator.elements, permittedAreas]);
 
   const handleTransformEnd = useCallback((e, id) => {
     const shape = e.target;
+    const currentElement = configurator.elements.find((elem) => elem.id === id);
+
+    if (currentElement?.type === 'mdiIcon') {
+      let x = shape.x();
+      let y = shape.y();
+      let width = Math.max(8, (currentElement.width ?? 34) * shape.scaleX());
+      let height = Math.max(8, (currentElement.height ?? 34) * shape.scaleY());
+      const rotation = shape.rotation();
+
+      if (snapToGrid) {
+        x = Math.round(x / GRID_SIZE) * GRID_SIZE;
+        y = Math.round(y / GRID_SIZE) * GRID_SIZE;
+        width = Math.max(8, Math.round(width / GRID_SIZE) * GRID_SIZE);
+        height = Math.max(8, Math.round(height / GRID_SIZE) * GRID_SIZE);
+      }
+
+      shape.scaleX(1);
+      shape.scaleY(1);
+      shape.x(x);
+      shape.y(y);
+      updateElement(id, { x, y, width, height, rotation });
+      return;
+    }
+
     let x = shape.x();
     let y = shape.y();
     let width = shape.width() * shape.scaleX();
@@ -290,8 +357,34 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     }
     shape.scaleX(1);
     shape.scaleY(1);
-    updateElement(id, { x, y, width, height, rotation });
-  }, [snapToGrid, updateElement]);
+
+    const clampWithinAreas = (rect) => {
+      if (!permittedAreas || permittedAreas.length === 0) return rect;
+      const area = permittedAreas[0];
+      const nx = Math.min(
+        Math.max(rect.x, area.x),
+        area.x + area.width - rect.width,
+      );
+      const ny = Math.min(
+        Math.max(rect.y, area.y),
+        area.y + area.height - rect.height,
+      );
+      return { ...rect, x: nx, y: ny };
+    };
+
+    const clamped = clampWithinAreas({ x, y, width, height });
+    shape.x(clamped.x);
+    shape.y(clamped.y);
+    shape.width(clamped.width);
+    shape.height(clamped.height);
+    updateElement(id, {
+      x: clamped.x,
+      y: clamped.y,
+      width: clamped.width,
+      height: clamped.height,
+      rotation,
+    });
+  }, [snapToGrid, updateElement, permittedAreas, configurator.elements]);
 
 
   const handleWheel = useCallback((e) => {
@@ -411,20 +504,29 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     };
 
     if (element.type === 'text') {
+      const fontWeight = element.fontWeight || 'normal';
+      const fontStyle = element.fontStyle || 'normal';
+      const mergedFontStyle = fontWeight === 'bold' && fontStyle === 'italic'
+        ? 'bold italic'
+        : fontWeight === 'bold'
+          ? 'bold'
+          : fontStyle === 'italic'
+            ? 'italic'
+            : 'normal';
       return (
         <Text
           {...common}
           text={element.text || ''}
           fontSize={element.fontSize || 24}
           fontFamily={element.fontFamily || 'Arial'}
-          fontStyle={element.fontWeight || 'normal'}
+          fontStyle={mergedFontStyle}
           fill={element.color || '#000000'}
           x={element.x ?? 0}
           y={element.y ?? 0}
           width={element.width ?? 200}
           height={element.height ?? 50}
           rotation={element.rotation ?? 0}
-          align="left"
+          align={element.align || 'left'}
           verticalAlign="top"
         />
       );
@@ -447,6 +549,24 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
           verticalAlign="middle"
           listening={true}
           hitStrokeWidth={10}
+        />
+      );
+    }
+    if (element.type === 'mdiIcon' && element.pathData) {
+      const w = element.width ?? 34;
+      const h = element.height ?? 34;
+      return (
+        <Path
+          {...common}
+          data={element.pathData}
+          x={element.x ?? 0}
+          y={element.y ?? 0}
+          scaleX={w / 24}
+          scaleY={h / 24}
+          rotation={element.rotation ?? 0}
+          fill={element.fill ?? element.color ?? '#111827'}
+          stroke={element.stroke ?? 'transparent'}
+          strokeWidth={element.strokeWidth ?? 1}
         />
       );
     }
@@ -602,10 +722,33 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
               style={{ cursor: isPanning ? 'grabbing' : isSpaceDown ? 'grab' : configurator.activeTool === 'pen' ? 'crosshair' : 'default' }}
             >
               <Layer ref={layerRef}>
-                {images.base && (
-                  <Image image={images.base} x={0} y={0} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} listening={false} />
-                )}
+                {images.base && (() => {
+                  const iw = baseImageSize.width || images.base.width || CANVAS_WIDTH;
+                  const ih = baseImageSize.height || images.base.height || CANVAS_HEIGHT;
+                  const fitScale = Math.min(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih);
+                  const drawW = iw * fitScale;
+                  const drawH = ih * fitScale;
+                  const x = (CANVAS_WIDTH - drawW) / 2;
+                  const y = (CANVAS_HEIGHT - drawH) / 2;
+                  return (
+                    <Image image={images.base} x={x} y={y} width={drawW} height={drawH} listening={false} />
+                  );
+                })()}
                 {renderGrid()}
+                {/* Permitted areas overlay (outlined) */}
+                {permittedAreas.map((area, idx) => (
+                  <Rect
+                    key={`perm-${idx}`}
+                    x={area.x}
+                    y={area.y}
+                    width={area.width}
+                    height={area.height}
+                    stroke="#22c55e"
+                    strokeWidth={3}
+                    dash={[8, 6]}
+                    listening={false}
+                  />
+                ))}
                 {configurator.elements.map((el) => renderElement(el))}
                 {isDrawing && drawingPath.length > 0 && (
                   <Path data={drawingPath.join(' ')} stroke="#000" strokeWidth={2} lineCap="round" lineJoin="round" listening={false} />
@@ -619,18 +762,18 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                   const w = Math.abs(p.x - shapeStart.x);
                   const h = Math.abs(p.y - shapeStart.y);
                   if (configurator.activeTool === 'rectangle') {
-                    return <Rect x={x} y={y} width={w} height={h} fill="transparent" stroke="#3b82f6" strokeWidth={2} dash={[5, 5]} listening={false} />;
+                    return <Rect x={x} y={y} width={w} height={h} fill="transparent" stroke="#0d9488" strokeWidth={2} dash={[5, 5]} listening={false} />;
                   }
                   if (configurator.activeTool === 'circle') {
                     const r = Math.min(w, h) / 2;
-                    return <Circle x={x + r} y={y + r} radius={r} fill="transparent" stroke="#3b82f6" strokeWidth={2} dash={[5, 5]} listening={false} />;
+                    return <Circle x={x + r} y={y + r} radius={r} fill="transparent" stroke="#0d9488" strokeWidth={2} dash={[5, 5]} listening={false} />;
                   }
                   if (configurator.activeTool === 'line') {
-                    return <Line points={[shapeStart.x, shapeStart.y, p.x, p.y]} stroke="#3b82f6" strokeWidth={2} dash={[5, 5]} listening={false} />;
+                    return <Line points={[shapeStart.x, shapeStart.y, p.x, p.y]} stroke="#0d9488" strokeWidth={2} dash={[5, 5]} listening={false} />;
                   }
                   if (configurator.activeTool === 'arrow') {
                     const pts = createArrowPoints(shapeStart.x, shapeStart.y, p.x, p.y);
-                    return <Line points={pts} stroke="#3b82f6" fill="#3b82f6" strokeWidth={2} dash={[5, 5]} closed listening={false} />;
+                    return <Line points={pts} stroke="#0d9488" fill="#0d9488" strokeWidth={2} dash={[5, 5]} closed listening={false} />;
                   }
                   return null;
                 })()}
@@ -640,8 +783,8 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     y={rect.y}
                     width={rect.width}
                     height={rect.height}
-                    fill="rgba(59, 130, 246, 0.1)"
-                    stroke="#3b82f6"
+                    fill="rgba(13, 148, 136, 0.1)"
+                    stroke="#0d9488"
                     strokeWidth={2}
                     dash={[4, 4]}
                     listening={false}
@@ -660,9 +803,9 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     }
                     return newBox;
                   }}
-                  borderStroke="#3b82f6"
+                  borderStroke="#0d9488"
                   borderStrokeWidth={2}
-                  anchorFill="#3b82f6"
+                  anchorFill="#0d9488"
                   anchorStroke="#fff"
                   anchorStrokeWidth={2}
                   anchorSize={8}

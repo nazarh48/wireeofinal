@@ -16,6 +16,20 @@ export const authValidators = {
     body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
     body("password").notEmpty().withMessage("Password required"),
   ],
+  forgotPassword: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+  ],
+  resetPassword: [
+    body("token").trim().notEmpty().withMessage("Reset token required"),
+    body("password").isLength({ min: 6 }).withMessage("Password min 6 characters"),
+  ],
+  verifyEmail: [body("token").trim().notEmpty().withMessage("Verification token required")],
+  verify2FA: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+    body("code").trim().notEmpty().withMessage("Verification code required"),
+  ],
+  resendVerification: [body("email").isEmail().normalizeEmail().withMessage("Valid email required")],
+  resend2FA: [body("email").isEmail().normalizeEmail().withMessage("Valid email required")],
 };
 
 export const rangeValidators = {
@@ -38,9 +52,12 @@ export const rangeValidators = {
 export const productValidators = {
   create: [
     body("name").trim().notEmpty().withMessage("Name required"),
+    body("productCode").optional().trim(),
     body("description").optional().trim(),
+    body("technicalDetails").optional().trim(),
     body("range").custom(objectId).withMessage("Valid range ID required"),
     body("baseImageUrl").optional().trim(),
+    body("configuratorImageUrl").optional().trim(),
     body("isConfigurable")
       .optional()
       .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
@@ -54,9 +71,12 @@ export const productValidators = {
   update: [
     param("id").custom(objectId),
     body("name").optional().trim().notEmpty(),
+    body("productCode").optional().trim(),
     body("description").optional().trim(),
+    body("technicalDetails").optional().trim(),
     body("range").optional().custom(objectId),
     body("baseImageUrl").optional().trim(),
+    body("configuratorImageUrl").optional().trim(),
     body("isConfigurable")
       .optional()
       .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
@@ -77,6 +97,7 @@ export const collectionValidators = {
       .isArray({ min: 1 })
       .withMessage("productIds must be non-empty array"),
   ],
+  instanceId: [param("instanceId").trim().notEmpty().withMessage("instanceId required")],
 };
 
 export const projectValidators = {
@@ -92,6 +113,10 @@ export const projectValidators = {
     body("projectId").optional().custom(objectId),
     body("projectName").optional().trim(),
     body("instanceIds").optional().isArray(),
+  ],
+  removeProduct: [
+    param("id").custom(objectId),
+    param("instanceId").trim().notEmpty().withMessage("instanceId required"),
   ],
   updateName: [param("id").custom(objectId), body("name").trim().notEmpty().withMessage("Name required")],
   id: [param("id").custom(objectId)],
@@ -190,4 +215,11 @@ export const pdfMaterialValidators = {
     body("status").optional().isIn(["active", "inactive"]),
   ],
   id: [param("id").custom(objectId)],
+};
+
+export const newsletterValidators = {
+  subscribe: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+    body("source").optional().trim(),
+  ],
 };

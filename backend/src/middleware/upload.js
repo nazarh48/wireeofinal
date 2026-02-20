@@ -130,20 +130,37 @@ export const uploadProductFiles = multer({
 
 const productMixedStorageMulter = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = file.fieldname === "images" ? PRODUCT_UPLOAD_DIR : PRODUCT_FILES_DIR;
+    const dir = file.fieldname === "images" || file.fieldname === "configuratorImage"
+      ? PRODUCT_UPLOAD_DIR
+      : PRODUCT_FILES_DIR;
     cb(null, dir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname || "") || "";
     const safeExt = ext && ext.length <= 10 ? ext : "";
-    const prefix = file.fieldname === "images" ? "prod" : "file";
+    const prefix = file.fieldname === "images" || file.fieldname === "configuratorImage" ? "prod" : "file";
     const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}${safeExt}`;
     cb(null, name);
   },
 });
-export const uploadProductImagesAndFiles = multer({
+// Use .any() so text fields (name, productCode, range, etc.) don't trigger "Unexpected field"
+const productAnyUpload = multer({
   storage: productMixedStorageMulter,
   fileFilter: anyFileFilter,
   limits: { fileSize: 20 * 1024 * 1024 },
-}).fields([{ name: "images", maxCount: 10 }, { name: "files", maxCount: 10 }]);
+}).any();
+
+export function uploadProductImagesAndFiles(req, res, next) {
+  productAnyUpload(req, res, (err) => {
+    if (err) return next(err);
+    // Normalize to same shape as .fields(): req.files = { images: [], configuratorImage: [], files: [] }
+    const list = Array.isArray(req.files) ? req.files : [];
+    req.files = {
+      images: list.filter((f) => f.fieldname === "images"),
+      configuratorImage: list.filter((f) => f.fieldname === "configuratorImage"),
+      files: list.filter((f) => f.fieldname === "files"),
+    };
+    next();
+  });
+}
 

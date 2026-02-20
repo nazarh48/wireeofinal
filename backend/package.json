@@ -9,7 +9,12 @@
     "dev": "node --watch server.js",
     "seed": "node src/utils/seed.js"
   },
-  "keywords": ["wireeo", "api", "express", "mongodb"],
+  "keywords": [
+    "wireeo",
+    "api",
+    "express",
+    "mongodb"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -20,6 +25,7 @@
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.1"
   }
 }
