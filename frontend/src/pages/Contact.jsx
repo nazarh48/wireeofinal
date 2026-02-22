@@ -47,7 +47,7 @@ const Contact = () => {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{backgroundImage: "url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')"}} aria-hidden="true"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')" }} aria-hidden="true"></div>
         <div className="absolute inset-0 bg-black/50"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent"></div>
         <div className="relative container mx-auto px-4 text-center z-10">
@@ -66,143 +66,83 @@ const Contact = () => {
         <div className="absolute top-0 left-0 w-96 h-96 bg-teal-50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" aria-hidden="true" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          <div className="max-w-3xl mx-auto">
             {/* Contact Form */}
-            <div>
-              <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Send us a <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Message</span></h2>
-                <div className="w-16 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mb-6 rounded-full" />
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        required
-                        value={formData.name}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                        placeholder="Your full name"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        required
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                        placeholder="your@email.com"
-                      />
-                    </div>
-                  </div>
-
+            <div className="bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-gray-200">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Send us a <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Message</span></h2>
+              <div className="w-16 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mb-6 rounded-full" />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
-                      Company/Organization
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
                     </label>
                     <input
                       type="text"
-                      id="company"
-                      name="company"
-                      value={formData.company}
+                      id="name"
+                      name="name"
+                      required
+                      value={formData.name}
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
-                      placeholder="Your company or organization"
+                      placeholder="Your full name"
                     />
                   </div>
-
                   <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-                      Project Details *
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
                     </label>
-                    <textarea
-                      id="message"
-                      name="message"
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
                       required
-                      rows={6}
-                      value={formData.message}
+                      value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 resize-none"
-                      placeholder="Tell us about your electrical automation project requirements..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      placeholder="your@email.com"
                     />
                   </div>
+                </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                  >
-                    Send Message
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div>
-              <div className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Contact <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Information</span></h2>
-                  <div className="w-16 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mb-6 rounded-full" />
-                  <p className="text-gray-600 mb-8">
-                    Our technical team is ready to assist with your electrical automation needs. 
-                    Contact us for project consultation, technical support, or product information.
-                  </p>
+                  <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-2">
+                    Company/Organization
+                  </label>
+                  <input
+                    type="text"
+                    id="company"
+                    name="company"
+                    value={formData.company}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                    placeholder="Your company or organization"
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {contactInfo.map((info, index) => {
-                    const colors = [
-                      { bg: 'bg-gradient-to-br from-teal-50 to-teal-100/50', border: 'border-teal-200', hover: 'hover:border-teal-300' },
-                      { bg: 'bg-gradient-to-br from-cyan-50 to-cyan-100/50', border: 'border-cyan-200', hover: 'hover:border-cyan-300' },
-                    ];
-                    const color = colors[index % 2];
-                    return (
-                    <div key={index} className={`${color.bg} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 ${color.border} ${color.hover}`}>
-                      <div className="text-3xl mb-4">{info.icon}</div>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-3">{info.title}</h3>
-                      <div className="space-y-1">
-                        {info.details.map((detail, idx) => (
-                          <p key={idx} className="text-gray-600 text-sm">{detail}</p>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                  })}
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                    Project Details *
+                  </label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    required
+                    rows={6}
+                    value={formData.message}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 resize-none"
+                    placeholder="Tell us about your electrical automation project requirements..."
+                  />
                 </div>
 
-                {/* Service Areas */}
-                <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-xl shadow-lg p-6 border-2 border-teal-200">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Service Areas</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Residential</h4>
-                      <ul className="space-y-1">
-                        <li>• Smart Home Systems</li>
-                        <li>• Home Automation</li>
-                        <li>• Energy Management</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">Commercial</h4>
-                      <ul className="space-y-1">
-                        <li>• Building Automation</li>
-                        <li>• Industrial Control</li>
-                        <li>• Power Distribution</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                >
+                  Send Message
+                </button>
+              </form>
             </div>
           </div>
         </div>
@@ -220,9 +160,7 @@ const Contact = () => {
             Our electrical automation experts are here to help you design and implement the perfect solution for your needs.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
-              Schedule Consultation
-            </button>
+
             <button className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300">
               Download Catalog
             </button>

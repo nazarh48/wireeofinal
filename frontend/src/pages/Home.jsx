@@ -61,80 +61,247 @@ const Home = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Carousel — text left, image right; background image at low opacity + same image on right */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        {/* Background: current slide image at low opacity */}
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
-          style={{
-            backgroundImage: `url(${HERO_SLIDES[currentSlide].image})`,
-            opacity: 0.22,
-          }}
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
+      {/* ── Hero Carousel ──────────────────────────────────────────────────────
+           HEIGHT IS FIXED — driven by the container style, never by content.
+           All slides live in the DOM simultaneously (absolute-stacked).
+           Slide changes = opacity crossfade only. Zero reflow. Zero shift.
+         ─────────────────────────────────────────────────────────────────── */}
+      <section
+        className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+        style={{
+          height: '92vh',
+          minHeight: '600px',
+          maxHeight: '860px',
+          overflow: 'hidden',
+        }}
+      >
+        {/* 1 ── Background image layers: all 3 rendered, opacity-switched */}
+        {HERO_SLIDES.map((slide, i) => (
+          <div
+            key={`bg-${i}`}
+            aria-hidden="true"
+            style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `url(${slide.image})`,
+              backgroundSize: 'cover', backgroundPosition: 'center',
+              opacity: i === currentSlide ? 0.2 : 0,
+              transition: 'opacity 600ms ease',
+            }}
+          />
+        ))}
+        {/* Dark overlay */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.52)' }} />
 
-        <div className="relative container mx-auto px-4 py-16 md:py-24 z-10 w-full">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-              {/* Left: text */}
-              <div className="order-2 lg:order-1">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight text-white">
-                  {HERO_SLIDES[currentSlide].title}
-                </h1>
-                <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
-                  {HERO_SLIDES[currentSlide].subtitle}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link
-                    to={HERO_SLIDES[currentSlide].primaryCta.to}
-                    className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 text-center shadow-lg"
+        {/* 2 ── Slide text layers: absolute-stacked, opacity-switched, no transforms */}
+        {HERO_SLIDES.map((slide, i) => {
+          const active = i === currentSlide;
+          return (
+            <div
+              key={`slide-${i}`}
+              aria-hidden={!active}
+              style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center',
+                opacity: active ? 1 : 0,
+                pointerEvents: active ? 'auto' : 'none',
+                transition: 'opacity 600ms ease',
+                zIndex: 10,
+              }}
+            >
+              <div className="w-full px-4 sm:px-6 lg:px-10" style={{ maxWidth: '80rem', margin: '0 auto' }}>
+
+                {/* ── Mobile / tablet: stacked layout (text + compact image strip) ── */}
+                <div className="flex flex-col gap-5 lg:hidden">
+                  {/* Text */}
+                  <div style={{ textAlign: 'center' }}>
+                    <h1
+                      style={{
+                        fontSize: 'clamp(1.45rem, 5vw, 2.1rem)',
+                        fontWeight: 700, lineHeight: 1.2,
+                        color: '#fff', margin: 0, marginBottom: '0.75rem',
+                        letterSpacing: '-0.01em',
+                      }}
+                    >
+                      {slide.title}
+                    </h1>
+                    <p
+                      style={{
+                        fontSize: 'clamp(0.85rem, 3vw, 1rem)',
+                        lineHeight: 1.6, color: '#d1d5db',
+                        margin: 0, marginBottom: '1.25rem',
+                        maxHeight: 'calc(1.6em * 3)',
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
+                      {slide.subtitle}
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
+                      <Link
+                        to={slide.primaryCta.to}
+                        className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white rounded-lg font-semibold transition-all duration-300 text-center shadow-lg"
+                        style={{ padding: '0.65rem 1.5rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                      >
+                        {slide.primaryCta.label}
+                      </Link>
+                      <Link
+                        to={slide.secondaryCta.to}
+                        className="border-2 border-green-400 text-green-300 hover:bg-green-500 hover:border-green-500 hover:text-white rounded-lg font-semibold transition-all duration-300 text-center"
+                        style={{ padding: '0.65rem 1.5rem', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                      >
+                        {slide.secondaryCta.label}
+                      </Link>
+                    </div>
+                  </div>
+                  {/* Compact image strip — always visible on mobile */}
+                  <div
+                    style={{
+                      width: '100%', height: '180px',
+                      borderRadius: '0.75rem', overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    }}
                   >
-                    {HERO_SLIDES[currentSlide].primaryCta.label}
-                  </Link>
-                  <Link
-                    to={HERO_SLIDES[currentSlide].secondaryCta.to}
-                    className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 text-center"
-                  >
-                    {HERO_SLIDES[currentSlide].secondaryCta.label}
-                  </Link>
+                    <img
+                      src={slide.image}
+                      alt={slide.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+                    />
+                  </div>
                 </div>
-              </div>
-              {/* Right: slide image */}
-              <div className="order-1 lg:order-2 relative">
-                <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-gray-800/50 aspect-[4/3] max-h-[420px] flex items-center justify-center">
-                  <img
-                    key={currentSlide}
-                    src={HERO_SLIDES[currentSlide].image}
-                    alt={HERO_SLIDES[currentSlide].title}
-                    className="w-full h-full object-cover object-center"
-                  />
+
+                {/* ── Desktop: 2-column side-by-side layout ── */}
+                <div
+                  className="hidden lg:grid"
+                  style={{ gridTemplateColumns: '1fr 1fr', gap: '3.5rem', alignItems: 'center' }}
+                >
+                  {/* Left: text */}
+                  <div>
+                    <h1
+                      style={{
+                        fontSize: 'clamp(1.6rem, 2.8vw, 2.5rem)',
+                        fontWeight: 700, lineHeight: 1.2,
+                        color: '#fff', margin: 0, marginBottom: '1rem',
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      {slide.title}
+                    </h1>
+                    <p
+                      style={{
+                        fontSize: 'clamp(0.9rem, 1.4vw, 1.05rem)',
+                        lineHeight: 1.65, color: '#d1d5db',
+                        margin: 0, marginBottom: '1.75rem',
+                        maxHeight: 'calc(1.65em * 4)',
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 4,
+                        WebkitBoxOrient: 'vertical',
+                      }}
+                    >
+                      {slide.subtitle}
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.875rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Link
+                        to={slide.primaryCta.to}
+                        className="bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white rounded-lg font-semibold transition-all duration-300 text-center shadow-lg"
+                        style={{ padding: '0.8rem 1.875rem', fontSize: '0.975rem', whiteSpace: 'nowrap' }}
+                      >
+                        {slide.primaryCta.label}
+                      </Link>
+                      <Link
+                        to={slide.secondaryCta.to}
+                        className="border-2 border-green-400 text-green-300 hover:bg-green-500 hover:border-green-500 hover:text-white rounded-lg font-semibold transition-all duration-300 text-center"
+                        style={{ padding: '0.8rem 1.875rem', fontSize: '0.975rem', whiteSpace: 'nowrap' }}
+                      >
+                        {slide.secondaryCta.label}
+                      </Link>
+                    </div>
+                  </div>
+                  {/* Right: fixed-height image placeholder — actual image rendered in layer 3 */}
+                  <div style={{ height: '360px' }} aria-hidden="true" />
                 </div>
+
               </div>
             </div>
+          );
+        })}
+
+        {/* 3 ── Desktop image panel: outside slide stack, independently crossfading ──
+               Position absolute on the right half — never affects layout height */}
+        <div
+          aria-hidden="true"
+          className="hidden lg:flex"
+          style={{
+            position: 'absolute', top: 0, bottom: 0, right: 0,
+            width: '48%', zIndex: 8,
+            alignItems: 'center',
+            paddingRight: '2.5rem', paddingLeft: '0.5rem',
+          }}
+        >
+          <div
+            style={{
+              position: 'relative', width: '100%', height: '360px',
+              borderRadius: '1rem', overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.55)',
+              background: 'rgba(30,40,55,0.5)',
+            }}
+          >
+            {HERO_SLIDES.map((slide, i) => (
+              <img
+                key={`img-${i}`}
+                src={slide.image}
+                alt={slide.title}
+                style={{
+                  position: 'absolute', inset: 0,
+                  width: '100%', height: '100%',
+                  objectFit: 'cover', objectPosition: 'center',
+                  opacity: i === currentSlide ? 1 : 0,
+                  transition: 'opacity 600ms ease',
+                }}
+                loading="eager"
+              />
+            ))}
           </div>
         </div>
 
-        {/* Carousel indicators */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 z-20">
-          {HERO_SLIDES.map((_, index) => (
+        {/* 4 ── Dot indicators */}
+        <div
+          style={{
+            position: 'absolute', bottom: '1.5rem',
+            left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', alignItems: 'center', gap: '0.625rem',
+            zIndex: 20,
+          }}
+        >
+          {HERO_SLIDES.map((_, i) => (
             <button
-              key={index}
+              key={i}
               type="button"
               onClick={() => {
-                setCurrentSlide(index);
+                setCurrentSlide(i);
                 if (slideInterval.current) clearInterval(slideInterval.current);
-                slideInterval.current = setInterval(() => {
-                  setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
-                }, 5000);
+                slideInterval.current = setInterval(
+                  () => setCurrentSlide((p) => (p + 1) % HERO_SLIDES.length),
+                  5000
+                );
               }}
-              className={`h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'bg-white w-8' : 'bg-white/50 w-2 hover:bg-white/75'
-                }`}
-              aria-label={`Go to slide ${index + 1}`}
+              aria-label={`Go to slide ${i + 1}`}
+              style={{
+                height: '0.5rem', borderRadius: '9999px',
+                border: 'none', cursor: 'pointer',
+                width: i === currentSlide ? '2rem' : '0.5rem',
+                background: i === currentSlide ? '#fff' : 'rgba(255,255,255,0.4)',
+                transition: 'width 300ms ease, background 300ms ease',
+              }}
             />
           ))}
         </div>
       </section>
+
 
       {/* Complexity, Simplified — WHITE SECTION */}
       <section className="relative py-24 bg-white overflow-hidden">

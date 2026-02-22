@@ -127,7 +127,7 @@ const Solutions = () => {
               </span>
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Choose from our comprehensive range of electrical automation solutions tailored to your specific needs
+              Wireeo solutions unify hardware and digital infrastructure into scalable KNX ecosystems built to endure.
             </p>
           </div>
 
@@ -252,7 +252,7 @@ const Solutions = () => {
             Ready to Transform Your Space?
           </h2>
           <p className="text-teal-100 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-            Discover how our electrical solutions can enhance your operations, improve efficiency, and create smarter environments.
+            From access control and room automation to centralized management and energy optimization, Wireeo solutions bring discipline, efficiency, and long-term viability to modern intelligent buildings.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/products" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-teal-700 hover:bg-gray-100 font-semibold rounded-lg transition-all shadow-lg hover:scale-105 transform">

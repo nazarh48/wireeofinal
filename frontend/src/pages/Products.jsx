@@ -47,11 +47,12 @@ const Products = () => {
               <span>Premium Products</span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 tracking-tight leading-tight">
-              Electrical <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">Automation</span> Products
+            <h1 className="text-5xl md:text-6xl lg:text-6xl font-extrabold mb-6 tracking-tight leading-tight">
+              Premium<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">KNX Devices
+                Structured by Engineering</span> Defined by Design.
             </h1>
             <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Professional-grade electrical automation solutions for industrial, commercial, and infrastructure applications worldwide.
+              Wireeo products are engineered as part of a unified ecosystem — ensuring consistency across projects and generations.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
               <Link
@@ -266,11 +267,12 @@ const Products = () => {
                 </svg>
                 <span>Featured Products</span>
               </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-3">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">Configurable</span> Solutions
+              <h2 className="text-3xl md:text-3xl font-extrabold text-slate-900 mb-3 leading-tight">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-600">Configurable Products<br />
+                  Personalize</span> Wireeo Devices with Precision
               </h2>
               <p className="text-slate-600 max-w-2xl mx-auto mb-6">
-                {selectedRangeId ? `Configurable products in ${selectedRange?.name || 'this range'}.` : 'Discover our configurable electrical automation solutions.'}
+                {selectedRangeId ? `Configurable products in ${selectedRange?.name || 'this range'}.` : 'Select from our configurable product ranges and define engraving, interface layout, and visual identity within controlled manufacturing parameters.'}
               </p>
               <Link
                 to="/products/ranges"
@@ -327,12 +329,12 @@ const Products = () => {
           <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
             <Link to="/products/ranges" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Go to Tabbed Ranges
+              Go to Graphic Configurator
             </Link>
             <Link to="/contact" className="inline-flex items-center justify-center px-6 py-3.5 bg-white text-slate-900 font-semibold rounded-xl hover:bg-slate-100 transition-all">
-              Request Quote
+              Contact us
             </Link>
             <Link to="/resources" className="inline-flex items-center justify-center px-6 py-3.5 border-2 border-white/80 text-white font-semibold rounded-xl hover:bg-white hover:text-slate-900 transition-all">
               Download Catalog

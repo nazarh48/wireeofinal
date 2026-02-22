@@ -170,18 +170,7 @@ export default function SolutionDetail() {
                   >
                     Contact Wireeo
                   </Link>
-                  {downloadBrochureUrl && (
-                    <a
-                      href={getImageUrl(downloadBrochureUrl)}
-                      download
-                      className="inline-flex items-center gap-2 px-8 py-4 bg-white/5 hover:bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white font-bold rounded-xl transition-all duration-300 hover:border-white/50 text-lg"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Download Brochure
-                    </a>
-                  )}
+
                 </div>
               </div>
               <div className="hidden lg:block">
@@ -402,20 +391,25 @@ export default function SolutionDetail() {
               Ready to Redefine Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Hospitality Infrastructure?</span>
             </h2>
             <p className="text-gray-700 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-              Contact Wireeo to get started. Download the brochure for full details.
+              Contact Wireeo to get started.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-6 mt-4">
               <Link
                 to="/contact"
-                className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold rounded-xl transition-all duration-300 shadow-2xl hover:shadow-teal-500/50 hover:scale-105 transform text-lg"
+                className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold rounded-xl transition-all duration-300 shadow-2xl hover:shadow-teal-500/50 hover:scale-105 transform text-lg uppercase tracking-wider"
               >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
                 Contact Wireeo
               </Link>
+
               {downloadBrochureUrl && (
                 <a
                   href={getImageUrl(downloadBrochureUrl)}
-                  download
-                  className="inline-flex items-center gap-2 px-10 py-5 bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-teal-300 text-gray-800 font-bold rounded-xl transition-all duration-300 shadow-lg text-lg"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold rounded-xl transition-all duration-300 shadow-2xl hover:shadow-teal-500/50 hover:scale-105 transform text-lg uppercase tracking-wider"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -432,18 +426,7 @@ export default function SolutionDetail() {
       <section className="py-16 md:py-20 bg-gradient-to-br from-gray-50 to-gray-100 border-t border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center gap-8 max-w-4xl mx-auto">
-            {downloadBrochureUrl && (
-              <a
-                href={getImageUrl(downloadBrochureUrl)}
-                download
-                className="inline-flex items-center gap-3 px-10 py-5 bg-white border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50 text-gray-800 hover:text-teal-700 font-bold rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Download Brochure
-              </a>
-            )}
+
             <div className="text-center">
               <p className="text-gray-500 font-medium mb-3">KNX · ETS · Azure · Hospitality</p>
             </div>

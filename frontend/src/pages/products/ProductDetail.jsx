@@ -84,15 +84,7 @@ const ProductDetail = () => {
 
   const heroBgUrl = range?.image ? getImageUrl(range.image) : configuratorImageResolved || (product?.baseImageUrl ? getImageUrl(product.baseImageUrl) : '') || 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80';
   const tagline = product.description?.split('.')[0]?.trim() || product.name;
-  const mainFunctions = product.mainFunctions && Array.isArray(product.mainFunctions)
-    ? product.mainFunctions
-    : [
-      'High-quality electrical component',
-      'Durable and reliable performance',
-      'Easy installation and maintenance',
-      'Professional grade materials',
-      'Industry standard specifications',
-    ];
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -165,20 +157,20 @@ const ProductDetail = () => {
 
       {/* Product Details Section */}
       <div className="container mx-auto px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-          {/* Right column FIRST on desktop: product image + thumbnails (moved to be visually at top) */}
-          <div className="order-2 lg:order-1">
-            {/* Main Product Image */}
+        <div className="grid grid-cols-1 lg:grid-cols-[0.7fr_1.3fr] gap-10 lg:gap-16">
+          {/* Left column: product image + thumbnails */}
+          <div className="order-1">
             <div className="sticky top-6">
-              <div className="bg-gradient-to-br from-teal-50/50 to-white rounded-3xl p-6 md:p-8 shadow-xl border border-teal-100 overflow-hidden group">
+              <div className="bg-gradient-to-br from-teal-50/50 to-white rounded-3xl p-4 md:p-6 shadow-xl border border-teal-100 overflow-hidden group">
                 <div className="aspect-square rounded-2xl overflow-hidden bg-white shadow-inner relative">
                   <img
+                    key={mainImageUrl}
                     src={mainImageUrl || (product.baseImageUrl && getImageUrl(product.baseImageUrl))}
                     alt={product.name}
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
+                    className="w-full h-full object-contain group-hover:scale-105 transition-all duration-700 animate-fade-in"
                   />
                   {product.configurable && (
-                    <div className="absolute top-4 right-4">
+                    <div className="absolute top-4 right-4 focus-within:opacity-100">
                       <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-lg">
                         ⚙️ Configurable
                       </span>
@@ -187,100 +179,86 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Main image = configurator photo; gallery images shown separately as thumbnails */}
+              {/* Enhanced Gallery - Scrollable thumbnails */}
               {mainDisplayList.length > 1 && (
-                <div className="mt-6 flex gap-3 flex-wrap">
-                  {mainDisplayList.map((src, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 hover:scale-105 ${selectedImageIndex === idx
+                <div className="mt-6">
+                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                    {mainDisplayList.map((src, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedImageIndex(idx)}
+                        className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 snap-start transform active:scale-95 ${selectedImageIndex === idx
                           ? 'border-teal-600 ring-4 ring-teal-100 shadow-lg'
-                          : 'border-gray-200 hover:border-teal-300 shadow-md'
-                        }`}
-                    >
-                      <img src={src} alt="" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
+                          : 'border-gray-200 hover:border-teal-300 shadow-md grayscale-[20%] hover:grayscale-0'
+                          }`}
+                      >
+                        <img src={src} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                  {mainDisplayList.length > 4 && (
+                    <p className="text-[10px] text-slate-400 mt-2 text-center uppercase tracking-widest font-bold">
+                      ← Scroll to see more images →
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Left column: description + main functions */}
-          <div className="order-1 lg:order-2">
+          {/* Right column: description + action buttons */}
+          <div className="order-2">
             {/* Product code (also in hero) + Overview */}
             <div className="mb-8">
               <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 leading-tight">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-600">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-600 uppercase">
                   Product
                 </span>{' '}
                 Overview
               </h2>
               <p className="text-xl text-slate-700 leading-relaxed font-medium">{tagline}</p>
               {product.productCode && (
-                <p className="mt-2 text-sm font-semibold text-teal-700">Product code: {product.productCode}</p>
+                <p className="mt-2 text-sm font-semibold text-teal-700 bg-teal-50 inline-block px-3 py-1 rounded-lg border border-teal-100 uppercase tracking-wider">
+                  Code: {product.productCode}
+                </p>
               )}
             </div>
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8 p-6 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl border border-teal-100">
-                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-teal-50 to-cyan-50 rounded-3xl border border-teal-100 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
                   <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Description
                 </h3>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-line">{product.description}</p>
+                <p className="text-slate-700 leading-relaxed whitespace-pre-line text-lg">{product.description}</p>
               </div>
             )}
 
             {/* Technical details */}
             {product.technicalDetails && (
-              <div className="mb-8 p-6 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-200">
-                <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+              <div className="mb-10 p-6 md:p-8 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
                   <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  Technical details
+                  Technical Details
                 </h3>
-                <p className="text-slate-700 leading-relaxed whitespace-pre-line">{product.technicalDetails}</p>
+                <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed whitespace-pre-line">
+                  {product.technicalDetails}
+                </div>
               </div>
             )}
 
-            {/* Key Features */}
-            <div className="mb-8">
-              <h3 className="text-2xl font-bold text-slate-900 mb-5 flex items-center gap-2">
-                <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Key Features
-              </h3>
-              <div className="space-y-3">
-                {mainFunctions.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-teal-200 transition-all duration-300"
-                  >
-                    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex-shrink-0 flex items-center justify-center shadow-md">
-                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                    <span className="text-slate-700 font-medium leading-relaxed">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-gray-100">
               {product?.configurable && (
                 <Link
                   to="/products/ranges"
-                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-lg hover:shadow-cyan-200/50 transform hover:-translate-y-1 uppercase tracking-wider"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -290,7 +268,7 @@ const ProductDetail = () => {
               )}
               <Link
                 to="/contact"
-                className="inline-flex items-center justify-center gap-2 bg-white border-2 border-teal-600 hover:bg-teal-600 text-teal-600 hover:text-white px-8 py-4 rounded-xl font-bold transition-all shadow-md hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-2 bg-white border-2 border-slate-900 hover:bg-slate-900 text-slate-900 hover:text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-md hover:shadow-xl transform hover:-translate-y-1 uppercase tracking-wider"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

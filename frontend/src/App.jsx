@@ -37,6 +37,7 @@ import EditorPage from './pages/EditorPage';
 import ProductExperience from './pages/ProductExperience';
 import Ranges from './pages/Ranges';
 import TabbedRanges from './pages/TabbedRanges';
+import ScrollToTop from './components/ScrollToTop';
 import { generateProductPDF } from './utils/pdfGenerator';
 import useStore from './store/useStore';
 import { useAuthStore } from './store/authStore';
@@ -72,6 +73,7 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/products" element={<Layout><Products /></Layout>} />
