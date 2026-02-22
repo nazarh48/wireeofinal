@@ -1,6 +1,6 @@
 import { Category } from "../models/Category.js";
 
-function getImageUrl(file) {
+function getImagePath(file) {
   if (!file || !file.filename) return "";
   return `/uploads/categories/${file.filename}`;
 }
@@ -18,16 +18,14 @@ export async function create(req, res, next) {
     }
     const body = {
       name,
-      slug: (raw.slug != null ? String(raw.slug) : "").trim() || undefined,
       description: (raw.description != null ? String(raw.description) : "").trim() || "",
       subtitle: (raw.subtitle != null ? String(raw.subtitle) : "").trim() || "",
-      icon: (raw.icon != null ? String(raw.icon) : "").trim() || "",
+      link: (raw.link != null ? String(raw.link) : "").trim() || "",
       image: (raw.image != null ? String(raw.image) : "").trim() || "",
-      color: (raw.color != null ? String(raw.color) : "").trim() || "from-blue-500 to-blue-600",
       order: raw.order != null ? Number(raw.order) : 0,
       status: raw.status === "inactive" ? "inactive" : "active",
     };
-    if (req.file) body.image = getImageUrl(req.file);
+    if (req.file) body.image = getImagePath(req.file);
     const category = await Category.create(body);
     return res.status(201).json({ success: true, category });
   } catch (err) {
@@ -61,13 +59,33 @@ export async function getById(req, res, next) {
 
 export async function update(req, res, next) {
   try {
-    const updates = { ...req.body };
-    if (req.file) updates.image = getImageUrl(req.file);
+    const raw = req.body || {};
+
+    // Build a clean updates object — explicitly pull out known fields
+    const updates = {};
+
+    if (raw.name != null) updates.name = String(raw.name).trim();
+    if (raw.description != null) updates.description = String(raw.description).trim();
+    if (raw.subtitle != null) updates.subtitle = String(raw.subtitle).trim();
+    if (raw.link != null) updates.link = String(raw.link).trim();
+    if (raw.order != null) updates.order = Number(raw.order);
+    if (raw.status != null) updates.status = raw.status === "inactive" ? "inactive" : "active";
+
+    // Image: uploaded file takes priority, else if removeImage flag clear it
+    if (req.file) {
+      updates.image = getImagePath(req.file);
+    } else if (String(raw.removeImage) === "true" || raw.image === "") {
+      updates.image = "";
+    } else if (raw.image != null) {
+      updates.image = String(raw.image).trim();
+    }
+
     const category = await Category.findByIdAndUpdate(
       req.params.id,
       { $set: updates },
       { new: true, runValidators: true }
     ).lean();
+
     if (!category) {
       return res.status(404).json({ success: false, message: "Category not found" });
     }

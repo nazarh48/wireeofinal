@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { apiService } from "../../services/api";
 import { IconMail } from "../../components/admin/AdminIcons";
 
@@ -6,6 +7,32 @@ export default function NewsletterManagement() {
   const [subscribers, setSubscribers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const downloadAsExcel = () => {
+    const data = subscribers.map((s) => ({
+      Email: s.email,
+      Source: s.source || "resources",
+      "Subscribed Date": s.createdAt
+        ? new Date(s.createdAt).toLocaleDateString()
+        : "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Subscribers");
+
+    // Auto-fit column widths
+    worksheet["!cols"] = [
+      { wch: 35 }, // Email
+      { wch: 15 }, // Source
+      { wch: 18 }, // Subscribed Date
+    ];
+
+    XLSX.writeFile(
+      workbook,
+      `newsletter-subscribers-${new Date().toISOString().slice(0, 10)}.xlsx`
+    );
+  };
 
   const load = async () => {
     setLoading(true);
@@ -52,6 +79,19 @@ export default function NewsletterManagement() {
               className="px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 disabled:opacity-50"
             >
               Refresh
+            </button>
+            <button
+              type="button"
+              onClick={downloadAsExcel}
+              disabled={loading || subscribers.length === 0}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Excel
             </button>
           </div>
         </div>

@@ -57,7 +57,7 @@ export async function create(req, res, next) {
       try {
         const parsed = JSON.parse(req.body.fileLabels);
         if (Array.isArray(parsed)) fileLabels = parsed;
-      } catch (_) {}
+      } catch (_) { }
     }
     const downloadableFiles = fileFiles.map((f, i) =>
       toProductFile(f, "product-files", fileLabels[i]),
@@ -199,10 +199,34 @@ export async function update(req, res, next) {
 
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
-    if (imageFiles.length) {
-      const images = imageFiles.map((f) => toProductFile(f, "products"));
-      updates.images = images;
-      if (!updates.baseImageUrl) updates.baseImageUrl = images[0]?.url || "";
+
+    // Parse the kept existing image URLs sent by the client
+    let keptExistingImages = [];
+    const rawExisting = req.body.existingImages;
+    if (typeof rawExisting === "string" && rawExisting.trim()) {
+      try {
+        const parsed = JSON.parse(rawExisting);
+        if (Array.isArray(parsed)) {
+          keptExistingImages = parsed
+            .filter((u) => typeof u === "string" && u)
+            .map((u) => {
+              // Normalise absolute URLs to stored relative paths (e.g. /uploads/products/xxx)
+              try {
+                const url = new URL(u);
+                return { url: url.pathname };
+              } catch {
+                return { url: u };
+              }
+            });
+        }
+      } catch (_) { }
+    }
+
+    if (imageFiles.length || rawExisting !== undefined) {
+      const newImages = imageFiles.map((f) => toProductFile(f, "products"));
+      // Merge: kept existing first, then newly uploaded
+      updates.images = [...keptExistingImages, ...newImages];
+      if (!updates.baseImageUrl) updates.baseImageUrl = updates.images[0]?.url || "";
     }
     if (fileFiles.length) {
       const existing = parseBodyFiles(bodyFilesRaw);

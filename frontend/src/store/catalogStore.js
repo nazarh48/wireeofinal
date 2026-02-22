@@ -44,11 +44,11 @@ const mapProduct = (p) => {
 
   const downloadableFiles = Array.isArray(p?.downloadableFiles)
     ? p.downloadableFiles.map((f) => ({
-        url: typeof f === "string" ? toAbsoluteImageUrl(f) : toAbsoluteImageUrl(f?.url),
-        filename: f?.filename || "",
-        originalName: f?.originalName || "",
-        label: f?.label || f?.originalName || "",
-      }))
+      url: typeof f === "string" ? toAbsoluteImageUrl(f) : toAbsoluteImageUrl(f?.url),
+      filename: f?.filename || "",
+      originalName: f?.originalName || "",
+      label: f?.label || f?.originalName || "",
+    }))
     : [];
 
   return {
@@ -231,12 +231,15 @@ export const useCatalogStore = create((set, get) => ({
     return res?.product;
   },
   updateProduct: async (id, payload) => {
-    const { rangeId, configurable, featured, imagesFiles, configuratorImageFile, downloadFiles, ...rest } = payload;
+    const { rangeId, configurable, featured, imagesFiles, existingImages, configuratorImageFile, downloadFiles, ...rest } = payload;
     const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
-    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles;
+    // Always use FormData when there are new image files; also use it when existingImages
+    // list has changed so we can send the kept URLs to the backend for merging.
+    const existingImagesChanged = Array.isArray(existingImages);
+    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles || existingImagesChanged;
 
     let body;
     let config;
@@ -250,6 +253,10 @@ export const useCatalogStore = create((set, get) => ({
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
       if (featured !== undefined) body.append("featured", String(!!featured));
       if (rest.status !== undefined) body.append("status", rest.status);
+      // Send the kept existing image URLs so backend can merge them with newly uploaded ones
+      if (existingImagesChanged) {
+        body.append("existingImages", JSON.stringify(existingImages));
+      }
       if (hasImageFiles) {
         const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
         files.forEach((f) => body.append("images", f));

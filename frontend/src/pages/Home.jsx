@@ -128,9 +128,8 @@ const Home = () => {
                   setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
                 }, 5000);
               }}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === currentSlide ? 'bg-white w-8' : 'bg-white/50 w-2 hover:bg-white/75'
-              }`}
+              className={`h-2 rounded-full transition-all duration-300 ${index === currentSlide ? 'bg-white w-8' : 'bg-white/50 w-2 hover:bg-white/75'
+                }`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
@@ -141,7 +140,7 @@ const Home = () => {
       <section className="relative py-24 bg-white overflow-hidden">
         <div className="absolute top-0 left-0 w-96 h-96 bg-teal-50 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" aria-hidden="true" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-50 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" aria-hidden="true" />
-        
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
@@ -189,7 +188,7 @@ const Home = () => {
 
             <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl p-10 md:p-14 shadow-2xl text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-teal-500/20 to-cyan-600/20 rounded-full blur-3xl" aria-hidden="true" />
-              
+
               <div className="relative z-10">
                 <div className="flex items-center justify-center mb-8">
                   <div className="w-16 h-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-full" />
@@ -202,13 +201,13 @@ const Home = () => {
                     Wireeo is a <span className="text-teal-400 font-bold">European manufacturer</span> of premium KNX devices, created for
                     projects where reliability, consistency, and design integrity are essential.
                   </p>
-                  
+
                   <p className="text-lg text-gray-300 leading-relaxed">
                     Every product is developed around a <span className="text-white font-bold">structured engineering logic</span> — ensuring
                     predictable integration, long-term serviceability, and architectural coherence
                     across environments.
                   </p>
-                  
+
                   <div className="pt-8 mt-8 border-t border-gray-700">
                     <p className="text-xl md:text-2xl font-bold text-white leading-relaxed">
                       We do not build generic automation tools.
@@ -248,86 +247,112 @@ const Home = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
                 {(showAllCategories ? categories : categories.slice(0, 4)).map((cat, index) => {
-                const hasImage = cat.image && (cat.image.startsWith('http') || cat.image.startsWith('/'));
-                const imageUrl = hasImage ? (cat.image.startsWith('http') ? cat.image : getImageUrl(cat.image)) : null;
-                const iconColors = [
-                  { from: 'from-teal-500', to: 'to-teal-600', bg: 'bg-teal-500/10', border: 'border-teal-500/30', hover: 'hover:border-teal-400' },
-                  { from: 'from-cyan-500', to: 'to-cyan-600', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', hover: 'hover:border-cyan-400' },
-                ];
-                const colors = iconColors[index % iconColors.length];
+                  const hasImage = cat.image && (cat.image.startsWith('http') || cat.image.startsWith('/'));
+                  const imageUrl = hasImage ? (cat.image.startsWith('http') ? cat.image : getImageUrl(cat.image)) : null;
+                  const iconColors = [
+                    { from: 'from-teal-500', to: 'to-teal-600', bg: 'bg-teal-500/10', border: 'border-teal-500/30', hover: 'hover:border-teal-400' },
+                    { from: 'from-cyan-500', to: 'to-cyan-600', bg: 'bg-cyan-500/10', border: 'border-cyan-500/30', hover: 'hover:border-cyan-400' },
+                  ];
+                  const colors = iconColors[index % iconColors.length];
 
-                return (
-                  <Link
-                    to="/products"
-                    key={cat._id}
-                    className={`group block bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border ${colors.border} ${colors.hover}`}
-                  >
-                    {imageUrl ? (
-                      <div className="h-56 relative overflow-hidden bg-gray-900">
-                        <img
-                          src={imageUrl}
-                          alt={cat.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
-                      </div>
-                    ) : (
-                      <div className={`h-56 bg-gradient-to-br ${colors.from} ${colors.to} flex items-center justify-center relative overflow-hidden`}>
-                        <div className="absolute inset-0 bg-black/20" />
-                        <svg className="w-20 h-20 text-white opacity-90 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="p-8">
-                      <div className="flex items-start mb-4">
-                        <div className={`w-12 h-12 bg-gradient-to-br ${colors.from} ${colors.to} rounded-xl flex items-center justify-center mr-4 flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  // Determine where to redirect when the card is clicked
+                  const rawLink = cat.link?.trim() || '/products';
+                  // Treat as external if it's NOT an internal path (i.e. doesn't start with /)
+                  const isExternal = !rawLink.startsWith('/');
+                  // Auto-add https:// if the URL has no protocol (e.g. www.google.com)
+                  const catLink = isExternal && !rawLink.startsWith('http://') && !rawLink.startsWith('https://')
+                    ? `https://${rawLink}`
+                    : rawLink;
+                  const cardClass = `group block bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border ${colors.border} ${colors.hover}`;
+
+                  const cardInner = (
+                    <>
+                      {imageUrl ? (
+                        <div className="h-56 relative overflow-hidden bg-gray-900">
+                          <img
+                            src={imageUrl}
+                            alt={cat.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
+                        </div>
+                      ) : (
+                        <div className={`h-56 bg-gradient-to-br ${colors.from} ${colors.to} flex items-center justify-center relative overflow-hidden`}>
+                          <div className="absolute inset-0 bg-black/20" />
+                          <svg className="w-20 h-20 text-white opacity-90 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                           </svg>
                         </div>
-                        <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
-                          {cat.name}
-                        </h3>
+                      )}
+                      <div className="p-8">
+                        <div className="flex items-start mb-4">
+                          <div className={`w-12 h-12 bg-gradient-to-br ${colors.from} ${colors.to} rounded-xl flex items-center justify-center mr-4 flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                            {cat.name}
+                          </h3>
+                        </div>
+                        <p className="text-gray-300 leading-relaxed mb-6">
+                          {cat.description || cat.subtitle || 'Discover our innovative solutions for modern building automation.'}
+                        </p>
+                        <span className="text-teal-400 font-bold group-hover:text-teal-300 transition-colors inline-flex items-center">
+                          Learn More
+                          <svg className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </span>
                       </div>
-                      <p className="text-gray-300 leading-relaxed mb-6">
-                        {cat.description || cat.subtitle || 'Discover our innovative solutions for modern building automation.'}
-                      </p>
-                      <span className="text-teal-400 font-bold group-hover:text-teal-300 transition-colors inline-flex items-center">
-                        Learn More
-                        <svg className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-            {categories.length > 4 && (
-              <div className="text-center mt-12">
-                <button
-                  onClick={() => setShowAllCategories(!showAllCategories)}
-                  className="group bg-gray-700/50 hover:bg-gray-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all duration-300 border-2 border-gray-600 hover:border-teal-500 inline-flex items-center gap-3 shadow-lg hover:shadow-xl"
-                >
-                  {showAllCategories ? (
-                    <>
-                      Show Less
-                      <svg className="w-6 h-6 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
                     </>
+                  );
+
+                  return isExternal ? (
+                    <a
+                      href={catLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      key={cat._id}
+                      className={cardClass}
+                    >
+                      {cardInner}
+                    </a>
                   ) : (
-                    <>
-                      Show All {categories.length} Categories
-                      <svg className="w-6 h-6 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </>
-                  )}
-                </button>
+                    <Link
+                      to={catLink}
+                      key={cat._id}
+                      className={cardClass}
+                    >
+                      {cardInner}
+                    </Link>
+                  );
+                })}
               </div>
-            )}
+              {categories.length > 4 && (
+                <div className="text-center mt-12">
+                  <button
+                    onClick={() => setShowAllCategories(!showAllCategories)}
+                    className="group bg-gray-700/50 hover:bg-gray-700 text-white px-10 py-4 rounded-xl font-bold text-lg transition-all duration-300 border-2 border-gray-600 hover:border-teal-500 inline-flex items-center gap-3 shadow-lg hover:shadow-xl"
+                  >
+                    {showAllCategories ? (
+                      <>
+                        Show Less
+                        <svg className="w-6 h-6 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        Show All {categories.length} Categories
+                        <svg className="w-6 h-6 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

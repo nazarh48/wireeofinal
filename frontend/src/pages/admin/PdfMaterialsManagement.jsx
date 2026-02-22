@@ -9,12 +9,9 @@ const statusOptions = [
 ];
 
 const typeOptions = [
-  { value: "Guide", label: "Guide" },
-  { value: "Manual", label: "Manual" },
-  { value: "Whitepaper", label: "Whitepaper" },
-  { value: "Datasheet", label: "Datasheet" },
-  { value: "Brochure", label: "Brochure" },
-  { value: "Certificate", label: "Certificate" },
+  { value: "Catalogues & Brochures", label: "Catalogues & Brochures" },
+  { value: "Technical Manuals", label: "Technical Manuals" },
+  { value: "Software", label: "Software" },
 ];
 
 function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {

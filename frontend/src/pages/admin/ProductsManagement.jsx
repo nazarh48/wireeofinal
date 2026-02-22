@@ -20,7 +20,8 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [error, setError] = useState("");
   const [imagesFiles, setImagesFiles] = useState([]);
-  const [previews, setPreviews] = useState(() => {
+  const [newImagePreviews, setNewImagePreviews] = useState([]);
+  const [existingImages, setExistingImages] = useState(() => {
     const imgs = Array.isArray(initial?.images) ? initial.images : [];
     if (imgs.length) return imgs;
     return initial?.baseImageUrl ? [initial.baseImageUrl] : [];
@@ -35,7 +36,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
 
   useEffect(() => {
     return () => {
-      previews.forEach((u) => {
+      newImagePreviews.forEach((u) => {
         if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
       });
       if (typeof configuratorPreview === "string" && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
@@ -72,6 +73,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       configurable,
       status,
       imagesFiles,
+      existingImages,
       configuratorImageFile: configuratorImageFile || undefined,
       downloadableFiles: initial ? keptAttachments : undefined,
       downloadFiles: downloadFiles.length ? downloadFiles : undefined,
@@ -180,7 +182,7 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (for gallery)</label>
         <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
-          <span className="text-sm text-slate-500 mt-1">Click to upload or drag and drop</span>
+          <span className="text-sm text-slate-500 mt-1">Click to upload or drag and drop (adds to existing)</span>
           <input
             type="file"
             accept="image/*"
@@ -188,42 +190,53 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
             className="hidden"
             onChange={(e) => {
               const files = Array.from(e.target.files || []);
-              previews.forEach((u) => {
-                if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
-              });
-              setImagesFiles(files);
-              setPreviews(files.length ? files.map((f) => URL.createObjectURL(f)) : (Array.isArray(initial?.images) ? initial.images : initial?.baseImageUrl ? [initial.baseImageUrl] : []));
+              if (!files.length) return;
+              const newPreviews = files.map((f) => URL.createObjectURL(f));
+              setImagesFiles((prev) => [...prev, ...files]);
+              setNewImagePreviews((prev) => [...prev, ...newPreviews]);
+              e.target.value = "";
             }}
           />
         </label>
-        {previews.length > 0 && (
+        {(existingImages.length > 0 || newImagePreviews.length > 0) && (
           <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {previews.slice(0, 10).map((src, idx) => (
-              <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group">
+            {existingImages.map((src, idx) => (
+              <div key={`existing-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-50 group">
                 <img src={src} alt="" className="w-full h-full object-cover" />
-                {imagesFiles.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextFiles = imagesFiles.filter((_, i) => i !== idx);
-                      const nextPreviews = nextFiles.length
-                        ? nextFiles.map((f) => URL.createObjectURL(f))
-                        : (Array.isArray(initial?.images) && initial.images.length ? initial.images : initial?.baseImageUrl ? [initial.baseImageUrl] : []);
-                      if (typeof src === "string" && src.startsWith("blob:")) URL.revokeObjectURL(src);
-                      setImagesFiles(nextFiles);
-                      setPreviews(nextPreviews);
-                    }}
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl text-white text-sm font-medium hover:bg-red-500/70"
-                    aria-label="Remove image"
-                  >
-                    Remove
-                  </button>
-                )}
+                <span className="absolute top-1 left-1 text-[10px] bg-teal-600 text-white px-1.5 py-0.5 rounded font-medium">Saved</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExistingImages((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl text-white text-sm font-medium hover:bg-red-500/70"
+                  aria-label="Remove existing image"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {newImagePreviews.map((src, idx) => (
+              <div key={`new-${idx}`} className="relative aspect-square rounded-xl overflow-hidden border border-teal-300 bg-slate-50 group">
+                <img src={src} alt="" className="w-full h-full object-cover" />
+                <span className="absolute top-1 left-1 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-medium">New</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (src.startsWith("blob:")) URL.revokeObjectURL(src);
+                    setImagesFiles((prev) => prev.filter((_, i) => i !== idx));
+                    setNewImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl text-white text-sm font-medium hover:bg-red-500/70"
+                  aria-label="Remove new image"
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-500">Up to 10 images for product page gallery. You can remove an image before saving. When editing, leaving unchanged keeps existing images.</p>
+        <p className="mt-2 text-xs text-slate-500">Up to 10 images for gallery. New uploads are added on top of existing images. Hover any image to remove it.</p>
       </div>
       <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
         <input

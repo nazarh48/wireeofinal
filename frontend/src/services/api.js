@@ -125,6 +125,9 @@ export const apiService = {
   users: {
     list: async () => unwrap(await adminApi.get("/users")),
     count: async () => unwrap(await adminApi.get("/users/count")),
+    create: async (payload) => unwrap(await adminApi.post("/users", payload)),
+    update: async (id, payload) => unwrap(await adminApi.patch(`/users/${id}`, payload)),
+    remove: async (id) => unwrap(await adminApi.delete(`/users/${id}`)),
   },
 
   ranges: {

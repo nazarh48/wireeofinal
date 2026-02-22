@@ -322,9 +322,8 @@ export default function SolutionsManagement() {
                       <p className="font-medium text-slate-900">{s.title}</p>
                       <p className="text-sm text-slate-500 line-clamp-1">{s.description || "—"}</p>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${
-                          s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
-                        }`}
+                        className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${s.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                          }`}
                       >
                         {s.status}
                       </span>
