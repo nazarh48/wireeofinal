@@ -909,11 +909,10 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
                           e.stopPropagation();
                           setSelectedProjectId(project.id);
                         }}
-                        className={`w-9 h-9 rounded-full text-lg leading-none transition-colors ${
-                          selectedProjectId === project.id
-                            ? 'bg-teal-500 text-white'
-                            : 'bg-teal-500/80 text-white hover:bg-teal-600'
-                        }`}
+                        className={`w-9 h-9 rounded-full text-lg leading-none transition-colors ${selectedProjectId === project.id
+                          ? 'bg-teal-500 text-white'
+                          : 'bg-teal-500/80 text-white hover:bg-teal-600'
+                          }`}
                         title={selectedProjectId === project.id ? 'Project selected' : 'Select project'}
                       >
                         {selectedProjectId === project.id ? '✓' : '+'}
@@ -972,7 +971,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
                         <div key={`${product._instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
                           <div className="mb-4">
                             <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-violet-600 transition-colors">{product.name}</h4>
-                            <p className="text-sm text-gray-600">{product.description}</p>
+                            <p className="text-sm text-gray-600 font-medium">Code: {product.productCode || product.sku || "—"}</p>
                           </div>
                           <div className="mb-4 bg-white rounded-lg p-2 border border-gray-200">
                             <EditedProductPreview key={`preview_${product._instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
@@ -1041,11 +1040,13 @@ const PDFConfigurationsContent = () => {
     clearPendingPdfCollection,
     savePendingAsPdf,
     fetchPdfConfigurations,
+    deletePdfConfiguration,
     showToast,
     editsByInstanceId,
     productEdits,
   } = useStore();
   const [reExportingId, setReExportingId] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     fetchPdfConfigurations();
@@ -1065,11 +1066,13 @@ const PDFConfigurationsContent = () => {
     if (!config._id) return;
     setReExportingId(config._id);
     try {
-      const fullConfig = await apiService.pdf.getById(config._id);
+      const res = await apiService.pdf.getById(config._id);
+      const fullConfig = res?.config || res;
       let rawProducts = fullConfig?.products ?? [];
       if (rawProducts.length === 0 && fullConfig?.projectId) {
         const projectRes = await apiService.projects.getById(fullConfig.projectId);
-        rawProducts = (projectRes?.project?.products ?? projectRes?.products ?? []).map((item) => ({
+        const projectData = projectRes?.project || projectRes;
+        rawProducts = (projectData?.products ?? []).map((item) => ({
           product: item.product || item,
           instanceId: item.instanceId ?? item._instanceId,
           edits: item.edits || {},
@@ -1080,7 +1083,13 @@ const PDFConfigurationsContent = () => {
         setReExportingId(null);
         return;
       }
-      const normalizeUrl = (url) => (!url ? "" : url.startsWith("/") ? `${API_ORIGIN}${url}` : url);
+      const normalizeUrl = (url) => {
+        if (!url) return "";
+        if (url.startsWith("http") || url.startsWith("data:")) return url;
+        const path = url.startsWith("/") ? url : `/${url}`;
+        return `${API_ORIGIN}${path}`;
+      };
+
       const products = rawProducts.map((item) => {
         const p = item.product || item;
         const instanceId = item.instanceId || p._instanceId;
@@ -1090,10 +1099,15 @@ const PDFConfigurationsContent = () => {
           : item.edits || productEdits[p?._id ?? p?.id] || p.edits || null;
         const editedImage = instanceEdits?.editedImage || null;
         return {
+          ...p,
           id: p?._id ?? p?.id,
           _instanceId: instanceId,
           name: p?.name,
+          description: p?.description,
+          sku: p?.sku,
+          category: p?.category,
           baseImageUrl: normalizeUrl(p?.baseImageUrl || p?.image),
+          configuratorImageUrl: normalizeUrl(p?.configuratorImageUrl || p?.baseImageUrl || p?.image),
           edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
           editedImage,
         };
@@ -1109,6 +1123,17 @@ const PDFConfigurationsContent = () => {
     } finally {
       setReExportingId(null);
     }
+  };
+
+  const handleDeleteConfig = (config) => {
+    setDeleteConfirm(config);
+  };
+
+  const confirmDeleteConfig = async () => {
+    if (!deleteConfirm?._id) return;
+    const id = deleteConfirm._id;
+    setDeleteConfirm(null);
+    await deletePdfConfiguration(id);
   };
 
   const entries = Array.isArray(pendingPdfCollection) ? pendingPdfCollection.filter((e) => e && e.product) : [];
@@ -1235,7 +1260,17 @@ const PDFConfigurationsContent = () => {
                       <span className="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium">{pdf.productCount ?? pdf.amount ?? 0}</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(pdf.lastExportedAt)}</td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteConfig(pdf)}
+                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                        title="Delete configuration"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleReExportPdf(pdf)}
@@ -1261,6 +1296,33 @@ const PDFConfigurationsContent = () => {
           </div>
         </div>
       ) : null}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-config-title">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 id="delete-config-title" className="text-xl font-bold text-gray-900 mb-2">Delete configuration?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete &quot;{deleteConfirm.projectName || deleteConfirm.description || "this configuration"}&quot;? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteConfig}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

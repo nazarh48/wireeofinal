@@ -145,6 +145,18 @@ const useStore = create((set, get) => ({
       return [];
     }
   },
+  deletePdfConfiguration: async (id) => {
+    try {
+      await apiService.pdf.remove(id);
+      await get().fetchPdfConfigurations();
+      get().showToast("PDF configuration deleted successfully.");
+      return true;
+    } catch (e) {
+      console.error("Failed to delete PDF configuration:", e);
+      get().showToast(e?.message || "Failed to delete PDF configuration.");
+      return false;
+    }
+  },
 
   savePendingAsPdf: () => {
     const state = get();

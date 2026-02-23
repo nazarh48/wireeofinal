@@ -280,6 +280,7 @@ export const apiService = {
     updateLastExported: async (id) =>
       unwrap(await userApi.patch(`/pdf/${id}/last-exported`)),
     reExport: async (id) => unwrap(await userApi.put(`/pdf/${id}/re-export`)),
+    remove: async (id) => unwrap(await userApi.delete(`/pdf/${id}`)),
   },
 
   adminDashboard: {
