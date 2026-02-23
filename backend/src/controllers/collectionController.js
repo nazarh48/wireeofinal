@@ -34,7 +34,7 @@ export async function addToCollection(req, res, next) {
     await collection.save();
     await collection.populate(
       "configurableProducts.product",
-      "name description baseImageUrl configuratorImageUrl isConfigurable productType",
+      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType",
     );
     return res.status(200).json({ success: true, collection });
   } catch (err) {
@@ -51,7 +51,7 @@ export async function getMyCollection(req, res, next) {
       createdBy: req.user._id,
     }).populate(
       "configurableProducts.product",
-      "name description baseImageUrl configuratorImageUrl isConfigurable productType range",
+      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType range",
     );
     if (!collection) {
       collection = { configurableProducts: [], name: "My Collection" };
@@ -131,7 +131,7 @@ export async function duplicateCollectionItem(req, res, next) {
 
     await collection.populate(
       "configurableProducts.product",
-      "name description baseImageUrl configuratorImageUrl isConfigurable productType range",
+      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType range",
     );
 
     const duplicated = collection.configurableProducts.find(

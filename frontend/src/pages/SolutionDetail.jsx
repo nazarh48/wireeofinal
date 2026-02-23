@@ -427,9 +427,9 @@ export default function SolutionDetail() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center gap-8 max-w-4xl mx-auto">
 
-            <div className="text-center">
+            {/* <div className="text-center">
               <p className="text-gray-500 font-medium mb-3">KNX · ETS · Azure · Hospitality</p>
-            </div>
+            </div> */}
           </div>
         </div>
       </section>

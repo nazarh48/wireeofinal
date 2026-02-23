@@ -142,9 +142,9 @@ const ConfiguratorToolRail = () => {
         <div className="text-sm font-medium text-gray-800">
           {configurator.product?.name || 'Product'}
         </div>
-        <div className="text-xs text-teal-600/80 mt-0.5">
+        {/* <div className="text-xs text-teal-600/80 mt-0.5">
           {configurator.product?.description || configurator.product?.category || 'Graphic configurator'}
-        </div>
+        </div> */}
 
         <div className="mt-3 space-y-2">
           <div>
@@ -221,11 +221,10 @@ const ConfiguratorToolRail = () => {
             <button
               key={action.id}
               onClick={() => setActiveAction(action.id)}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${
-                activeAction === action.id
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${activeAction === action.id
                   ? 'bg-white border border-teal-300 text-teal-800'
                   : 'text-gray-600 hover:bg-teal-50/70'
-              }`}
+                }`}
             >
               <span className="w-4 h-4 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs leading-none flex-shrink-0">+</span>
               <span className="font-medium">{action.label}</span>

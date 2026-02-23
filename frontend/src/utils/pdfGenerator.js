@@ -1,8 +1,7 @@
-// Basic project PDF generator: delegates to generateProductPDF for now
 export const generateProjectPDF = async (project, options = {}) => {
   // If project has products, reuse generateProductPDF
   if (project && Array.isArray(project.products)) {
-    return generateProductPDF(project.products, { ...options, projectName: project.name || options.projectName });
+    return generateProductPDF(project.products, { ...options, projectName: project.name || options.projectName, configurationNumber: project.configurationNumber || options.configurationNumber });
   }
   throw new Error('No products found in project for PDF export.');
 };
@@ -404,9 +403,9 @@ export const generateProductPDF = async (products, options = {}) => {
   // NUCLEAR OPTION: Completely remove all canvases from the document during PDF generation
   const allCanvases = document.querySelectorAll("canvas");
   const canvasBackup = [];
-  
+
   console.info("[PDF] Removing", allCanvases.length, "canvases from document for safe PDF generation");
-  
+
   allCanvases.forEach((canvas, index) => {
     if (canvas.parentNode) {
       canvasBackup.push({
@@ -425,6 +424,7 @@ export const generateProductPDF = async (products, options = {}) => {
       user,
       filenamePrefix = "Wireeo-Customer-Report",
       companyName: companyNameOption = "",
+      configurationNumber,
     } = options || {};
 
     const pdf = new jsPDF({
@@ -433,7 +433,7 @@ export const generateProductPDF = async (products, options = {}) => {
       format: "a4",
     });
 
-    const configNumber = `CFG-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
+    const configNumber = configurationNumber || `CFG-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
     const reportDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const totalPages = 2;
 

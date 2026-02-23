@@ -105,7 +105,7 @@ const Projects = () => {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{backgroundImage: "url('https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')"}} aria-hidden="true"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-20" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')" }} aria-hidden="true"></div>
         <div className="absolute inset-0 bg-black/50"></div>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent"></div>
         <div className="relative container mx-auto px-4 text-center z-10">
@@ -204,6 +204,12 @@ const Projects = () => {
                       <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">
                         {project.name || project.title}
                       </h3>
+                    )}
+
+                    {project.configurationNumber && (
+                      <div className="mb-2 text-xs font-mono bg-teal-50 text-teal-800 px-2 py-1 rounded inline-block border border-teal-200 shadow-sm">
+                        {project.configurationNumber}
+                      </div>
                     )}
 
                     <p className="text-gray-600 text-sm mb-4">

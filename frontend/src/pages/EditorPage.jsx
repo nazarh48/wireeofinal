@@ -51,7 +51,7 @@ const EditorPage = () => {
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">{product.name}</h1>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">{range.name} • {product.description}</p>
+                <p className="text-xs sm:text-sm text-gray-600 truncate"> • {product.productCode}</p>
               </div>
             </div>
             <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0 ml-2 hidden sm:block">

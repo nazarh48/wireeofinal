@@ -153,6 +153,27 @@ function parseBodyFiles(bodyFiles) {
   return [];
 }
 
+function normaliseUploadUrl(input) {
+  if (!input || typeof input !== "string") return "";
+  let pathname = input;
+  try {
+    const parsedUrl = new URL(input);
+    pathname = parsedUrl.pathname || input;
+  } catch {
+    // keep as-is (already relative)
+  }
+  // Frontend may send absolute URLs under /api/uploads; store as /uploads to match create()
+  if (pathname.startsWith("/api/uploads/")) return pathname.replace(/^\/api\/uploads\//, "/uploads/");
+  return pathname;
+}
+
+function basenameFromPath(p) {
+  if (!p || typeof p !== "string") return "";
+  const clean = p.split("?")[0].split("#")[0];
+  const parts = clean.split("/").filter(Boolean);
+  return parts[parts.length - 1] || "";
+}
+
 export async function update(req, res, next) {
   try {
     const {
@@ -211,13 +232,16 @@ export async function update(req, res, next) {
             .filter((u) => typeof u === "string" && u)
             .map((u) => {
               // Normalise absolute URLs to stored relative paths (e.g. /uploads/products/xxx)
-              try {
-                const url = new URL(u);
-                return { url: url.pathname };
-              } catch {
-                return { url: u };
-              }
-            });
+              const pathname = normaliseUploadUrl(u);
+              const filename = basenameFromPath(pathname);
+              // Ensure all required image fields are present so Mongoose validation passes
+              return {
+                url: pathname,
+                filename,
+                originalName: filename,
+              };
+            })
+            .filter((img) => img.url && img.filename);
         }
       } catch (_) { }
     }
@@ -229,7 +253,27 @@ export async function update(req, res, next) {
       if (!updates.baseImageUrl) updates.baseImageUrl = updates.images[0]?.url || "";
     }
     if (fileFiles.length) {
-      const existing = parseBodyFiles(bodyFilesRaw);
+      const existingRaw = parseBodyFiles(bodyFilesRaw);
+      const existing = existingRaw
+        .map((f) => {
+          if (typeof f === "string") {
+            const url = normaliseUploadUrl(f);
+            const filename = basenameFromPath(url);
+            return filename
+              ? { url, filename, originalName: filename, label: filename }
+              : null;
+          }
+          if (f && typeof f === "object") {
+            const url = normaliseUploadUrl(f.url || "");
+            const filename = String(f.filename || basenameFromPath(url) || f.originalName || "").trim();
+            if (!url || !filename) return null;
+            const originalName = String(f.originalName || filename).trim();
+            const label = String(f.label || originalName || filename).trim();
+            return { url, filename, originalName, label };
+          }
+          return null;
+        })
+        .filter(Boolean);
       let fileLabels = [];
       const rawLabels = req.body.fileLabels;
       if (typeof rawLabels === "string" && rawLabels.trim()) {
@@ -243,8 +287,28 @@ export async function update(req, res, next) {
       const newFiles = fileFiles.map((f, i) => toProductFile(f, "product-files", fileLabels[i]));
       updates.downloadableFiles = [...existing, ...newFiles];
     } else if (bodyFilesRaw !== undefined) {
-      const parsed = parseBodyFiles(bodyFilesRaw);
-      if (parsed.length >= 0) updates.downloadableFiles = parsed;
+      const parsedRaw = parseBodyFiles(bodyFilesRaw);
+      const parsed = parsedRaw
+        .map((f) => {
+          if (typeof f === "string") {
+            const url = normaliseUploadUrl(f);
+            const filename = basenameFromPath(url);
+            return filename
+              ? { url, filename, originalName: filename, label: filename }
+              : null;
+          }
+          if (f && typeof f === "object") {
+            const url = normaliseUploadUrl(f.url || "");
+            const filename = String(f.filename || basenameFromPath(url) || f.originalName || "").trim();
+            if (!url || !filename) return null;
+            const originalName = String(f.originalName || filename).trim();
+            const label = String(f.label || originalName || filename).trim();
+            return { url, filename, originalName, label };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      updates.downloadableFiles = parsed;
     }
 
     const product = await Product.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true })

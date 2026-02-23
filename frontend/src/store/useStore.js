@@ -373,6 +373,7 @@ const useStore = create((set, get) => ({
         raw.map(async (proj) => ({
           id: proj._id,
           name: proj.name,
+          configurationNumber: proj.configurationNumber,
           products: await Promise.all(
             (proj.products || []).map(async (item) => {
               const p = item.product;

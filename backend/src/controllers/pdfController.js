@@ -17,7 +17,7 @@ export async function create(req, res, next) {
       pdfSettings: pdfSettings || {},
       createdBy: req.user._id,
     });
-    await config.populate("products.product", "name description baseImageUrl isConfigurable productType");
+    await config.populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku");
     return res.status(201).json({ success: true, config });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -41,7 +41,7 @@ export async function list(req, res, next) {
 export async function getById(req, res, next) {
   try {
     const config = await PDFConfig.findOne({ _id: req.params.id, createdBy: req.user._id })
-      .populate("products.product", "name description baseImageUrl isConfigurable productType")
+      .populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku")
       .lean();
     if (!config) {
       return res.status(404).json({ success: false, message: "PDF configuration not found" });
@@ -78,7 +78,7 @@ export async function reExport(req, res, next) {
       },
       { new: true }
     )
-      .populate("products.product", "name description baseImageUrl isConfigurable productType")
+      .populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku")
       .lean();
 
     if (!config) {

@@ -48,7 +48,7 @@ const Products = () => {
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-6xl font-extrabold mb-6 tracking-tight leading-tight">
-              Premium<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">KNX Devices
+              Premium<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400"> KNX Devices
                 Structured by Engineering</span> Defined by Design.
             </h1>
             <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed">
