@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useStore from '../../store/useStore';
-import { JUNG_ICONS, JUNG_ICON_GROUPS } from './jungIconCatalog';
+import { useIconStore } from '../../stores/useIconStore';
+import { getImageUrl } from '../../services/api';
 
 const quickActions = [
   { id: 'icons', label: 'Symbols and icons' },
@@ -29,6 +30,25 @@ const roomOptions = [
   'Living Room',
 ];
 
+const DEFAULT_PROCESSING_OPTIONS = ['Colour printing', 'Laser engraving', 'UV print'];
+
+const getProcessingOptionsForProduct = (product) => {
+  if (!product) return DEFAULT_PROCESSING_OPTIONS;
+
+  const options = [];
+
+  // Tie options to per‑product capabilities from the admin form
+  if (product.printingEnabled !== false) {
+    options.push('Colour printing');
+  }
+  if (product.laserEnabled) {
+    options.push('Laser engraving');
+  }
+
+  // If nothing explicitly enabled, fall back to defaults
+  return options.length ? options : DEFAULT_PROCESSING_OPTIONS;
+};
+
 const ConfiguratorToolRail = () => {
   const { configurator, addElement, setActiveTool, updateConfiguratorConfiguration } = useStore();
   const [activeAction, setActiveAction] = useState('icons');
@@ -37,19 +57,45 @@ const ConfiguratorToolRail = () => {
   const [individualLabeling, setIndividualLabeling] = useState('');
   const [roomValue, setRoomValue] = useState('');
   const [floorValue, setFloorValue] = useState('1');
-  const [iconStyle, setIconStyle] = useState('JUNG Modern');
-  const [iconGroup, setIconGroup] = useState('All');
 
-  const filteredIcons = useMemo(() => {
-    if (iconGroup === 'All') return JUNG_ICONS;
-    return JUNG_ICONS.filter((icon) => icon.group === iconGroup);
-  }, [iconGroup]);
+  const {
+    categories,
+    activeCategoryId,
+    isLoadingCategories,
+    isLoadingIcons,
+    loadCategories,
+    setActiveCategoryId,
+    getActiveIcons,
+  } = useIconStore((s) => ({
+    categories: s.categories,
+    activeCategoryId: s.activeCategoryId,
+    isLoadingCategories: s.isLoadingCategories,
+    isLoadingIcons: s.isLoadingIcons,
+    loadCategories: s.loadCategories,
+    setActiveCategoryId: s.setActiveCategoryId,
+    getActiveIcons: s.getActiveIcons,
+  }));
+
+  const processingOptions = useMemo(
+    () => getProcessingOptionsForProduct(configurator.product),
+    [configurator.product]
+  );
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const activeIcons = getActiveIcons();
 
   useEffect(() => {
     const cfg = configurator.configuration || {};
     setTextValue('');
     setActiveAction('icons');
-    setPrintMode(cfg.processingType || 'Colour printing');
+    const nextProcessing =
+      (cfg.processingType && processingOptions.includes(cfg.processingType))
+        ? cfg.processingType
+        : (processingOptions[0] || 'Colour printing');
+    setPrintMode(nextProcessing);
     setIndividualLabeling(cfg.individualLabeling || '');
     setRoomValue(cfg.room || '');
     setFloorValue(String(cfg.floor ?? '1'));
@@ -60,6 +106,7 @@ const ConfiguratorToolRail = () => {
     configurator.configuration?.individualLabeling,
     configurator.configuration?.room,
     configurator.configuration?.floor,
+    processingOptions,
   ]);
 
   const persistConfig = (changes) => {
@@ -101,16 +148,48 @@ const ConfiguratorToolRail = () => {
     setActiveTool('select');
   };
 
-  const addIcon = (icon) => {
+  const addBackendIcon = async (icon) => {
+    if (!icon) return;
+    const src = getImageUrl(icon.file_path);
+    const isSvg = typeof src === 'string' && src.toLowerCase().includes('.svg');
+
+    if (isSvg) {
+      try {
+        const resp = await fetch(src);
+        const text = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'image/svg+xml');
+        const pathEl = doc.querySelector('path');
+        const d = pathEl?.getAttribute('d');
+        if (d) {
+          addElement({
+            type: 'mdiIcon',
+            pathData: d,
+            x: 300,
+            y: 110,
+            width: 34,
+            height: 34,
+            fill: '#111827',
+            stroke: 'transparent',
+            opacity: 1,
+          });
+          setActiveTool('select');
+          return;
+        }
+      } catch {
+        // Fall through to image fallback below
+      }
+    }
+
     addElement({
-      type: 'mdiIcon',
-      pathData: icon.pathData,
+      type: 'image',
+      src,
+      iconId: icon.id || icon._id,
+      categoryId: icon.category_id || null,
       x: 300,
       y: 110,
-      width: 34,
-      height: 34,
-      fill: '#111827',
-      stroke: 'transparent',
+      width: 96,
+      height: 96,
       opacity: 1,
     });
     setActiveTool('select');
@@ -158,9 +237,11 @@ const ConfiguratorToolRail = () => {
               }}
               className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-xs text-[#5f6772]"
             >
-              <option>Colour printing</option>
-              <option>Laser engraving</option>
-              <option>UV print</option>
+              {processingOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -222,8 +303,8 @@ const ConfiguratorToolRail = () => {
               key={action.id}
               onClick={() => setActiveAction(action.id)}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${activeAction === action.id
-                  ? 'bg-white border border-teal-300 text-teal-800'
-                  : 'text-gray-600 hover:bg-teal-50/70'
+                ? 'bg-white border border-teal-300 text-teal-800'
+                : 'text-gray-600 hover:bg-teal-50/70'
                 }`}
             >
               <span className="w-4 h-4 rounded-full bg-teal-500 text-white flex items-center justify-center text-xs leading-none flex-shrink-0">+</span>
@@ -236,38 +317,45 @@ const ConfiguratorToolRail = () => {
           <div className="mt-4">
             <div className="grid grid-cols-2 gap-2 mb-3">
               <select
-                value={iconStyle}
-                onChange={(e) => setIconStyle(e.target.value)}
+                value={activeCategoryId || 'all'}
+                onChange={(e) => setActiveCategoryId(e.target.value)}
                 className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs text-[#5f6772]"
               >
-                <option>JUNG Modern</option>
-              </select>
-              <select
-                value={iconGroup}
-                onChange={(e) => setIconGroup(e.target.value)}
-                className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs text-[#5f6772]"
-              >
-                {JUNG_ICON_GROUPS.map((group) => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
+                <option value="all">All</option>
+                {categories.map((cat) => {
+                  const id = cat.id || cat._id;
+                  return (
+                    <option key={id} value={id}>
+                      {cat.name}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
             <div className="max-h-64 overflow-y-auto pr-1">
-              <div className="grid grid-cols-7 gap-1.5">
-                {filteredIcons.map((icon) => (
-                  <button
-                    key={icon.id}
-                    onClick={() => addIcon(icon)}
-                    className="h-9 border border-[#d3d6db] rounded bg-white hover:bg-[#f8fafc] flex items-center justify-center"
-                    title={icon.label}
-                  >
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 text-[#111827]" fill="currentColor">
-                      <path d={icon.pathData} />
-                    </svg>
-                  </button>
-                ))}
-              </div>
+              {isLoadingCategories || isLoadingIcons ? (
+                <div className="text-xs text-[#8b9199] py-2">Loading icons…</div>
+              ) : !activeIcons || activeIcons.length === 0 ? (
+                <div className="text-xs text-[#8b9199] py-2">No icons available.</div>
+              ) : (
+                <div className="grid grid-cols-7 gap-1.5">
+                  {activeIcons.map((icon) => (
+                    <button
+                      key={icon.id || icon._id}
+                      onClick={() => addBackendIcon(icon)}
+                      className="h-9 border border-[#d3d6db] rounded bg-white hover:bg-[#f8fafc] flex items-center justify-center"
+                      title={icon.name}
+                    >
+                      <img
+                        src={getImageUrl(icon.file_path)}
+                        alt={icon.name || ''}
+                        className="w-5 h-5 object-contain"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

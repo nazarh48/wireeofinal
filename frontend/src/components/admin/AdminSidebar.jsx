@@ -15,6 +15,7 @@ import {
   IconCookie,
   IconMail,
   IconHome,
+  IconLibrary,
 } from "./AdminIcons";
 import { useAuthStore } from "../../store/authStore";
 
@@ -24,6 +25,7 @@ const nav = [
   { to: "/admin/solutions", label: "Solutions", icon: IconSolutions },
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
+  { to: "/admin/icon-library", label: "Icon Library", icon: IconLibrary },
   { to: "/admin/pdf-materials", label: "PDF Materials", icon: IconPdf },
   { to: "/admin/newsletter", label: "Newsletter / Email List", icon: IconMail },
   { to: "/admin/users", label: "Users Management", icon: IconUsers },

@@ -220,3 +220,33 @@ export const newsletterValidators = {
     body("source").optional().trim(),
   ],
 };
+
+export const iconCategoryValidators = {
+  create: [
+    body("name").trim().notEmpty().withMessage("Name required"),
+    body("order").optional(),
+    body("is_active").optional(),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("name").optional().trim().notEmpty().withMessage("Name required"),
+    body("order").optional(),
+    body("is_active").optional(),
+  ],
+  id: [param("id").custom(objectId)],
+};
+
+export const iconValidators = {
+  create: [
+    body("category_id").custom(objectId).withMessage("Valid category_id required"),
+    body("name").trim().notEmpty().withMessage("Name required"),
+    body("is_active").optional(),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("category_id").optional().custom(objectId),
+    body("name").optional().trim().notEmpty().withMessage("Name required"),
+    body("is_active").optional(),
+  ],
+  id: [param("id").custom(objectId)],
+};

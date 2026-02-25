@@ -61,10 +61,15 @@ const mapProduct = (p) => {
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
     baseImageUrl,
     configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
+    baseDeviceImageUrl: p?.baseDeviceImageUrl ? toAbsoluteImageUrl(p.baseDeviceImageUrl) : "",
+    engravingMaskImageUrl: p?.engravingMaskImageUrl ? toAbsoluteImageUrl(p.engravingMaskImageUrl) : "",
     images,
     imageAlt,
     configurable:
       p?.productType === "configurable" || p?.isConfigurable === true,
+    printingEnabled: p?.printingEnabled !== undefined ? !!p.printingEnabled : true,
+    laserEnabled: p?.laserEnabled !== undefined ? !!p.laserEnabled : true,
+    backgroundCustomizable: p?.backgroundCustomizable !== undefined ? !!p.backgroundCustomizable : true,
     status: p?.status || "active",
     featured: p?.featured === true,
     downloadableFiles,
@@ -190,7 +195,20 @@ export const useCatalogStore = create((set, get) => ({
   },
 
   createProduct: async (payload) => {
-    const { rangeId, configurable, featured, imagesFiles, configuratorImageFile, downloadFiles, ...rest } = payload;
+    const {
+      rangeId,
+      configurable,
+      featured,
+      imagesFiles,
+      configuratorImageFile,
+      downloadFiles,
+      baseDeviceImageFile,
+      engravingMaskImageFile,
+      printingEnabled,
+      laserEnabled,
+      backgroundCustomizable,
+      ...rest
+    } = payload;
     const range = rangeId ?? payload.range;
     // Always resolve so non-configurable products are saved as productType "normal" and show on Products page
     const isConfigurable = configurable ?? payload.isConfigurable ?? false;
@@ -198,8 +216,21 @@ export const useCatalogStore = create((set, get) => ({
     const hasImages = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
-    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles;
-    const body = hasFiles ? new FormData() : { ...rest, range, isConfigurable: !!isConfigurable, featured: !!featured, status: rest.status || "active" };
+    const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
+    const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
+    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles || hasBaseDevice || hasEngravingMask;
+    const body = hasFiles
+      ? new FormData()
+      : {
+          ...rest,
+          range,
+          isConfigurable: !!isConfigurable,
+          featured: !!featured,
+          status: rest.status || "active",
+          printingEnabled: printingEnabled !== undefined ? !!printingEnabled : undefined,
+          laserEnabled: laserEnabled !== undefined ? !!laserEnabled : undefined,
+          backgroundCustomizable: backgroundCustomizable !== undefined ? !!backgroundCustomizable : undefined,
+        };
 
     if (hasFiles) {
       body.append("name", rest.name || "");
@@ -210,11 +241,16 @@ export const useCatalogStore = create((set, get) => ({
       body.append("isConfigurable", String(!!isConfigurable));
       body.append("featured", String(!!featured));
       body.append("status", rest.status || "active");
+      if (printingEnabled !== undefined) body.append("printingEnabled", String(!!printingEnabled));
+      if (laserEnabled !== undefined) body.append("laserEnabled", String(!!laserEnabled));
+      if (backgroundCustomizable !== undefined) body.append("backgroundCustomizable", String(!!backgroundCustomizable));
       if (hasImages) {
         const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
         files.forEach((f) => body.append("images", f));
       }
       if (hasConfiguratorImage) body.append("configuratorImage", configuratorImageFile);
+      if (hasBaseDevice) body.append("baseDeviceImage", baseDeviceImageFile);
+      if (hasEngravingMask) body.append("engravingMaskImage", engravingMaskImageFile);
       if (hasDownloadFiles) {
         downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
         const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
@@ -231,15 +267,31 @@ export const useCatalogStore = create((set, get) => ({
     return res?.product;
   },
   updateProduct: async (id, payload) => {
-    const { rangeId, configurable, featured, imagesFiles, existingImages, configuratorImageFile, downloadFiles, ...rest } = payload;
+    const {
+      rangeId,
+      configurable,
+      featured,
+      imagesFiles,
+      existingImages,
+      configuratorImageFile,
+      downloadFiles,
+      baseDeviceImageFile,
+      engravingMaskImageFile,
+      printingEnabled,
+      laserEnabled,
+      backgroundCustomizable,
+      ...rest
+    } = payload;
     const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
+    const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
+    const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
     const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
     // Always use FormData when there are new image files; also use it when existingImages
     // list has changed so we can send the kept URLs to the backend for merging.
     const existingImagesChanged = Array.isArray(existingImages);
-    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles || existingImagesChanged;
+    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles || existingImagesChanged || hasBaseDevice || hasEngravingMask || printingEnabled !== undefined || laserEnabled !== undefined || backgroundCustomizable !== undefined;
 
     let body;
     let config;
@@ -262,6 +314,11 @@ export const useCatalogStore = create((set, get) => ({
         files.forEach((f) => body.append("images", f));
       }
       if (hasConfiguratorImage) body.append("configuratorImage", configuratorImageFile);
+      if (hasBaseDevice) body.append("baseDeviceImage", baseDeviceImageFile);
+      if (hasEngravingMask) body.append("engravingMaskImage", engravingMaskImageFile);
+      if (printingEnabled !== undefined) body.append("printingEnabled", String(!!printingEnabled));
+      if (laserEnabled !== undefined) body.append("laserEnabled", String(!!laserEnabled));
+      if (backgroundCustomizable !== undefined) body.append("backgroundCustomizable", String(!!backgroundCustomizable));
       body.append("downloadableFiles", JSON.stringify(existingDownloadableFiles));
       if (hasDownloadFiles) {
         const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
@@ -274,6 +331,9 @@ export const useCatalogStore = create((set, get) => ({
       if (rangeId !== undefined) body.range = rangeId;
       if (configurable !== undefined) body.isConfigurable = configurable;
       if (featured !== undefined) body.featured = featured;
+      if (printingEnabled !== undefined) body.printingEnabled = !!printingEnabled;
+      if (laserEnabled !== undefined) body.laserEnabled = !!laserEnabled;
+      if (backgroundCustomizable !== undefined) body.backgroundCustomizable = !!backgroundCustomizable;
       if (existingDownloadableFiles.length > 0) body.downloadableFiles = existingDownloadableFiles;
       config = undefined;
     }

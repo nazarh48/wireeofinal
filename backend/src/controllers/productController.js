@@ -30,9 +30,14 @@ export async function create(req, res, next) {
       range,
       baseImageUrl,
       configuratorImageUrl,
+      baseDeviceImageUrl,
+      engravingMaskImageUrl,
       isConfigurable,
       status,
       featured,
+      printingEnabled,
+      laserEnabled,
+      backgroundCustomizable,
     } = req.body;
     const r = await Range.findById(range);
     if (!r) return res.status(400).json({ success: false, message: "Range not found" });
@@ -48,10 +53,18 @@ export async function create(req, res, next) {
     const configuratorFile = Array.isArray(req.files?.configuratorImage) && req.files.configuratorImage[0]
       ? req.files.configuratorImage[0]
       : null;
+    const baseDeviceFile = Array.isArray(req.files?.baseDeviceImage) && req.files.baseDeviceImage[0]
+      ? req.files.baseDeviceImage[0]
+      : null;
+    const engravingMaskFile = Array.isArray(req.files?.engravingMaskImage) && req.files.engravingMaskImage[0]
+      ? req.files.engravingMaskImage[0]
+      : null;
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
     const images = imageFiles.map((f) => toProductFile(f, "products"));
     const configuratorUrl = configuratorFile ? toProductFile(configuratorFile, "products").url : (configuratorImageUrl || "");
-    const primaryUrl = images[0]?.url || baseImageUrl || configuratorUrl || "";
+    const baseDeviceUrl = baseDeviceFile ? toProductFile(baseDeviceFile, "products").url : (baseDeviceImageUrl || configuratorUrl || "");
+    const engravingMaskUrl = engravingMaskFile ? toProductFile(engravingMaskFile, "products").url : (engravingMaskImageUrl || "");
+    const primaryUrl = images[0]?.url || baseImageUrl || configuratorUrl || baseDeviceUrl || "";
     let fileLabels = [];
     if (typeof req.body.fileLabels === "string" && req.body.fileLabels.trim()) {
       try {
@@ -70,11 +83,31 @@ export async function create(req, res, next) {
       range,
       baseImageUrl: primaryUrl,
       configuratorImageUrl: configuratorUrl,
+      baseDeviceImageUrl: baseDeviceUrl,
+      engravingMaskImageUrl: engravingMaskUrl,
       images,
       isConfigurable: !!boolConfigurable,
       productType,
       status: status || "active",
       featured: featured === true || featured === "true" || featured === "1",
+      printingEnabled:
+        printingEnabled === undefined
+          ? true
+          : printingEnabled === true ||
+            printingEnabled === "true" ||
+            printingEnabled === "1",
+      laserEnabled:
+        laserEnabled === undefined
+          ? true
+          : laserEnabled === true ||
+            laserEnabled === "true" ||
+            laserEnabled === "1",
+      backgroundCustomizable:
+        backgroundCustomizable === undefined
+          ? true
+          : backgroundCustomizable === true ||
+            backgroundCustomizable === "true" ||
+            backgroundCustomizable === "1",
       downloadableFiles: downloadableFiles.length ? downloadableFiles : undefined,
     });
     await product.populate("range", "name description status");
@@ -188,6 +221,11 @@ export async function update(req, res, next) {
       status,
       featured,
       downloadableFiles: bodyFilesRaw,
+      baseDeviceImageUrl,
+      engravingMaskImageUrl,
+      printingEnabled,
+      laserEnabled,
+      backgroundCustomizable,
     } = req.body;
     const bodyFiles = parseBodyFiles(bodyFilesRaw);
     if (range !== undefined) {
@@ -196,6 +234,12 @@ export async function update(req, res, next) {
     }
     const configuratorFile = Array.isArray(req.files?.configuratorImage) && req.files.configuratorImage[0]
       ? req.files.configuratorImage[0]
+      : null;
+    const baseDeviceFile = Array.isArray(req.files?.baseDeviceImage) && req.files.baseDeviceImage[0]
+      ? req.files.baseDeviceImage[0]
+      : null;
+    const engravingMaskFile = Array.isArray(req.files?.engravingMaskImage) && req.files.engravingMaskImage[0]
+      ? req.files.engravingMaskImage[0]
       : null;
     const updates = {};
     if (name !== undefined) updates.name = name;
@@ -206,6 +250,10 @@ export async function update(req, res, next) {
     if (baseImageUrl !== undefined) updates.baseImageUrl = baseImageUrl;
     if (configuratorFile) updates.configuratorImageUrl = toProductFile(configuratorFile, "products").url;
     else if (configuratorImageUrl !== undefined) updates.configuratorImageUrl = configuratorImageUrl;
+    if (baseDeviceFile) updates.baseDeviceImageUrl = toProductFile(baseDeviceFile, "products").url;
+    else if (baseDeviceImageUrl !== undefined) updates.baseDeviceImageUrl = baseDeviceImageUrl;
+    if (engravingMaskFile) updates.engravingMaskImageUrl = toProductFile(engravingMaskFile, "products").url;
+    else if (engravingMaskImageUrl !== undefined) updates.engravingMaskImageUrl = engravingMaskImageUrl;
     if (isConfigurable !== undefined) {
       const boolConfigurable =
         isConfigurable === true ||
@@ -217,6 +265,24 @@ export async function update(req, res, next) {
     }
     if (status !== undefined) updates.status = status;
     if (featured !== undefined) updates.featured = featured === true || featured === "true" || featured === "1";
+    if (printingEnabled !== undefined) {
+      updates.printingEnabled =
+        printingEnabled === true ||
+        printingEnabled === "true" ||
+        printingEnabled === "1";
+    }
+    if (laserEnabled !== undefined) {
+      updates.laserEnabled =
+        laserEnabled === true ||
+        laserEnabled === "true" ||
+        laserEnabled === "1";
+    }
+    if (backgroundCustomizable !== undefined) {
+      updates.backgroundCustomizable =
+        backgroundCustomizable === true ||
+        backgroundCustomizable === "true" ||
+        backgroundCustomizable === "1";
+    }
 
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];

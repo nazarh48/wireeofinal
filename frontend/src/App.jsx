@@ -26,6 +26,7 @@ import SolutionsManagement from './pages/admin/SolutionsManagement';
 import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
 import AdminCookies from './pages/admin/AdminCookies';
 import NewsletterManagement from './pages/admin/NewsletterManagement';
+import IconLibraryManagement from './pages/admin/IconLibraryManagement';
 import SolutionDetail from './pages/SolutionDetail';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
@@ -34,6 +35,7 @@ import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import ProductPage from './pages/ProductPage';
 import EditorPage from './pages/EditorPage';
+import ConfiguratorPage from './pages/ConfiguratorPage';
 import ProductExperience from './pages/ProductExperience';
 import Ranges from './pages/Ranges';
 import TabbedRanges from './pages/TabbedRanges';
@@ -82,6 +84,7 @@ function App() {
         <Route path="/products/range/:rangeId" element={<Layout><ProductsInRange /></Layout>} />
         <Route path="/products/detail/:id" element={<Layout><ProductDetail /></Layout>} />
         <Route path="/editor/:productId" element={<Layout><RequireAuth><EditorPage /></RequireAuth></Layout>} />
+        <Route path="/configurator/:productId" element={<Layout><RequireAuth><ConfiguratorPage /></RequireAuth></Layout>} />
         <Route path="/ranges" element={<Layout><RequireAuth><Ranges /></RequireAuth></Layout>} />
         <Route path="/product-experience" element={<Layout><ProductExperience /></Layout>} />
         <Route path="/tabbed-ranges" element={<Layout><RequireAuth><TabbedRanges /></RequireAuth></Layout>} />
@@ -112,6 +115,7 @@ function App() {
           <Route path="newsletter" element={<NewsletterManagement />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="cookies" element={<AdminCookies />} />
+          <Route path="icon-library" element={<IconLibraryManagement />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>

@@ -9,3 +9,5 @@ export { Category } from "./Category.js";
 export { Solution } from "./Solution.js";
 export { PdfMaterial } from "./PdfMaterial.js";
 export { NewsletterSubscriber } from "./NewsletterSubscriber.js";
+export { IconCategory } from "./IconCategory.js";
+export { Icon } from "./Icon.js";

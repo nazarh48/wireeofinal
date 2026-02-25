@@ -152,3 +152,12 @@ export function IconHome({ className = iconClass }) {
     </svg>
   );
 }
+
+export function IconLibrary({ className = iconClass }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h10" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2 2m0 0l2-2m-2 2v4" />
+    </svg>
+  );
+}

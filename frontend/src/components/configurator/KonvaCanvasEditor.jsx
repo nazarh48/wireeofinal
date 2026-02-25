@@ -130,9 +130,9 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     const y = (pos.y - stage.y()) / scale;
     return snapToGrid
       ? {
-          x: Math.round(x / GRID_SIZE) * GRID_SIZE,
-          y: Math.round(y / GRID_SIZE) * GRID_SIZE,
-        }
+        x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+        y: Math.round(y / GRID_SIZE) * GRID_SIZE,
+      }
       : { x, y };
   }, [scale, snapToGrid]);
 
@@ -680,11 +680,11 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
 
   const rect = selectionRect && (selectionRect.width !== 0 || selectionRect.height !== 0)
     ? {
-        x: Math.min(selectionRect.x, selectionRect.x + selectionRect.width),
-        y: Math.min(selectionRect.y, selectionRect.y + selectionRect.height),
-        width: Math.abs(selectionRect.width),
-        height: Math.abs(selectionRect.height),
-      }
+      x: Math.min(selectionRect.x, selectionRect.x + selectionRect.width),
+      y: Math.min(selectionRect.y, selectionRect.y + selectionRect.height),
+      width: Math.abs(selectionRect.width),
+      height: Math.abs(selectionRect.height),
+    }
     : null;
 
   return (

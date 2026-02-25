@@ -21,6 +21,12 @@ const productSchema = new mongoose.Schema(
     // Optional image used specifically inside the Graphic Configurator
     // (personalised canvas) instead of the marketing/base image.
     configuratorImageUrl: { type: String, default: "", trim: true },
+    // Configurator device layering (admin-driven)
+    baseDeviceImageUrl: { type: String, default: "", trim: true }, // Layer 1
+    engravingMaskImageUrl: { type: String, default: "", trim: true }, // Layer 3 (zone mask/overlay)
+    printingEnabled: { type: Boolean, default: true },
+    laserEnabled: { type: Boolean, default: true },
+    backgroundCustomizable: { type: Boolean, default: true },
     images: [
       {
         url: { type: String, required: true },

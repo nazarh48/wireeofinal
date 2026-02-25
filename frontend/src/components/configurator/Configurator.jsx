@@ -15,7 +15,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
 
   const isFromSelection = window.location.search.includes('from=selection');
   const isFromCollection = window.location.search.includes('from=collection');
-  
+
   const getRangeIdFromUrl = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('rangeId');
@@ -35,7 +35,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
   // Auto-save edits periodically (elements/config only; editedImage generated on explicit Save)
   useEffect(() => {
     if (!currentProductId) return;
-    
+
     const autoSaveInterval = setInterval(() => {
       if (configurator.elements.length > 0) {
         setIsSaving(true);
@@ -75,7 +75,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
   const handleSave = async () => {
     setIsSaving(true);
     setSaveStatus('Saving...');
-    
+
     if (currentProductId) {
       const ok = await saveProductEdits(currentProductId, editingInstanceId || undefined);
       if (!ok) {
@@ -87,14 +87,14 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
         markProductAsEdited(currentProductId);
       }
     }
-    
+
     setTimeout(async () => {
       setSaveStatus('✓ Saved Successfully');
-      
+
       // Refetch sequentially so editsByInstanceId is never overwritten by a parallel run (preserves all instance edits).
       await fetchCollection();
       await fetchProjects();
-      
+
       setTimeout(() => navigateBack(), 500);
     }, 500);
   };

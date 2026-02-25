@@ -13,6 +13,8 @@ import solutionRoutes from "./solutionRoutes.js";
 import pdfMaterialRoutes from "./pdfMaterialRoutes.js";
 import cookiePolicyRoutes from "./cookiePolicyRoutes.js";
 import newsletterRoutes from "./newsletterRoutes.js";
+import iconCategoryRoutes from "./iconCategoryRoutes.js";
+import iconRoutes from "./iconRoutes.js";
 
 const router = Router();
 
@@ -30,5 +32,7 @@ router.use("/solutions", solutionRoutes);
 router.use("/pdf-materials", pdfMaterialRoutes);
 router.use("/cookie-policy", cookiePolicyRoutes);
 router.use("/newsletter", newsletterRoutes);
+router.use("/icon-categories", iconCategoryRoutes);
+router.use("/icons", iconRoutes);
 
 export default router;

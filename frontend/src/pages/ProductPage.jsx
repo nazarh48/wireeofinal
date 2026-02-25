@@ -16,7 +16,7 @@ const ProductPage = () => {
   const products = getConfigurableProductsByRange(rangeId);
 
   const handleProductSelect = (productId) => {
-    navigate(`/editor/${productId}`);
+    navigate(`/configurator/${productId}`);
   };
 
   if (loading && !loaded) {

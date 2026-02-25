@@ -190,6 +190,28 @@ export const apiService = {
     remove: async (id) => unwrap(await adminApi.delete(`/pdf-materials/${id}`)),
   },
 
+  iconCategories: {
+    list: async (params) =>
+      unwrap(await publicApi.get("/icon-categories", params ? { params } : undefined)),
+    create: async (payload) =>
+      unwrap(await adminApi.post("/icon-categories", payload)),
+    update: async (id, payload) =>
+      unwrap(await adminApi.patch(`/icon-categories/${id}`, payload)),
+    remove: async (id) =>
+      unwrap(await adminApi.delete(`/icon-categories/${id}`)),
+  },
+
+  icons: {
+    list: async (params) =>
+      unwrap(await publicApi.get("/icons", { params })),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/icons", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/icons/${id}`, payload, config)),
+    remove: async (id) =>
+      unwrap(await adminApi.delete(`/icons/${id}`)),
+  },
+
   collections: {
     getMine: async () => unwrap(await userApi.get("/collections")),
     add: async (productIds) =>
@@ -256,6 +278,8 @@ export const apiService = {
       ),
     getByInstance: async (instanceId) =>
       unwrap(await userApi.get(`/canvas/instance/${instanceId}`)),
+    exportPng: async ({ productId, instanceId }) =>
+      unwrap(await userApi.post("/canvas/export", { productId, instanceId })),
   },
 
   pdf: {
