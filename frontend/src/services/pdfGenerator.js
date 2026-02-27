@@ -40,6 +40,8 @@ export async function generateConfiguratorPdf({ device, config, previewDataUrl }
 
   const { iconNames, textValues } = summarizeConfig(config);
   const capabilityType = config?.capabilityType || "—";
+  const configurationCode = config?.configurationCode || config?.id || "—";
+  const backgroundFileName = config?.backgroundFileName || "";
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
@@ -47,20 +49,29 @@ export async function generateConfiguratorPdf({ device, config, previewDataUrl }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  doc.text(`Capability type: ${capabilityType}`, margin, margin + 22);
-  doc.text(`Selected icons: ${iconNames.length ? iconNames.join(", ") : "None"}`, margin, margin + 40, {
+  doc.text(`Configuration code: ${configurationCode}`, margin, margin + 18);
+  doc.text(`Capability type: ${capabilityType}`, margin, margin + 32);
+  doc.text(
+    `Background file: ${
+      backgroundFileName ? backgroundFileName : "None / default device background"
+    }`,
+    margin,
+    margin + 46,
+    { maxWidth: pageW - margin * 2 }
+  );
+  doc.text(`Selected icons: ${iconNames.length ? iconNames.join(", ") : "None"}`, margin, margin + 66, {
     maxWidth: pageW - margin * 2,
   });
-  doc.text(`Entered text: ${textValues.length ? textValues.join(", ") : "None"}`, margin, margin + 58, {
+  doc.text(`Entered text: ${textValues.length ? textValues.join(", ") : "None"}`, margin, margin + 82, {
     maxWidth: pageW - margin * 2,
   });
 
   if (previewDataUrl) {
     const imgW = pageW - margin * 2;
-    const imgH = Math.min(420, pageH - (margin + 90) - margin);
+    const imgH = Math.min(420, pageH - (margin + 110) - margin);
     doc.setDrawColor(220);
-    doc.rect(margin, margin + 80, imgW, imgH);
-    doc.addImage(previewDataUrl, "PNG", margin, margin + 80, imgW, imgH, undefined, "FAST");
+    doc.rect(margin, margin + 100, imgW, imgH);
+    doc.addImage(previewDataUrl, "PNG", margin, margin + 100, imgW, imgH, undefined, "FAST");
   }
 
   return doc.output("blob");

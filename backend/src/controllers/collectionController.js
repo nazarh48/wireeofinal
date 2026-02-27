@@ -1,4 +1,5 @@
 import { Collection } from "../models/Collection.js";
+import { Product } from "../models/Product.js";
 import { ensureConfigurable } from "../services/productService.js";
 import { CanvasEdit } from "../models/CanvasEdit.js";
 import crypto from "crypto";
@@ -32,10 +33,7 @@ export async function addToCollection(req, res, next) {
       });
     }
     await collection.save();
-    await collection.populate(
-      "configurableProducts.product",
-      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType",
-    );
+    await collection.populate("configurableProducts.product");
     return res.status(200).json({ success: true, collection });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -49,13 +47,58 @@ export async function getMyCollection(req, res, next) {
   try {
     let collection = await Collection.findOne({
       createdBy: req.user._id,
-    }).populate(
-      "configurableProducts.product",
-      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType range",
-    );
+    });
     if (!collection) {
       collection = { configurableProducts: [], name: "My Collection" };
+      return res.status(200).json({ success: true, collection });
     }
+
+    const entries = collection.configurableProducts || [];
+    const productIds = entries
+      .map((item) => item && item.product)
+      .filter(Boolean)
+      .map((id) => String(id));
+
+    const uniqueIds = [...new Set(productIds)];
+    const products = await Product.find({
+      _id: { $in: uniqueIds },
+    })
+      .select(
+        "name productCode description technicalDetails range baseImageUrl configuratorImageUrl baseDeviceImageUrl engravingMaskImageUrl printingEnabled laserEnabled backgroundCustomizable images isConfigurable productType status featured downloadableFiles createdAt updatedAt",
+      )
+      .lean();
+
+    const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+    const filteredEntries = [];
+    for (const item of entries) {
+      if (!item || !item.product) continue;
+      const prod = productMap.get(String(item.product));
+      if (!prod) continue;
+
+      const primary =
+        prod.baseDeviceImageUrl ||
+        prod.configuratorImageUrl ||
+        prod.baseImageUrl ||
+        (Array.isArray(prod.images) && prod.images[0]
+          ? typeof prod.images[0] === "string"
+            ? prod.images[0]
+            : prod.images[0].url || ""
+          : "");
+
+      const productWithPrimary = {
+        ...prod,
+        baseDeviceImageUrl: primary || prod.baseDeviceImageUrl || "",
+      };
+
+      filteredEntries.push({
+        ...item.toObject?.() ? item.toObject() : item,
+        product: productWithPrimary,
+      });
+    }
+
+    collection.configurableProducts = filteredEntries;
+
     return res.status(200).json({ success: true, collection });
   } catch (err) {
     next(err);
@@ -129,10 +172,7 @@ export async function duplicateCollectionItem(req, res, next) {
       );
     }
 
-    await collection.populate(
-      "configurableProducts.product",
-      "name description productCode sku baseImageUrl configuratorImageUrl isConfigurable productType range",
-    );
+    await collection.populate("configurableProducts.product");
 
     const duplicated = collection.configurableProducts.find(
       (item) => item.instanceId === newInstanceId,

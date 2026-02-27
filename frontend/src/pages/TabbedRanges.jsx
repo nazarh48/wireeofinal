@@ -311,7 +311,13 @@ const SelectionContent = () => {
                         <EditedProductPreview product={product} edits={edits} width={300} height={300} />
                       ) : (
                         <img
-                          src={product.configuratorImageUrl || product.baseImageUrl || product.images?.[0] || FALLBACK_IMAGE}
+                          src={
+                            product.baseDeviceImageUrl
+                            || product.configuratorImageUrl
+                            || product.baseImageUrl
+                            || product.images?.[0]
+                            || FALLBACK_IMAGE
+                          }
                           alt={product.imageAlt || `${product.name} - High Quality Product`}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           crossOrigin="anonymous"
@@ -376,6 +382,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
     addProductsToProject,
     editsByInstanceId,
   } = useStore();
+  const { getConfigurableProductById } = useCatalog();
   const navigate = useNavigate();
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -512,15 +519,39 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
             {collection.filter(item => item).map((item, idx) => {
               const itemKey = item._instanceId || item.id;
               const isSelected = selectedProducts.has(itemKey);
+              const catalogProduct = getConfigurableProductById?.(item.id) || null;
+              const resolvedBaseDeviceImageUrl =
+                item.baseDeviceImageUrl || catalogProduct?.baseDeviceImageUrl || "";
+              const resolvedConfiguratorImageUrl =
+                item.configuratorImageUrl || catalogProduct?.configuratorImageUrl || "";
               const itemEdits =
                 item.edits ||
                 (item._instanceId ? editsByInstanceId[item._instanceId] : null);
               const hasVisualEdits =
                 !!itemEdits?.editedImage ||
                 (Array.isArray(itemEdits?.elements) && itemEdits.elements.length > 0);
+              const previewProductBase = {
+                ...item,
+                baseDeviceImageUrl:
+                  resolvedBaseDeviceImageUrl ||
+                  item.baseDeviceImageUrl ||
+                  item.configuratorImageUrl ||
+                  item.baseImageUrl ||
+                  (Array.isArray(item.images) ? item.images[0] : null),
+                configuratorImageUrl:
+                  resolvedConfiguratorImageUrl ||
+                  item.configuratorImageUrl ||
+                  resolvedBaseDeviceImageUrl ||
+                  item.baseDeviceImageUrl ||
+                  item.baseImageUrl,
+                baseImageUrl:
+                  item.baseImageUrl ||
+                  item.configuratorImageUrl ||
+                  (Array.isArray(item.images) ? item.images[0] : null),
+              };
               const previewProduct = itemEdits?.editedImage
-                ? { ...item, editedImage: itemEdits.editedImage }
-                : item;
+                ? { ...previewProductBase, editedImage: itemEdits.editedImage }
+                : previewProductBase;
               return (
                 <div key={`${item._instanceId || item.id}_${idx}`} className={`group relative ${isSelected ? 'ring-4 ring-teal-500' : ''}`}>
                   <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-300"></div>
@@ -551,7 +582,13 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                         </div>
                       ) : (
                         <img
-                          src={item.configuratorImageUrl || item.baseImageUrl || item.images?.[0] || FALLBACK_IMAGE}
+                          src={
+                            previewProduct.baseDeviceImageUrl
+                            || previewProduct.configuratorImageUrl
+                            || previewProduct.baseImageUrl
+                            || item.images?.[0]
+                            || FALLBACK_IMAGE
+                          }
                           alt={item.imageAlt || `${item.name} - High Quality Product`}
                           className="w-full h-full object-contain rounded-2xl shadow-sm border border-slate-100 group-hover:scale-105 transition-transform duration-500"
                           crossOrigin="anonymous"
@@ -671,6 +708,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     removeProductFromProject,
     updateProjectName,
   } = useStore();
+  const { getConfigurableProductById } = useCatalog();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [exportingProjectId, setExportingProjectId] = useState(null);
@@ -737,11 +775,19 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
     const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
     const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
-    const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
+    const catalogProduct = getConfigurableProductById?.(product.id) || null;
+    const baseImg =
+      collectionItem?.baseDeviceImageUrl ||
+      catalogProduct?.baseDeviceImageUrl ||
+      collectionItem?.configuratorImageUrl ||
+      catalogProduct?.configuratorImageUrl ||
+      collectionItem?.baseImageUrl ||
+      catalogProduct?.baseImageUrl;
     return {
       ...product,
       edits: edits || null,
       editedImage: editedImage || null,
+      baseDeviceImageUrl: baseImg || product.baseDeviceImageUrl || product.configuratorImageUrl || product.baseImageUrl,
       configuratorImageUrl: baseImg || product.configuratorImageUrl || product.baseImageUrl,
       baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
     };
@@ -960,10 +1006,18 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
                       const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
                       const productWithEdits = edits ? { ...product, edits } : product;
                       const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
-                      const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
+                      const catalogProduct = getConfigurableProductById?.(product.id) || null;
+                      const baseImg =
+                        collectionItem?.baseDeviceImageUrl ||
+                        catalogProduct?.baseDeviceImageUrl ||
+                        collectionItem?.configuratorImageUrl ||
+                        catalogProduct?.configuratorImageUrl ||
+                        collectionItem?.baseImageUrl ||
+                        catalogProduct?.baseImageUrl;
                       const previewProduct = {
                         ...product,
                         editedImage: editedImage || null,
+                        baseDeviceImageUrl: baseImg || product.baseDeviceImageUrl || product.configuratorImageUrl || product.baseImageUrl,
                         configuratorImageUrl: baseImg || product.configuratorImageUrl || product.baseImageUrl,
                         baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
                       };

@@ -29,10 +29,16 @@ const normalizeProduct = (product, edits = null) => {
     : product.images;
   const normalized = {
     ...product,
+    // Ensure all image-related fields are normalized to absolute URLs so
+    // they can be safely used inside Konva and PDF exports.
     baseImageUrl: normalizeImageUrl(baseImageUrlRaw),
     configuratorImageUrl: normalizeImageUrl(
       product.configuratorImageUrl || baseImageUrlRaw,
     ),
+    baseDeviceImageUrl: normalizeImageUrl(
+      product.baseDeviceImageUrl || product.configuratorImageUrl || baseImageUrlRaw,
+    ),
+    engravingMaskImageUrl: normalizeImageUrl(product.engravingMaskImageUrl || ""),
     images: normalizedImages,
     configurable: isConfigurableProduct(product),
   };
@@ -241,15 +247,36 @@ const useStore = create((set, get) => ({
     try {
       const res = await apiService.collections.getMine();
       const raw = res?.collection?.configurableProducts ?? [];
-      const collection = raw.map((item) => {
-        const p = item.product;
-        const normalized = normalizeProduct(p);
-        return {
-          ...(typeof p === "object" ? normalized : {}),
-          id: p?._id ?? p?.id ?? p,
-          _instanceId: item.instanceId,
-        };
-      });
+      const collection = raw
+        .map((item) => {
+          const p = item && item.product;
+          if (!p) return null;
+          const normalized = normalizeProduct(p);
+          // For collection items, always prioritise the base device image
+          // as the primary visual (used in Collection tab cards, projects, PDFs).
+          const galleryImage =
+            Array.isArray(normalized.images) && normalized.images.length > 0
+              ? (typeof normalized.images[0] === "string"
+                  ? normalized.images[0]
+                  : normalized.images[0]?.url || "")
+              : "";
+          const primaryBaseImage =
+            normalized.baseDeviceImageUrl ||
+            normalized.configuratorImageUrl ||
+            normalized.baseImageUrl ||
+            galleryImage;
+          return {
+            ...(typeof p === "object" ? normalized : {}),
+            // Ensure collection instances always surface the base device as the main image
+            baseDeviceImageUrl: normalized.baseDeviceImageUrl || primaryBaseImage,
+            configuratorImageUrl:
+              normalized.configuratorImageUrl || primaryBaseImage,
+            baseImageUrl: primaryBaseImage,
+            id: p?._id ?? p?.id ?? p,
+            _instanceId: item.instanceId,
+          };
+        })
+        .filter(Boolean);
 
       // Fetch canvas edits for each product in collection (API is per-product; we overlay instance-level from editsByInstanceId)
       const state = get();

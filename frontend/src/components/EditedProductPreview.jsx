@@ -8,15 +8,21 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
   const [images, setImages] = useState({});
   const [baseImage, setBaseImage] = useState(null);
   const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
+  const [backgroundImage, setBackgroundImage] = useState(null);
   const containerRef = useRef(null);
   const [resolvedWidth, setResolvedWidth] = useState(width || 300);
 
   // Keep edited image as fallback only; render from elements first to avoid editor-grid snapshots.
   const editedImageUrl = product?.editedImage?.value || null;
   const hasElements = Array.isArray(edits?.elements) && edits.elements.length > 0;
+  const backgroundImageDataUrl = edits?.configuration?.backgroundImage || null;
 
-  // Use configurator image as base so preview matches what was edited in the configurator
-  const baseImageUrl = product?.configuratorImageUrl || product?.baseImageUrl;
+  // Use the same base device image as the editor canvas so previews match exported results.
+  // Fallbacks keep behavior safe if baseDeviceImageUrl is not set.
+  const baseImageUrl =
+    product?.baseDeviceImageUrl ||
+    product?.configuratorImageUrl ||
+    product?.baseImageUrl;
 
   useEffect(() => {
     if (editedImageUrl) return;
@@ -56,7 +62,33 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
           }
         });
     }
-  }, [edits]);
+  }, [edits, images]);
+
+  // Load user-uploaded background image (same behavior as configurator canvas)
+  useEffect(() => {
+    if (!backgroundImageDataUrl) {
+      setBackgroundImage(null);
+      return;
+    }
+    let cancelled = false;
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.src = backgroundImageDataUrl;
+    img.onload = () => {
+      if (!cancelled) {
+        setBackgroundImage(img);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        setBackgroundImage(null);
+      }
+    };
+    return () => {
+      cancelled = true;
+      setBackgroundImage(null);
+    };
+  }, [backgroundImageDataUrl]);
 
   useEffect(() => {
     if (width) {
@@ -293,6 +325,18 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     >
       <Stage width={viewWidth} height={viewHeight}>
         <Layer scaleX={scale} scaleY={scale} x={offsetX} y={offsetY}>
+          {/* Layer 2 – custom background uploaded in configurator (drawn first, behind device) */}
+          {backgroundImage && (
+            <Image
+              image={backgroundImage}
+              x={0}
+              y={0}
+              width={CANVAS_WIDTH}
+              height={CANVAS_HEIGHT}
+              listening={false}
+            />
+          )}
+
           {/* Base product image – fitted to preserve aspect ratio (no distortion) */}
           {baseImage && (
             <Image

@@ -19,6 +19,7 @@ import useStore from '../../store/useStore';
 import CanvasControls from './CanvasControls';
 import { createArrowPoints } from './utils/shapeUtils';
 import { getPermittedAreasForProduct } from './permittedAreasConfig';
+import { computeMaskBoundsFromImage, clampDragPosition } from '../ConfiguratorV2/LayerManager';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -50,6 +51,13 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const shapeRefs = useRef({});
   const layerRef = useRef();
 
+  // Layered images for V2-style configurator
+  const [baseImage, setBaseImage] = useState(null);           // Layer 1 – device/base photo
+  const [defaultBgImage, setDefaultBgImage] = useState(null); // Layer 2 – default background (unused when empty)
+  const [customBgImage, setCustomBgImage] = useState(null);   // Layer 2 – user-uploaded background
+  const [maskImage, setMaskImage] = useState(null);           // Layer 3 – engraving mask
+  const [maskBounds, setMaskBounds] = useState(null);         // Allowed zone derived from mask
+
   const [images, setImages] = useState({});
   const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
@@ -69,35 +77,83 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
 
   useImperativeHandle(ref, () => stageRef.current);
 
-  // Load images (use configuratorImageUrl when available, otherwise baseImageUrl)
+  // Derive product-layer image URLs (normalized in useStore.normalizeProduct)
+  const product = configurator.product || {};
+  // Layer 1: ALWAYS prefer the dedicated base device image uploaded in Admin.
+  // Fallbacks (configurator/baseImageUrl) are kept only as safety nets.
+  const layer1Src =
+    product.baseDeviceImageUrl ||
+    product.baseImageUrl ||
+    product.configuratorImageUrl ||
+    "";
+
+  // Layer 2: by default, no background image. It is only shown when the user
+  // uploads a custom background in the editor (backgroundImageDataUrl).
+  // This keeps the 4-layer model aligned with the spec:
+  // - Layer 1: device photo (admin)
+  // - Layer 2: user background (frontend)
+  const layer2DefaultSrc = "";
+  const maskSrc = product.engravingMaskImageUrl || '';
+  const backgroundImageDataUrl = configurator.configuration?.backgroundImage || null;
+
+  // Load base device image (Layer 1), default background (Layer 2), mask (Layer 3),
+  // and any element images (user layer).
   useEffect(() => {
-    const baseForCanvas =
-      configurator.product?.configuratorImageUrl ||
-      configurator.product?.baseImageUrl;
-    if (baseForCanvas) {
+    // Layer 1 – base device image
+    if (layer1Src) {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
-      img.src = baseForCanvas;
+      img.src = layer1Src;
       img.onload = () => {
-        setImages((prev) => ({ ...prev, base: img }));
-        setBaseImageSize({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+        setBaseImage(img);
+        setBaseImageSize({
+          width: img.naturalWidth || img.width || 0,
+          height: img.naturalHeight || img.height || 0,
+        });
       };
       img.onerror = () => {
         const fallback = new window.Image();
-        fallback.src = baseForCanvas;
+        fallback.src = layer1Src;
         fallback.onload = () => {
-          setImages((prev) => ({ ...prev, base: fallback }));
-          setBaseImageSize({ width: fallback.naturalWidth || fallback.width, height: fallback.naturalHeight || fallback.height });
+          setBaseImage(fallback);
+          setBaseImageSize({
+            width: fallback.naturalWidth || fallback.width || 0,
+            height: fallback.naturalHeight || fallback.height || 0,
+          });
         };
       };
     } else {
-      setImages((prev) => {
-        const next = { ...prev };
-        delete next.base;
-        return next;
-      });
+      setBaseImage(null);
       setBaseImageSize({ width: 0, height: 0 });
     }
+
+    // Layer 2 – default background (from product)
+    if (layer2DefaultSrc) {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.src = layer2DefaultSrc;
+      img.onload = () => setDefaultBgImage(img);
+      img.onerror = () => {
+        const fallback = new window.Image();
+        fallback.src = layer2DefaultSrc;
+        fallback.onload = () => setDefaultBgImage(fallback);
+      };
+    } else {
+      setDefaultBgImage(null);
+    }
+
+    // Layer 3 – engraving mask image
+    if (maskSrc) {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.src = maskSrc;
+      img.onload = () => setMaskImage(img);
+      img.onerror = () => setMaskImage(null);
+    } else {
+      setMaskImage(null);
+    }
+
+    // User layer – image elements
     configurator.elements
       .filter((el) => el.type === 'image' && el.src)
       .forEach((element) => {
@@ -108,7 +164,30 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
           img.onload = () => setImages((prev) => ({ ...prev, [element.id]: img }));
         }
       });
-  }, [configurator.product?.configuratorImageUrl, configurator.product?.baseImageUrl, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [layer1Src, layer2DefaultSrc, maskSrc, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load user-uploaded background (Layer 2 – custom)
+  useEffect(() => {
+    if (!backgroundImageDataUrl) {
+      setCustomBgImage(null);
+      return;
+    }
+    const img = new window.Image();
+    img.crossOrigin = 'anonymous';
+    img.src = backgroundImageDataUrl;
+    img.onload = () => setCustomBgImage(img);
+    img.onerror = () => setCustomBgImage(null);
+  }, [backgroundImageDataUrl]);
+
+  // Compute allowed zone from mask image (Layer 3). Fallback to static permittedAreas when mask is not usable.
+  useEffect(() => {
+    if (!maskImage) {
+      setMaskBounds(null);
+      return;
+    }
+    const bounds = computeMaskBoundsFromImage(maskImage, CANVAS_WIDTH, CANVAS_HEIGHT);
+    setMaskBounds(bounds);
+  }, [maskImage]);
 
   // Attach transformer to selected nodes
   const selectedIds = configurator.selectedElementIds || [];
@@ -293,26 +372,30 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     const width = el?.width ?? shape.width();
     const height = el?.height ?? shape.height();
 
-    const clampWithinAreas = (rect) => {
-      if (!permittedAreas || permittedAreas.length === 0) return rect;
-      // For now we clamp into the first permitted rect only.
-      const area = permittedAreas[0];
-      const nx = Math.min(
-        Math.max(rect.x, area.x),
-        area.x + area.width - width,
-      );
-      const ny = Math.min(
-        Math.max(rect.y, area.y),
-        area.y + area.height - height,
-      );
-      return { x: nx, y: ny };
-    };
+    const size = { width, height };
 
-    const clamped = clampWithinAreas({ x, y });
-    shape.x(clamped.x);
-    shape.y(clamped.y);
-    updateElement(id, { x: clamped.x, y: clamped.y });
-  }, [snapToGrid, updateElement, configurator.elements, permittedAreas]);
+    // Prefer mask-derived allowed zone; fall back to static permittedAreas config.
+    let nextPos = { x, y };
+    if (maskBounds) {
+      nextPos = clampDragPosition(nextPos, maskBounds, size);
+    } else if (permittedAreas && permittedAreas.length > 0) {
+      const area = permittedAreas[0];
+      nextPos = {
+        x: Math.min(
+          Math.max(nextPos.x, area.x),
+          area.x + area.width - width,
+        ),
+        y: Math.min(
+          Math.max(nextPos.y, area.y),
+          area.y + area.height - height,
+        ),
+      };
+    }
+
+    shape.x(nextPos.x);
+    shape.y(nextPos.y);
+    updateElement(id, { x: nextPos.x, y: nextPos.y });
+  }, [snapToGrid, updateElement, configurator.elements, maskBounds, permittedAreas]);
 
   const handleTransformEnd = useCallback((e, id) => {
     const shape = e.target;
@@ -358,8 +441,14 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     shape.scaleX(1);
     shape.scaleY(1);
 
-    const clampWithinAreas = (rect) => {
-      if (!permittedAreas || permittedAreas.length === 0) return rect;
+    let rect = { x, y, width, height };
+    if (maskBounds) {
+      const clampedPos = clampDragPosition({ x: rect.x, y: rect.y }, maskBounds, {
+        width: rect.width,
+        height: rect.height,
+      });
+      rect = { ...rect, ...clampedPos };
+    } else if (permittedAreas && permittedAreas.length > 0) {
       const area = permittedAreas[0];
       const nx = Math.min(
         Math.max(rect.x, area.x),
@@ -369,22 +458,21 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
         Math.max(rect.y, area.y),
         area.y + area.height - rect.height,
       );
-      return { ...rect, x: nx, y: ny };
-    };
+      rect = { ...rect, x: nx, y: ny };
+    }
 
-    const clamped = clampWithinAreas({ x, y, width, height });
-    shape.x(clamped.x);
-    shape.y(clamped.y);
-    shape.width(clamped.width);
-    shape.height(clamped.height);
+    shape.x(rect.x);
+    shape.y(rect.y);
+    shape.width(rect.width);
+    shape.height(rect.height);
     updateElement(id, {
-      x: clamped.x,
-      y: clamped.y,
-      width: clamped.width,
-      height: clamped.height,
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
       rotation,
     });
-  }, [snapToGrid, updateElement, permittedAreas, configurator.elements]);
+  }, [snapToGrid, updateElement, permittedAreas, configurator.elements, maskBounds]);
 
 
   const handleWheel = useCallback((e) => {
@@ -721,22 +809,74 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
               onWheel={handleWheel}
               style={{ cursor: isPanning ? 'grabbing' : isSpaceDown ? 'grab' : configurator.activeTool === 'pen' ? 'crosshair' : 'default' }}
             >
-              <Layer ref={layerRef}>
-                {images.base && (() => {
-                  const iw = baseImageSize.width || images.base.width || CANVAS_WIDTH;
-                  const ih = baseImageSize.height || images.base.height || CANVAS_HEIGHT;
+              {/* Layer 2 – background image (default or custom upload).
+                  Drawn FIRST so it sits behind the device photo. */}
+              <Layer name="background-layer">
+                {customBgImage && (
+                  <Image
+                    image={customBgImage}
+                    x={0}
+                    y={0}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
+                    listening={false}
+                  />
+                )}
+                {!customBgImage && defaultBgImage && (
+                  <Image
+                    image={defaultBgImage}
+                    x={0}
+                    y={0}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
+                    listening={false}
+                  />
+                )}
+              </Layer>
+
+              {/* Layer 1 – base device image (locked) – drawn above background */}
+              <Layer name="base-layer">
+                {baseImage && (() => {
+                  const iw = baseImageSize.width || baseImage.width || CANVAS_WIDTH;
+                  const ih = baseImageSize.height || baseImage.height || CANVAS_HEIGHT;
                   const fitScale = Math.min(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih);
                   const drawW = iw * fitScale;
                   const drawH = ih * fitScale;
                   const x = (CANVAS_WIDTH - drawW) / 2;
                   const y = (CANVAS_HEIGHT - drawH) / 2;
                   return (
-                    <Image image={images.base} x={x} y={y} width={drawW} height={drawH} listening={false} />
+                    <Image image={baseImage} x={x} y={y} width={drawW} height={drawH} listening={false} />
                   );
                 })()}
-                {renderGrid()}
-                {/* Permitted areas overlay (outlined) */}
-                {permittedAreas.map((area, idx) => (
+              </Layer>
+
+              {/* Layer 3 – mask overlay / allowed zone */}
+              <Layer name="mask-layer">
+                {maskImage && (
+                  <Image
+                    image={maskImage}
+                    x={0}
+                    y={0}
+                    width={CANVAS_WIDTH}
+                    height={CANVAS_HEIGHT}
+                    opacity={0.35}
+                    listening={false}
+                  />
+                )}
+                {/* Visualize active allowed zone (mask bounds preferred, fallback to static permittedAreas) */}
+                {maskBounds && (
+                  <Rect
+                    x={maskBounds.x}
+                    y={maskBounds.y}
+                    width={maskBounds.width}
+                    height={maskBounds.height}
+                    stroke="#22c55e"
+                    strokeWidth={3}
+                    dash={[8, 6]}
+                    listening={false}
+                  />
+                )}
+                {!maskBounds && permittedAreas.map((area, idx) => (
                   <Rect
                     key={`perm-${idx}`}
                     x={area.x}
@@ -749,6 +889,15 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     listening={false}
                   />
                 ))}
+              </Layer>
+
+              {/* Grid & guides */}
+              <Layer>
+                {renderGrid()}
+              </Layer>
+
+              {/* Layer 4 – user personalization layer (icons, text, shapes) */}
+              <Layer ref={layerRef} name="user-layer">
                 {configurator.elements.map((el) => renderElement(el))}
                 {isDrawing && drawingPath.length > 0 && (
                   <Path data={drawingPath.join(' ')} stroke="#000" strokeWidth={2} lineCap="round" lineJoin="round" listening={false} />
@@ -792,6 +941,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                 )}
                 <Transformer
                   ref={transformerRef}
+                  name="transformer"
                   boundBoxFunc={(oldBox, newBox) => {
                     if (newBox.width < 5 || newBox.height < 5) return oldBox;
                     if (snapToGrid) {

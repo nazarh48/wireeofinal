@@ -208,10 +208,11 @@ function drawElementOnContext(ctx, element, loadedImages, imageElements) {
 }
 
 // Product image size in PDF (larger for better visibility; each product in fixed section)
-const PDF_PRODUCT_THUMB_WIDTH = 200;
-const PDF_PRODUCT_THUMB_HEIGHT = 150;
-// Fixed row height per product (mm) for consistent layout
-const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 140;
+// Use 4:3 aspect ratio matching project previews, but render at higher resolution for crisper output.
+const PDF_PRODUCT_THUMB_WIDTH = 320;
+const PDF_PRODUCT_THUMB_HEIGHT = 240;
+// Fixed row height per product (px in HTML before capture) for consistent layout
+const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 180;
 // JPEG quality for embedded images (0.75–0.85 balances size and quality)
 const PDF_JPEG_QUALITY = 0.82;
 
@@ -239,27 +240,59 @@ const renderEditedProduct = async (
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
 
-  // Prefer configurator image so PDF matches the edited/configurator view
+  // Optional Layer 2 – custom background uploaded in configurator (same data used in editor & previews)
+  const backgroundImageDataUrl =
+    product.edits?.configuration?.backgroundImage || null;
+
+  // Prefer the same base image order as EditedProductPreview / editor canvas
+  // so the PDF visual matches Projects/editor exactly.
   const originalImageUrl =
-    product.configuratorImageUrl || product.baseImageUrl || product.image;
+    product.baseDeviceImageUrl ||
+    product.configuratorImageUrl ||
+    product.baseImageUrl ||
+    product.image;
   if (!originalImageUrl || typeof originalImageUrl !== "string") {
     console.warn("[PDF] renderEditedProduct: no base image URL for product", product?.id ?? product?._instanceId);
   }
   try {
-    const baseImg = await loadImage(originalImageUrl);
+    const [baseImg, bgImg] = await Promise.all([
+      originalImageUrl ? loadImage(originalImageUrl) : Promise.resolve(null),
+      backgroundImageDataUrl ? loadImage(backgroundImageDataUrl) : Promise.resolve(null),
+    ]);
     const scaleX = w / EDITOR_CANVAS_WIDTH;
     const scaleY = h / EDITOR_CANVAS_HEIGHT;
     ctx.save();
     ctx.scale(scaleX, scaleY);
+    // Draw custom background across full editor canvas, then base image fitted above it
+    if (bgImg) {
+      try {
+        ctx.drawImage(
+          bgImg,
+          0,
+          0,
+          EDITOR_CANVAS_WIDTH,
+          EDITOR_CANVAS_HEIGHT,
+          0,
+          0,
+          EDITOR_CANVAS_WIDTH,
+          EDITOR_CANVAS_HEIGHT,
+        );
+      } catch (e) {
+        // Ignore background draw errors; continue with base image and elements
+      }
+    }
+
     // Draw base image fitted in editor space (800x600) to avoid distortion
-    const iw = baseImg.naturalWidth || baseImg.width || EDITOR_CANVAS_WIDTH;
-    const ih = baseImg.naturalHeight || baseImg.height || EDITOR_CANVAS_HEIGHT;
-    const fitScale = Math.min(EDITOR_CANVAS_WIDTH / iw, EDITOR_CANVAS_HEIGHT / ih);
-    const drawW = iw * fitScale;
-    const drawH = ih * fitScale;
-    const bx = (EDITOR_CANVAS_WIDTH - drawW) / 2;
-    const by = (EDITOR_CANVAS_HEIGHT - drawH) / 2;
-    ctx.drawImage(baseImg, 0, 0, iw, ih, bx, by, drawW, drawH);
+    if (baseImg) {
+      const iw = baseImg.naturalWidth || baseImg.width || EDITOR_CANVAS_WIDTH;
+      const ih = baseImg.naturalHeight || baseImg.height || EDITOR_CANVAS_HEIGHT;
+      const fitScale = Math.min(EDITOR_CANVAS_WIDTH / iw, EDITOR_CANVAS_HEIGHT / ih);
+      const drawW = iw * fitScale;
+      const drawH = ih * fitScale;
+      const bx = (EDITOR_CANVAS_WIDTH - drawW) / 2;
+      const by = (EDITOR_CANVAS_HEIGHT - drawH) / 2;
+      ctx.drawImage(baseImg, 0, 0, iw, ih, bx, by, drawW, drawH);
+    }
     if (product.edits?.elements?.length > 0) {
       const imageElements = product.edits.elements.filter((el) => el.type === "image" && el.src);
       const loadedImages = await Promise.all(imageElements.map((el) => loadImage(el.src)));
@@ -569,8 +602,8 @@ export const generateProductPDF = async (products, options = {}) => {
       const imgTd = document.createElement("td");
       imgTd.style.padding = "12px";
       imgTd.style.verticalAlign = "middle";
-      imgTd.style.width = "120px";
-      imgTd.style.minWidth = "120px";
+      imgTd.style.width = "150px";
+      imgTd.style.minWidth = "150px";
       imgTd.style.boxSizing = "border-box";
       const thumbUrl = productThumbUrls[idx];
       if (thumbUrl) {
@@ -578,20 +611,20 @@ export const generateProductPDF = async (products, options = {}) => {
         img.src = thumbUrl;
         img.alt = product?.name || "";
         img.loading = "eager";
-        img.style.width = "100px";
-        img.style.height = "75px";
-        img.style.minWidth = "100px";
-        img.style.minHeight = "75px";
+        img.style.width = "140px";
+        img.style.height = "105px";
+        img.style.minWidth = "140px";
+        img.style.minHeight = "105px";
         img.style.objectFit = "contain";
         img.style.display = "block";
         img.style.backgroundColor = "#f3f4f6";
         imgTd.appendChild(img);
       } else {
         const placeholder = document.createElement("div");
-        placeholder.style.width = "100px";
-        placeholder.style.height = "75px";
-        placeholder.style.minWidth = "100px";
-        placeholder.style.minHeight = "75px";
+        placeholder.style.width = "140px";
+        placeholder.style.height = "105px";
+        placeholder.style.minWidth = "140px";
+        placeholder.style.minHeight = "105px";
         placeholder.style.backgroundColor = "#f3f4f6";
         placeholder.style.display = "flex";
         placeholder.style.alignItems = "center";
@@ -613,8 +646,11 @@ export const generateProductPDF = async (products, options = {}) => {
       desc.style.verticalAlign = "middle";
       desc.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
       const cfg = product?.edits?.configuration || {};
+      const productCode =
+        product?.productCode || product?.sku || product?.id || "—";
       const descLines = [
         product?.name || "—",
+        `Code: ${productCode}`,
         product?.description || "",
         `Individual labelling: ${cfg.individualLabeling || cfg.individualLabel || "—"}`,
         `Floor: ${cfg.floor || "—"}`,

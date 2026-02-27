@@ -135,7 +135,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
           <div className="flex-1 min-h-0 overflow-hidden relative">
             <KonvaCanvasEditor ref={stageRef} />
           </div>
-          <ConfiguratorActionBar />
+          <ConfiguratorActionBar stageRef={stageRef} />
         </div>
         <div className="w-72 flex-shrink-0 min-h-0">
           <ConfiguratorPropertiesPanel />
