@@ -27,8 +27,15 @@ export async function authenticate(req, res, next) {
     req.user = user;
     next();
   } catch (err) {
-    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
-      return res.status(401).json({ success: false, message: "Invalid or expired token" });
+    if (err.name === "JsonWebTokenError") {
+      return res.status(401).json({ success: false, message: "Invalid token", code: "INVALID_TOKEN" });
+    }
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired due to inactivity",
+        code: "TOKEN_EXPIRED",
+      });
     }
     next(err);
   }
@@ -55,8 +62,15 @@ export async function authenticateAdmin(req, res, next) {
     req.user = user;
     next();
   } catch (err) {
-    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
-      return res.status(401).json({ success: false, message: "Invalid or expired token" });
+    if (err.name === "JsonWebTokenError") {
+      return res.status(401).json({ success: false, message: "Invalid token", code: "INVALID_TOKEN" });
+    }
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired due to inactivity",
+        code: "TOKEN_EXPIRED",
+      });
     }
     next(err);
   }

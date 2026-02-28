@@ -57,6 +57,7 @@ const ECOSYSTEM_ITEMS = [
 export default function SolutionDetail() {
   const { id } = useParams();
   const [solution, setSolution] = useState(null);
+  const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -78,6 +79,22 @@ export default function SolutionDetail() {
       });
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!solution?._id) return;
+    let cancelled = false;
+    apiService.solutionDetails
+      .list({ solutionId: solution._id, status: "active" })
+      .then((res) => {
+        if (!cancelled) setSections(res?.details || []);
+      })
+      .catch(() => {
+        if (!cancelled) setSections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [solution?._id]);
 
   if (loading) {
     return (
@@ -220,36 +237,88 @@ export default function SolutionDetail() {
         </div>
       </section>
 
-      {/* ——— One Structured Ecosystem (PDF page 3) ——— */}
-      <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-200/20 rounded-full blur-3xl" />
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
-              One <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Structured Ecosystem</span>
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div>
-              <ul className="space-y-8">
-                {ECOSYSTEM_ITEMS.map((item, i) => (
-                  <li key={i} className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold">{i + 1}</div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{item.title}</h3>
-                      <p className="text-gray-700 leading-relaxed">{item.desc}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+      {/* ——— Dynamic sections from admin (replaces hardcoded ecosystem block) ——— */}
+      {sections.map((section, index) => {
+        const isImageLeft = index % 2 === 1;
+        const imgSrc = section.image ? getImageUrl(section.image) : mainImage;
+        return (
+          <section
+            key={section._id || index}
+            className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-200/20 rounded-full blur-3xl" />
+            <div className="container mx-auto px-4 relative z-10">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4">
+                  {section.title}
+                </h2>
+                {section.subtitle && (
+                  <p className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed">
+                    {section.subtitle}
+                  </p>
+                )}
+              </div>
+              <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
+                {isImageLeft && (
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-white p-2 order-1 md:order-1">
+                    {imgSrc && (
+                      <img
+                        src={imgSrc}
+                        alt={section.title}
+                        className="w-full h-auto object-cover rounded-2xl"
+                      />
+                    )}
+                  </div>
+                )}
+                <div className={isImageLeft ? "order-2 md:order-2" : "order-1 md:order-1"}>
+                  <div className="space-y-6 text-gray-700 text-lg leading-relaxed">
+                    {section.body && (
+                      <p className="whitespace-pre-line">
+                        {section.body}
+                      </p>
+                    )}
+                    {Array.isArray(section.points) && section.points.length > 0 && (
+                      <ul className="space-y-8">
+                        {section.points.map((item, i) => (
+                          <li key={i} className="flex gap-4">
+                            <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+                              {i + 1}
+                            </div>
+                            <div>
+                              {item.title && (
+                                <h3 className="text-xl font-bold text-gray-900 mb-1">
+                                  {item.title}
+                                </h3>
+                              )}
+                              {item.desc && (
+                                <p className="text-gray-700 leading-relaxed">
+                                  {item.desc}
+                                </p>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+                {!isImageLeft && (
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-white p-2 order-2 md:order-2">
+                    {imgSrc && (
+                      <img
+                        src={imgSrc}
+                        alt={section.title}
+                        className="w-full h-auto object-cover rounded-2xl"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-white p-2">
-              <img src={SOLUTION_ASSET("picture 2_1.png")} alt="Structured Ecosystem" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        );
+      })}
 
       {/* ——— Intelligent Access. Elevated Experience. (PDF page 4) ——— */}
       <section className="py-20 md:py-28 bg-white relative">

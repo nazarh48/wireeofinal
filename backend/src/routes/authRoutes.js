@@ -3,6 +3,8 @@ import {
   register,
   login,
   adminLogin,
+  refreshSession,
+  refreshAdminSession,
   verifyEmail,
   resendVerificationEmail,
   verify2FA,
@@ -18,6 +20,8 @@ const router = Router();
 router.post("/register", validate(authValidators.register), register);
 router.post("/login", validate(authValidators.login), login);
 router.post("/admin/login", validate(authValidators.login), adminLogin);
+router.post("/refresh", refreshSession);
+router.post("/admin/refresh", refreshAdminSession);
 
 router.post("/verify-email", validate(authValidators.verifyEmail), verifyEmail);
 router.post(

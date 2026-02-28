@@ -1,7 +1,11 @@
 import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 
 export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
+
+/** Session expires after this many minutes of inactivity (must match backend). */
+export const SESSION_INACTIVITY_MINUTES = 15;
 
 // Dev: "/api" uses Vite proxy to backend (localhost:5000). Prod: VITE_API_URL or production URL.
 export const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -90,10 +94,34 @@ const userApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 userApi.interceptors.request.use(
   withBearerToken(() => localStorage.getItem(USER_TOKEN_KEY)),
 );
+userApi.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    if (status === 401 && (data?.code === "TOKEN_EXPIRED" || (data?.message && String(data.message).toLowerCase().includes("expired")))) {
+      useAuthStore.getState().logoutUser();
+      window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "user" } }));
+    }
+    return Promise.reject(err);
+  }
+);
 
 const adminApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 adminApi.interceptors.request.use(
   withBearerToken(() => localStorage.getItem(ADMIN_TOKEN_KEY)),
+);
+adminApi.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    if (status === 401 && (data?.code === "TOKEN_EXPIRED" || (data?.message && String(data.message).toLowerCase().includes("expired")))) {
+      useAuthStore.getState().logoutAdmin();
+      window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "admin" } }));
+    }
+    return Promise.reject(err);
+  }
 );
 
 function unwrap(res) {
@@ -108,6 +136,10 @@ export const apiService = {
       unwrap(await publicApi.post("/auth/login", { email, password })),
     adminLogin: async ({ email, password }) =>
       unwrap(await publicApi.post("/auth/admin/login", { email, password })),
+    refreshSession: async () =>
+      unwrap(await userApi.post("/auth/refresh")),
+    refreshAdminSession: async () =>
+      unwrap(await adminApi.post("/auth/admin/refresh")),
     verifyEmail: async (token) =>
       unwrap(await publicApi.post("/auth/verify-email", { token })),
     resendVerification: async (email) =>
@@ -177,6 +209,19 @@ export const apiService = {
     update: async (id, payload, config) =>
       unwrap(await adminApi.patch(`/solutions/${id}`, payload, config)),
     remove: async (id) => unwrap(await adminApi.delete(`/solutions/${id}`)),
+  },
+
+  solutionDetails: {
+    list: async (params) =>
+      unwrap(await publicApi.get("/solution-details", { params })),
+    getById: async (id) =>
+      unwrap(await publicApi.get(`/solution-details/${id}`)),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/solution-details", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/solution-details/${id}`, payload, config)),
+    remove: async (id) =>
+      unwrap(await adminApi.delete(`/solution-details/${id}`)),
   },
 
   pdfMaterials: {

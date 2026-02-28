@@ -89,3 +89,18 @@ export async function reExport(req, res, next) {
     next(err);
   }
 }
+
+export async function remove(req, res, next) {
+  try {
+    const deleted = await PDFConfig.findOneAndDelete({
+      _id: req.params.id,
+      createdBy: req.user._id,
+    });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "PDF configuration not found" });
+    }
+    return res.status(200).json({ success: true, message: "PDF configuration deleted" });
+  } catch (err) {
+    next(err);
+  }
+}

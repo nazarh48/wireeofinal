@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
@@ -9,6 +9,8 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const setAdminAuth = useAuthStore((s) => s.setAdminAuth);
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionExpired = location.state?.sessionExpired;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,6 +59,11 @@ const AdminLogin = () => {
 
         {/* Login Form */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20 animate-fade-in-up animation-delay-600">
+          {sessionExpired && (
+            <div className="mb-6 bg-amber-500/20 border border-amber-400/50 text-amber-100 px-4 py-3 rounded-lg backdrop-blur-sm">
+              Your session expired due to inactivity. Please sign in again.
+            </div>
+          )}
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
               <div className="bg-red-500/20 border border-red-400/50 text-red-100 px-4 py-3 rounded-lg backdrop-blur-sm animate-shake">

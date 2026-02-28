@@ -15,7 +15,21 @@ function RangeForm({ initial, onSubmit, onCancel, loading }) {
   const [description, setDescription] = useState(initial?.description ?? "");
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState("");
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -57,14 +71,34 @@ function RangeForm({ initial, onSubmit, onCancel, loading }) {
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">Image</label>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-          className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700"
-        />
-        {initial?.image && !imageFile && (
-          <p className="text-xs text-slate-500 mt-1">Current image is set. Choose a new file to replace.</p>
+        {imagePreview ? (
+          <div className="space-y-2">
+            <img src={imagePreview} alt="Preview" className="w-32 h-32 object-cover rounded-lg border border-slate-200" />
+            <button
+              type="button"
+              onClick={removeImage}
+              className="text-sm text-red-600 hover:text-red-700"
+            >
+              Remove image
+            </button>
+          </div>
+        ) : initial?.image ? (
+          <div className="space-y-2">
+            <img src={getImageUrl(initial.image)} alt="Current" className="w-32 h-32 object-cover rounded-lg border border-slate-200" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700"
+            />
+          </div>
+        ) : (
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700"
+          />
         )}
       </div>
       <div>
@@ -153,7 +187,6 @@ export default function RangesManagement() {
   };
 
   const handleDelete = async (range) => {
-    if (!window.confirm(`Delete range "${range.name}"? This will also remove ${productCountByRange[range.id] ?? 0} product(s).`)) return;
     setLoading(true);
     setError("");
     try {

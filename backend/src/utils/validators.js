@@ -197,6 +197,31 @@ export const solutionValidators = {
   slug: [param("slug").trim().notEmpty()],
 };
 
+export const solutionDetailValidators = {
+  create: [
+    body("solution").custom(objectId).withMessage("Valid solution id required"),
+    body("title").trim().notEmpty().withMessage("Title required"),
+    body("subtitle").optional().trim(),
+    body("body").optional().trim(),
+     body("points").optional(),
+    body("image").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  update: [
+    param("id").custom(objectId),
+    body("solution").optional().custom(objectId),
+    body("title").optional().trim().notEmpty(),
+    body("subtitle").optional().trim(),
+    body("body").optional().trim(),
+    body("points").optional(),
+    body("image").optional().trim(),
+    body("order").optional().isInt({ min: 0 }),
+    body("status").optional().isIn(["active", "inactive"]),
+  ],
+  id: [param("id").custom(objectId)],
+};
+
 export const pdfMaterialValidators = {
   create: [
     body("name").trim().notEmpty().withMessage("Name required"),

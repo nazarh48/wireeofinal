@@ -17,6 +17,7 @@ const Login = () => {
   const location = useLocation();
   const from = location.state?.from || '/';
   const reason = location.state?.reason;
+  const sessionExpired = location.state?.sessionExpired;
 
   const handleChange = (e) => {
     if (step === '2fa') {
@@ -200,6 +201,11 @@ const Login = () => {
             </div>
             <Link to="/" className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600">Wireeo</Link>
             <h2 className="mt-6 text-3xl font-bold text-gray-900">Welcome back</h2>
+            {sessionExpired && (
+              <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
+                Your session expired due to inactivity. Please sign in again.
+              </div>
+            )}
             {reason === 'configurable' && (
               <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
                 Please sign in to access configurable products. Don&apos;t have an account?{' '}

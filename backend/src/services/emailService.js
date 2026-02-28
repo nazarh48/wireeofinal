@@ -117,8 +117,15 @@ export async function sendEmail({ to, subject, html, text }) {
   }
 }
 
+function getFrontendBaseUrl() {
+  return (
+    config.app?.frontendUrl ??
+    (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173")
+  );
+}
+
 export async function sendVerificationEmail(email, name, token) {
-  const baseUrl = config.app?.frontendUrl || "http://localhost:5173";
+  const baseUrl = getFrontendBaseUrl();
   const url = `${baseUrl}/verify-email?token=${token}`;
   const subject = "Verify your Wireeo account";
   const html = `
@@ -146,7 +153,7 @@ export async function send2FACode(email, name, code) {
 }
 
 export async function sendPasswordResetEmail(email, name, token) {
-  const baseUrl = config.app?.frontendUrl || "http://localhost:5173";
+  const baseUrl = getFrontendBaseUrl();
   const url = `${baseUrl}/reset-password?token=${token}`;
   const subject = "Reset your Wireeo password";
   const html = `

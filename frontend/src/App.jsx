@@ -24,6 +24,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 import CategoriesManagement from './pages/admin/CategoriesManagement';
 import SolutionsManagement from './pages/admin/SolutionsManagement';
 import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
+import SolutionDetailsManagement from './pages/admin/SolutionDetailsManagement';
 import AdminCookies from './pages/admin/AdminCookies';
 import NewsletterManagement from './pages/admin/NewsletterManagement';
 import IconLibraryManagement from './pages/admin/IconLibraryManagement';
@@ -44,6 +45,7 @@ import { generateProductPDF } from './utils/pdfGenerator';
 import useStore from './store/useStore';
 import { useAuthStore } from './store/authStore';
 import RequireAuth from './components/auth/RequireAuth';
+import SessionActivityManager from './components/auth/SessionActivityManager';
 
 function App() {
   const { closeToast, clearPendingCollection, clearPendingPdfCollection, showToast } = useStore();
@@ -75,6 +77,7 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <SessionActivityManager />
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Layout><Home /></Layout>} />
@@ -111,6 +114,7 @@ function App() {
           <Route path="users" element={<UsersManagement />} />
           <Route path="categories" element={<CategoriesManagement />} />
           <Route path="solutions" element={<SolutionsManagement />} />
+          <Route path="solution-details" element={<SolutionDetailsManagement />} />
           <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
           <Route path="newsletter" element={<NewsletterManagement />} />
           <Route path="projects" element={<AdminProjects />} />

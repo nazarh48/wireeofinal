@@ -23,6 +23,7 @@ const nav = [
   { to: "/admin/dashboard", label: "Dashboard", icon: IconDashboard },
   { to: "/admin/categories", label: "Categories", icon: IconCategories },
   { to: "/admin/solutions", label: "Solutions", icon: IconSolutions },
+  { to: "/admin/solution-details", label: "Solution details", icon: IconSolutions },
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
   { to: "/admin/icon-library", label: "Icon Library", icon: IconLibrary },

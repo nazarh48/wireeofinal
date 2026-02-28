@@ -11,10 +11,13 @@ import {
 const USER_SELECT = "+password +emailVerificationToken +emailVerificationExpires +twoFactorCode +twoFactorCodeExpires +passwordResetToken +passwordResetExpires";
 
 function signToken(user) {
+  const expiresIn = config.session?.inactivityMinutes
+    ? `${config.session.inactivityMinutes}m`
+    : config.jwt.expiresIn;
   return jwt.sign(
     { userId: user._id, role: user.role },
     config.jwt.secret,
-    { expiresIn: config.jwt.expiresIn }
+    { expiresIn }
   );
 }
 
@@ -65,7 +68,9 @@ export async function register(req, res, next) {
       await sendVerificationEmail(email, name, emailVerificationToken);
     } catch (emailErr) {
       console.error("[Auth] Failed to send verification email:", emailErr?.message);
-      const baseUrl = config.app?.frontendUrl || "http://localhost:5173";
+      const baseUrl =
+        config.app?.frontendUrl ??
+        (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173");
       const url = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
       console.log("[Auth] Verification link (copy for testing):", url);
       // Continue - user is created, they can use resend
@@ -140,7 +145,9 @@ export async function resendVerificationEmail(req, res, next) {
       await sendVerificationEmail(user.email, user.name, emailVerificationToken);
     } catch (emailErr) {
       console.error("[Auth] Resend verification email failed:", emailErr?.message);
-      const baseUrl = config.app?.frontendUrl || "http://localhost:5173";
+      const baseUrl =
+        config.app?.frontendUrl ??
+        (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173");
       const url = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
       console.log("[Auth] Verification link (copy for testing):", url);
     }
@@ -345,6 +352,136 @@ export async function resetPassword(req, res, next) {
     return res.status(200).json({
       success: true,
       message: "Password reset successfully. You can now sign in.",
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Refresh session: valid (non-expired) token in header returns a new token.
+ * Used for sliding expiration on activity.
+ */
+export async function refreshSession(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required", code: "AUTH_REQUIRED" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt.secret);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Session expired due to inactivity",
+          code: "TOKEN_EXPIRED",
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    const user = await User.findById(decoded.userId).select("-password");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "User not found", code: "USER_NOT_FOUND" });
+    }
+    if (user.status !== "active") {
+      return res
+        .status(401)
+        .json({ success: false, message: "Account inactive", code: "ACCOUNT_INACTIVE" });
+    }
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Use admin refresh endpoint for admin sessions.",
+        code: "USE_ADMIN_REFRESH",
+      });
+    }
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Email not verified",
+        code: "EMAIL_NOT_VERIFIED",
+      });
+    }
+
+    const newToken = signToken(user);
+    return res.status(200).json({
+      success: true,
+      token: newToken,
+      user: toUserResponse(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Refresh admin session (sliding expiration).
+ */
+export async function refreshAdminSession(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required", code: "AUTH_REQUIRED" });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, config.jwt.secret);
+    } catch (err) {
+      if (err.name === "TokenExpiredError") {
+        return res.status(401).json({
+          success: false,
+          message: "Session expired due to inactivity",
+          code: "TOKEN_EXPIRED",
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+        code: "INVALID_TOKEN",
+      });
+    }
+
+    const user = await User.findById(decoded.userId).select("-password");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "User not found", code: "USER_NOT_FOUND" });
+    }
+    if (user.status !== "active") {
+      return res
+        .status(401)
+        .json({ success: false, message: "Account inactive", code: "ACCOUNT_INACTIVE" });
+    }
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+        code: "ADMIN_REQUIRED",
+      });
+    }
+
+    const newToken = signToken(user);
+    return res.status(200).json({
+      success: true,
+      token: newToken,
+      user: toUserResponse(user),
     });
   } catch (err) {
     next(err);

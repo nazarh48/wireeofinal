@@ -1191,7 +1191,10 @@ const PDFConfigurationsContent = () => {
   };
 
   const entries = Array.isArray(pendingPdfCollection) ? pendingPdfCollection.filter((e) => e && e.product) : [];
-  const displayPDFs = Array.isArray(pdfConfigurations) ? pdfConfigurations : [];
+  // Only list exports that are whole projects (more than one product), not single-product exports
+  const displayPDFs = Array.isArray(pdfConfigurations)
+    ? pdfConfigurations.filter((c) => (c.productCount ?? c.amount ?? 0) > 1)
+    : [];
 
   return (
     <div className="animate-fade-in">

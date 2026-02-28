@@ -13,7 +13,10 @@ export const config = {
   },
   jwt: {
     secret: process.env.JWT_SECRET || "wireeo-jwt-secret-change-me",
-    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+  },
+  session: {
+    inactivityMinutes: parseInt(process.env.SESSION_INACTIVITY_MINUTES || "15", 10),
   },
   cors: {
     origin: process.env.CORS_ORIGIN
@@ -21,7 +24,10 @@ export const config = {
       : ["http://localhost:5173", "http://localhost:3000"],
   },
   app: {
-    frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+    // Email verification etc: use FRONTEND_URL; production default is https://wireeo.com
+    frontendUrl:
+      process.env.FRONTEND_URL ||
+      (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173"),
   },
   email: {
     host: process.env.MAIL_HOST,

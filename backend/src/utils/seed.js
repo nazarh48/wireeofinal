@@ -16,6 +16,7 @@ async function seed() {
     password: "admin123",
     role: "admin",
     status: "active",
+    emailVerified: true,
   });
   console.log("Created admin user: admin@wireeo.com / admin123");
   await mongoose.disconnect();
