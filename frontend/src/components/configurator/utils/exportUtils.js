@@ -83,8 +83,8 @@ export const exportAsJSON = (elements, configuration, filename = 'canvas-templat
     configuration: configuration || {},
     metadata: {
       elementCount: elements.length,
-      canvasWidth: 800,
-      canvasHeight: 600,
+      canvasWidth: (configuration && configuration.canvasWidth) || 800,
+      canvasHeight: (configuration && configuration.canvasHeight) || 600,
     },
   };
   

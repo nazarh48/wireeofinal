@@ -6,7 +6,7 @@ import {
   exportConfiguratorPdf,
 } from '../../services/exportService';
 
-const ConfiguratorActionBar = ({ stageRef }) => {
+const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
   const {
     configurator,
     undo,
@@ -95,7 +95,7 @@ const ConfiguratorActionBar = ({ stageRef }) => {
         </button>
       </div>
 
-      {/* Layer exports & background tools */}
+      {/* Layer exports, background tools & dimensions */}
       <div className="flex flex-col items-end gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -114,6 +114,13 @@ const ConfiguratorActionBar = ({ stageRef }) => {
               Layer 2 PNG
             </button>
           )}
+          <button
+            onClick={() => exportLayerPng(stageRef.current, '.mask-layer', 'layer3-engraving-mask.png')}
+            disabled={!canExport}
+            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
+          >
+            Layer 3 PNG
+          </button>
           <button
             onClick={() => exportLayerPng(stageRef.current, '.user-layer', 'layer4-user.png')}
             disabled={!canExport}
@@ -224,6 +231,17 @@ const ConfiguratorActionBar = ({ stageRef }) => {
             <span className="px-2 py-0.5 border border-[#d1d5db] rounded">
               4 · Icons &amp; text
             </span>
+            {canvasInfo && (
+              <>
+                <span className="ml-2 h-3 w-px bg-[#d1d5db]" />
+                <span className="px-2 py-0.5 border border-[#e5e7eb] rounded bg-white text-[#6b7280]">
+                  Base photo: {canvasInfo.baseImageWidth || 0} × {canvasInfo.baseImageHeight || 0} px
+                </span>
+                <span className="px-2 py-0.5 border border-[#e5e7eb] rounded bg-white text-[#6b7280]">
+                  Editor window: {canvasInfo.canvasWidth} × {canvasInfo.canvasHeight} px
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>

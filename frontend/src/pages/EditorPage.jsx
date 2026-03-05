@@ -5,6 +5,9 @@ import { useCatalog } from '../hooks/useCatalog';
 import useStore from '../store/useStore';
 import Configurator from '../components/configurator/Configurator';
 
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+
 const EditorPage = () => {
   const { productId } = useParams();
   const [searchParams] = useSearchParams();
@@ -37,6 +40,22 @@ const EditorPage = () => {
     return <div className="min-h-screen flex items-center justify-center">Product not found</div>;
   }
 
+  const backgroundCustomizable =
+    product?.backgroundCustomizable === true || product?.backgroundCustomizable === 'true';
+  const laserEnabled =
+    product?.laserEnabled === true || product?.laserEnabled === 'true';
+  const printingEnabled =
+    product?.printingEnabled === true || product?.printingEnabled === 'true';
+
+  let processingLabel = 'Configuration';
+  if (laserEnabled && !printingEnabled) {
+    processingLabel = 'Laser engraving';
+  } else if (printingEnabled && !laserEnabled) {
+    processingLabel = 'Colour printing';
+  } else if (laserEnabled && printingEnabled) {
+    processingLabel = 'Laser + printing';
+  }
+
   return (
     <div className="h-screen flex flex-col bg-teal-50/30 overflow-hidden">
       <div className="bg-white shadow-sm border-b border-teal-100 flex-shrink-0">
@@ -44,14 +63,34 @@ const EditorPage = () => {
           <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               <button
-                onClick={() => navigate(isFromProjects ? '/products/ranges?tab=projects' : '/products/ranges?tab=collection')}
+                onClick={() =>
+                  navigate(
+                    isFromProjects
+                      ? '/products/ranges?tab=projects'
+                      : '/products/ranges?tab=collection'
+                  )
+                }
                 className="text-teal-600 hover:text-teal-800 font-medium text-sm sm:text-base flex-shrink-0"
               >
                 ← Back
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">{product.name}</h1>
-                <p className="text-xs sm:text-sm text-gray-600 truncate"> • {product.productCode}</p>
+                <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">
+                  {product.name}
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                  • {product.productCode}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs text-gray-600">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+                    {processingLabel}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 text-gray-800 border border-gray-200">
+                    {backgroundCustomizable
+                      ? 'Background customizable'
+                      : 'This product is not available for background customization.'}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0 ml-2 hidden sm:block">

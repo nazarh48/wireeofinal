@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiService, USER_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
+import { apiService, USER_TOKEN_KEY, ADMIN_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
 import { normalizeElements } from "../utils/editorMigration";
 
 const normalizeImageUrl = (url) => {
@@ -47,6 +47,9 @@ const normalizeProduct = (product, edits = null) => {
   }
   return normalized;
 };
+
+const DEFAULT_CANVAS_WIDTH = 800;
+const DEFAULT_CANVAS_HEIGHT = 600;
 
 const useStore = create((set, get) => ({
   products: [],
@@ -545,7 +548,7 @@ const useStore = create((set, get) => ({
   savePending: async () => {
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       set({
@@ -614,7 +617,7 @@ const useStore = create((set, get) => ({
     if (!product || product.configurable !== true) return false;
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       set({
@@ -650,7 +653,7 @@ const useStore = create((set, get) => ({
     }
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       get().showToast("Please log in to duplicate products.");
@@ -938,6 +941,7 @@ const useStore = create((set, get) => ({
     activeTool: "select",
     history: [[]],
     historyIndex: 0,
+    backgroundSelected: false,
     configuration: {
       id: null,
       productId: null,
@@ -1010,6 +1014,9 @@ const useStore = create((set, get) => ({
       const elements = normalizeElements(rawElements);
       const existingCfg = existingEdits?.configuration || {};
       const nextConfig = {
+        // Start from any previously saved configuration so we don't lose
+        // fields like backgroundImage/backgroundFileName or future options.
+        ...(existingCfg || {}),
         id:
           existingCfg.id ||
           `config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -1021,6 +1028,9 @@ const useStore = create((set, get) => ({
         individualLabeling: existingCfg.individualLabeling || "",
         room: existingCfg.room || "",
         floor: String(existingCfg.floor ?? "1"),
+        // Editor canvas dimensions (persist across sessions)
+        canvasWidth: Number(existingCfg.canvasWidth) || DEFAULT_CANVAS_WIDTH,
+        canvasHeight: Number(existingCfg.canvasHeight) || DEFAULT_CANVAS_HEIGHT,
       };
       return {
         configurator: {
@@ -1368,6 +1378,7 @@ const useStore = create((set, get) => ({
         ...state.configurator,
         selectedElementId: id,
         selectedElementIds: id ? [id] : [],
+        backgroundSelected: false,
       },
     })),
   setSelectedElements: (ids) =>
@@ -1376,6 +1387,7 @@ const useStore = create((set, get) => ({
         ...state.configurator,
         selectedElementIds: Array.isArray(ids) ? ids : [],
         selectedElementId: Array.isArray(ids) && ids.length > 0 ? ids[0] : null,
+        backgroundSelected: false,
       },
     })),
   addToSelection: (id) =>
@@ -1388,6 +1400,7 @@ const useStore = create((set, get) => ({
           ...state.configurator,
           selectedElementIds: next,
           selectedElementId: next[0],
+          backgroundSelected: false,
         },
       };
     }),
@@ -1408,6 +1421,7 @@ const useStore = create((set, get) => ({
         ...state.configurator,
         selectedElementId: null,
         selectedElementIds: [],
+        backgroundSelected: false,
       },
     })),
   copyElements: () =>
@@ -1641,6 +1655,17 @@ const useStore = create((set, get) => ({
         ...state.configurator,
         selectedElementIds: Array.isArray(elementIds) ? elementIds : [],
         selectedElementId: Array.isArray(elementIds) && elementIds.length > 0 ? elementIds[0] : null,
+        backgroundSelected: false,
+      },
+    })),
+
+  setBackgroundSelected: (selected) =>
+    set((state) => ({
+      configurator: {
+        ...state.configurator,
+        backgroundSelected: !!selected,
+        selectedElementId: null,
+        selectedElementIds: [],
       },
     })),
 

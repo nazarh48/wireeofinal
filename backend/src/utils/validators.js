@@ -222,6 +222,16 @@ export const solutionDetailValidators = {
   id: [param("id").custom(objectId)],
 };
 
+export const solutionWhyChooseValidators = {
+  solutionId: [param("solutionId").custom(objectId)],
+  upsert: [
+    param("solutionId").custom(objectId),
+    body("introTitle").optional().trim(),
+    body("introSubtitle").optional().trim(),
+    body("items").optional(),
+  ],
+};
+
 export const pdfMaterialValidators = {
   create: [
     body("name").trim().notEmpty().withMessage("Name required"),

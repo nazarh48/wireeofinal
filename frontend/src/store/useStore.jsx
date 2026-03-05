@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiService, USER_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
+import { apiService, USER_TOKEN_KEY, ADMIN_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
 import { normalizeElements } from "../utils/editorMigration";
 
 const normalizeImageUrl = (url) => {
@@ -518,7 +518,7 @@ const useStore = create((set, get) => ({
   savePending: async () => {
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       set({
@@ -587,7 +587,7 @@ const useStore = create((set, get) => ({
     if (!product || product.configurable !== true) return false;
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       set({
@@ -623,7 +623,7 @@ const useStore = create((set, get) => ({
     }
     const token =
       typeof localStorage !== "undefined"
-        ? localStorage.getItem(USER_TOKEN_KEY)
+        ? (localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY))
         : null;
     if (!token) {
       get().showToast("Please log in to duplicate products.");

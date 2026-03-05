@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiService, getImageUrl, getSolutionImageUrl } from "../services/api";
+import { useAuthStore } from "../store/authStore";
 
 // Base path for solution page assets (from PDF / Solution folder). Public assets are served at root in Vite.
 const SOLUTION_ASSET = (filename) => `/assets/Solution/${encodeURIComponent(filename)}`;
@@ -39,27 +40,20 @@ const WHY_CHOOSE_ITEMS = [
   },
 ];
 
-const ECOSYSTEM_ITEMS = [
-  {
-    title: "Field Infrastructure",
-    desc: "Native KNX devices for access control and room automation — architecturally integrated and engineered for long-term reliability.",
-  },
-  {
-    title: "Cloud Core",
-    desc: "Microsoft Azure–based management platform enabling centralized control across one or multiple hotel locations.",
-  },
-  {
-    title: "Mobile Interaction",
-    desc: "Guest and staff applications delivering secure access, service interaction, and operational efficiency — from anywhere.",
-  },
-];
-
 export default function SolutionDetail() {
   const { id } = useParams();
+  const isAdmin = useAuthStore((s) => s.isAdminAuthenticated());
   const [solution, setSolution] = useState(null);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [iconPreviews, setIconPreviews] = useState({});
+  const [whyChooseConfig, setWhyChooseConfig] = useState({
+    introTitle: "Why Choose Our Solution",
+    introSubtitle:
+      "Designed to optimize access management through security, efficiency, and full operational visibility.",
+    items: WHY_CHOOSE_ITEMS,
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -95,6 +89,66 @@ export default function SolutionDetail() {
       cancelled = true;
     };
   }, [solution?._id]);
+
+  useEffect(() => {
+    if (!solution?._id) return;
+    let cancelled = false;
+    apiService.solutionWhyChoose
+      .getForSolution(solution._id)
+      .then((res) => {
+        if (cancelled) return;
+        const cfg = res?.config || {};
+        const items = Array.isArray(cfg.items) && cfg.items.length ? cfg.items : WHY_CHOOSE_ITEMS;
+        setWhyChooseConfig({
+          introTitle: cfg.introTitle || "Why Choose Our Solution",
+          introSubtitle:
+            cfg.introSubtitle ||
+            "Designed to optimize access management through security, efficiency, and full operational visibility.",
+          items,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWhyChooseConfig((prev) => ({
+            ...prev,
+            items: WHY_CHOOSE_ITEMS,
+          }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [solution?._id]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(iconPreviews || {}).forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          // ignore
+        }
+      });
+    };
+  }, [iconPreviews]);
+
+  const handleIconFileChange = (event, index) => {
+    if (!isAdmin) return;
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    setIconPreviews((prev) => {
+      const next = { ...prev };
+      if (next[index]) {
+        try {
+          URL.revokeObjectURL(next[index]);
+        } catch {
+          // ignore
+        }
+      }
+      next[index] = URL.createObjectURL(file);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -172,7 +226,7 @@ export default function SolutionDetail() {
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               <div className="max-w-2xl">
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight text-white">
-                  Wireeo Hospitality
+                  {solutionTitle}
                 </h1>
                 <p className="text-xl md:text-2xl text-teal-200 font-semibold mb-6">
                   Smart KNX Automation for Hotels & Hospitality
@@ -212,27 +266,60 @@ export default function SolutionDetail() {
         </div>
       </section>
 
-      {/* ——— Why Choose Our Solution (PDF page 2) ——— */}
+      {/* ——— Why Choose Our Solution (configurable per solution) ——— */}
       <section className="py-20 md:py-28 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6">
-              Why Choose <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Our Solution</span>
+              {whyChooseConfig.introTitle.split("Our Solution")[0] || "Why Choose"}{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">
+                {whyChooseConfig.introTitle.includes("Our Solution")
+                  ? "Our Solution"
+                  : solutionTitle}
+              </span>
             </h2>
             <p className="text-gray-600 text-lg max-w-3xl mx-auto leading-relaxed">
-              Designed to optimize access management through security, efficiency, and full operational visibility.
+              {whyChooseConfig.introSubtitle}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {WHY_CHOOSE_ITEMS.map((item, idx) => (
-              <div key={idx} className="group p-8 bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-2xl hover:border-teal-200 hover:-translate-y-2 transition-all duration-500">
-                <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mb-5 overflow-hidden">
-                  <img src={SOLUTION_ASSET(item.icon)} alt={item.title} className="w-full h-full object-contain p-2" onError={(e) => { e.target.style.display = "none"; }} />
+            {whyChooseConfig.items.map((item, idx) => {
+              const iconPath = item.icon || "";
+              const hasUploadsPath =
+                typeof iconPath === "string" &&
+                iconPath.startsWith("/uploads/");
+              const resolvedIcon = hasUploadsPath
+                ? getImageUrl(iconPath)
+                : iconPath
+                ? SOLUTION_ASSET(iconPath)
+                : "";
+              const iconSrc = iconPreviews[idx] || resolvedIcon;
+              return (
+                <div
+                  key={idx}
+                  className="group p-8 bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-2xl hover:border-teal-200 hover:-translate-y-2 transition-all duration-500 cursor-default"
+                >
+                  <div className="w-20 h-20 rounded-2xl bg-gray-100 flex items-center justify-center mb-5 overflow-hidden">
+                    {iconSrc ? (
+                      <img
+                        src={iconSrc}
+                        alt={item.title}
+                        className="w-full h-full object-contain p-2"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400">No icon</span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed">{item.desc}</p>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors">{item.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{item.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -320,134 +407,7 @@ export default function SolutionDetail() {
         );
       })}
 
-      {/* ——— Intelligent Access. Elevated Experience. (PDF page 4) ——— */}
-      <section className="py-20 md:py-28 bg-white relative">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div>
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Intelligent Access. <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Elevated Experience.</span>
-              </h2>
-              <p className="text-gray-700 text-lg mb-6">Wireeo Hospitality supports:</p>
-              <ul className="space-y-3 text-gray-700 text-lg mb-6">
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-600" /> NFC (card & mobile)
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-600" /> PIN code
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-600" /> QR code
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-teal-600" /> Mobile wallet integration
-                </li>
-              </ul>
-              <p className="text-gray-600 leading-relaxed">
-                All governed by centralized cloud logic and advanced security procedures. Access becomes part of a larger operational strategy — not a standalone function.
-              </p>
-            </div>
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-50 p-2">
-              <img src={SOLUTION_ASSET("picture 2_2.png")} alt="Intelligent Access" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ——— Designed for Architecture (PDF page 5) ——— */}
-      <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div className="order-2 md:order-1 relative rounded-3xl overflow-hidden shadow-2xl bg-white p-2">
-              <img src={SOLUTION_ASSET("pictrues 2_3.png")} alt="Designed for Architecture" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-            <div className="order-1 md:order-2">
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Designed for <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Architecture</span>
-              </h2>
-              <ul className="space-y-4 text-gray-700 text-lg leading-relaxed">
-                <li>Flush trimless installation.</li>
-                <li>Premium aluminum and acrylic finishes.</li>
-                <li>Custom branding and personalization.</li>
-                <li>Technology that adapts to the space — never the opposite.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ——— Built to Scale (PDF page 6) ——— */}
-      <section className="py-20 md:py-28 bg-white relative">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div>
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Built to <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Scale</span>
-              </h2>
-              <p className="text-gray-700 text-lg mb-8">
-                From boutique hotels to large facilities with thousands of rooms, the architecture remains stable, structured, and future-ready.
-              </p>
-              <ul className="space-y-4 text-gray-700 text-lg">
-                <li className="flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-lg bg-teal-100 text-teal-700 font-bold flex items-center justify-center">✓</span>
-                  Up to 9,999 rooms per hotel.
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-lg bg-teal-100 text-teal-700 font-bold flex items-center justify-center">✓</span>
-                  200 KNX functions per room.
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="w-10 h-10 rounded-lg bg-teal-100 text-teal-700 font-bold flex items-center justify-center">✓</span>
-                  Multi-site management without limitation.
-                </li>
-              </ul>
-            </div>
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-50 p-2">
-              <img src={SOLUTION_ASSET("picture 2_4.png")} alt="Built to Scale" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ——— Open. Structured. KNX. (PDF page 7) ——— */}
-      <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div className="order-2 md:order-1 relative rounded-3xl overflow-hidden shadow-2xl bg-white p-2">
-              <img src={SOLUTION_ASSET("picture 2_5.png")} alt="Open Structured KNX" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-            <div className="order-1 md:order-2">
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Open. Structured. <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">KNX.</span>
-              </h2>
-              <p className="text-gray-700 text-lg leading-relaxed">
-                Fully compatible with KNX standards and configured via ETS, Wireeo Hospitality ensures interoperability, long-term viability, and professional integration flexibility.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ——— A New Generation of Hospitality Infrastructure (PDF page 8) ——— */}
-      <section className="py-20 md:py-28 bg-white relative">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 lg:gap-16 items-center max-w-6xl mx-auto">
-            <div>
-              <h2 className="text-3xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                A New Generation of <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Hospitality Infrastructure</span>
-              </h2>
-              <ul className="space-y-4 text-gray-700 text-lg leading-relaxed">
-                <li>Developed and manufactured in Romania.</li>
-                <li>Built on KNX discipline.</li>
-                <li>Engineered for hotels that value precision.</li>
-              </ul>
-            </div>
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-gray-50 p-2">
-              <img src={SOLUTION_ASSET("picture 2_5.png")} alt="Hospitality Infrastructure" className="w-full h-auto object-cover rounded-2xl" />
-            </div>
-          </div>
-        </div>
-      </section>
+     
 
       {/* ——— CTA: Ready to Redefine... Contact Wireeo + Download Brochure (PDF page 9) ——— */}
       <section className="py-20 md:py-28 bg-white relative overflow-hidden">
@@ -457,11 +417,10 @@ export default function SolutionDetail() {
         <div className="container mx-auto px-4 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight text-gray-900">
-              Ready to Redefine Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Hospitality Infrastructure?</span>
+            Ready to Implement a  <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-cyan-600">Wireeo Solution?</span>
             </h2>
             <p className="text-gray-700 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-              Contact Wireeo to get started.
-            </p>
+            Discover how our engineered systems bring intelligence, efficiency, and reliability to modern environments.            </p>
             <div className="flex flex-wrap items-center justify-center gap-6 mt-4">
               <Link
                 to="/contact"
@@ -473,19 +432,7 @@ export default function SolutionDetail() {
                 Contact Wireeo
               </Link>
 
-              {downloadBrochureUrl && (
-                <a
-                  href={getImageUrl(downloadBrochureUrl)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white font-bold rounded-xl transition-all duration-300 shadow-2xl hover:shadow-teal-500/50 hover:scale-105 transform text-lg uppercase tracking-wider"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download Brochure
-                </a>
-              )}
+              
             </div>
           </div>
         </div>

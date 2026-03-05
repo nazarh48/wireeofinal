@@ -90,18 +90,27 @@ function withBearerToken(getToken) {
 
 const publicApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 
+/** Get token for user-scoped APIs: prefer user token, fall back to admin token (admin can use configurator, etc.) */
+function getUserOrAdminToken() {
+  return localStorage.getItem(USER_TOKEN_KEY) || localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
 const userApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
-userApi.interceptors.request.use(
-  withBearerToken(() => localStorage.getItem(USER_TOKEN_KEY)),
-);
+userApi.interceptors.request.use(withBearerToken(getUserOrAdminToken));
 userApi.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err?.response?.status;
     const data = err?.response?.data;
     if (status === 401 && (data?.code === "TOKEN_EXPIRED" || (data?.message && String(data.message).toLowerCase().includes("expired")))) {
-      useAuthStore.getState().logoutUser();
-      window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "user" } }));
+      const hadUserToken = !!localStorage.getItem(USER_TOKEN_KEY);
+      if (hadUserToken) {
+        useAuthStore.getState().logoutUser();
+        window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "user" } }));
+      } else {
+        useAuthStore.getState().logoutAdmin();
+        window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "admin" } }));
+      }
     }
     return Promise.reject(err);
   }
@@ -222,6 +231,21 @@ export const apiService = {
       unwrap(await adminApi.patch(`/solution-details/${id}`, payload, config)),
     remove: async (id) =>
       unwrap(await adminApi.delete(`/solution-details/${id}`)),
+  },
+
+  solutionWhyChoose: {
+    getForSolution: async (solutionId) =>
+      unwrap(await publicApi.get(`/solution-why-choose/${solutionId}`)),
+    upsertForSolution: async (solutionId, payload) =>
+      unwrap(await adminApi.put(`/solution-why-choose/${solutionId}`, payload)),
+    uploadIcon: async (solutionId, payload, config) =>
+      unwrap(
+        await adminApi.post(
+          `/solution-why-choose/${solutionId}/icon`,
+          payload,
+          config
+        )
+      ),
   },
 
   pdfMaterials: {
@@ -360,6 +384,12 @@ export const apiService = {
     subscribe: async (email, source) =>
       unwrap(await publicApi.post("/newsletter/subscribe", { email, source: source || "resources" })),
     listSubscribers: async () => unwrap(await adminApi.get("/newsletter/subscribers")),
+  },
+
+  legal: {
+    getPage: async (slug) => unwrap(await publicApi.get(`/legal/${slug}`)),
+    updatePage: async (slug, payload) =>
+      unwrap(await adminApi.put(`/legal/${slug}`, payload)),
   },
 };
 

@@ -11,6 +11,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
   const editingInstanceId = configurator.editingInstanceId || instanceId;
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [canvasInfo, setCanvasInfo] = useState(null);
   const stageRef = useRef();
 
   const isFromSelection = window.location.search.includes('from=selection');
@@ -133,12 +134,15 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
         </div>
         <div className="flex-1 min-w-0 flex flex-col bg-[#e8f0ea]">
           <div className="flex-1 min-h-0 overflow-hidden relative">
-            <KonvaCanvasEditor ref={stageRef} />
+            <KonvaCanvasEditor
+              ref={stageRef}
+              onCanvasInfo={(info) => setCanvasInfo(info)}
+            />
           </div>
-          <ConfiguratorActionBar stageRef={stageRef} />
+          <ConfiguratorActionBar stageRef={stageRef} canvasInfo={canvasInfo} />
         </div>
         <div className="w-72 flex-shrink-0 min-h-0">
-          <ConfiguratorPropertiesPanel />
+          <ConfiguratorPropertiesPanel canvasInfo={canvasInfo} />
         </div>
       </div>
     </div>

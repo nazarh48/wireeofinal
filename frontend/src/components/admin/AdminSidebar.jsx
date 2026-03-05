@@ -24,6 +24,7 @@ const nav = [
   { to: "/admin/categories", label: "Categories", icon: IconCategories },
   { to: "/admin/solutions", label: "Solutions", icon: IconSolutions },
   { to: "/admin/solution-details", label: "Solution details", icon: IconSolutions },
+  { to: "/admin/solution-why-choose", label: "Solution – Why Choose", icon: IconSolutions },
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
   { to: "/admin/icon-library", label: "Icon Library", icon: IconLibrary },
@@ -32,6 +33,8 @@ const nav = [
   { to: "/admin/users", label: "Users Management", icon: IconUsers },
   { to: "/admin/projects", label: "Graphic Configurator", icon: IconProjects },
   { to: "/admin/cookies", label: "Cookies Policy", icon: IconCookie },
+  { to: "/admin/privacy", label: "Privacy Policy", icon: IconCookie },
+  { to: "/admin/terms", label: "Terms of Service", icon: IconCookie },
   { to: "/admin/settings", label: "Settings", icon: IconSettings },
 ];
 

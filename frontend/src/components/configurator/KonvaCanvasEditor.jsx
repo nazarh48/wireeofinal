@@ -27,7 +27,7 @@ const GRID_SIZE = 20;
 const MOVE_STEP = 1;
 const MOVE_STEP_SHIFT = 10;
 
-const KonvaCanvasEditor = forwardRef((props, ref) => {
+const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
   const {
     configurator,
     updateElement,
@@ -44,6 +44,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     copyElements,
     pasteElements,
     saveToHistory,
+    setBackgroundSelected,
   } = useStore();
 
   const stageRef = useRef();
@@ -74,6 +75,11 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const permittedAreas = getPermittedAreasForProduct(
     configurator.product?.id,
   );
+
+  const canvasWidth = configurator.configuration?.canvasWidth || CANVAS_WIDTH;
+  const canvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
+  const backgroundWidth = configurator.configuration?.backgroundWidth || canvasWidth;
+  const backgroundHeight = configurator.configuration?.backgroundHeight || canvasHeight;
 
   useImperativeHandle(ref, () => stageRef.current);
 
@@ -106,20 +112,38 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
       img.src = layer1Src;
       img.onload = () => {
         setBaseImage(img);
-        setBaseImageSize({
+        const nextSize = {
           width: img.naturalWidth || img.width || 0,
           height: img.naturalHeight || img.height || 0,
-        });
+        };
+        setBaseImageSize(nextSize);
+        if (typeof onCanvasInfo === 'function') {
+          onCanvasInfo({
+            canvasWidth,
+            canvasHeight,
+            baseImageWidth: nextSize.width,
+            baseImageHeight: nextSize.height,
+          });
+        }
       };
       img.onerror = () => {
         const fallback = new window.Image();
         fallback.src = layer1Src;
         fallback.onload = () => {
           setBaseImage(fallback);
-          setBaseImageSize({
+          const nextSize = {
             width: fallback.naturalWidth || fallback.width || 0,
             height: fallback.naturalHeight || fallback.height || 0,
-          });
+          };
+          setBaseImageSize(nextSize);
+          if (typeof onCanvasInfo === 'function') {
+            onCanvasInfo({
+              canvasWidth,
+              canvasHeight,
+              baseImageWidth: nextSize.width,
+              baseImageHeight: nextSize.height,
+            });
+          }
         };
       };
     } else {
@@ -164,7 +188,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
           img.onload = () => setImages((prev) => ({ ...prev, [element.id]: img }));
         }
       });
-  }, [layer1Src, layer2DefaultSrc, maskSrc, configurator.elements]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [layer1Src, layer2DefaultSrc, maskSrc, configurator.elements, canvasWidth, canvasHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load user-uploaded background (Layer 2 – custom)
   useEffect(() => {
@@ -179,15 +203,21 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     img.onerror = () => setCustomBgImage(null);
   }, [backgroundImageDataUrl]);
 
-  // Compute allowed zone from mask image (Layer 3). Fallback to static permittedAreas when mask is not usable.
+  // Allowed zone for dragging/resizing:
+  // For this editor we want users to be able to place elements anywhere
+  // inside the visible canvas, so we always treat the whole canvas as allowed.
   useEffect(() => {
-    if (!maskImage) {
+    if (!canvasWidth || !canvasHeight) {
       setMaskBounds(null);
       return;
     }
-    const bounds = computeMaskBoundsFromImage(maskImage, CANVAS_WIDTH, CANVAS_HEIGHT);
-    setMaskBounds(bounds);
-  }, [maskImage]);
+    setMaskBounds({
+      x: 0,
+      y: 0,
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+  }, [canvasWidth, canvasHeight]);
 
   // Attach transformer to selected nodes
   const selectedIds = configurator.selectedElementIds || [];
@@ -228,6 +258,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
 
     if (configurator.activeTool === 'select') {
       clearSelection();
+      setBackgroundSelected(false);
       setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
       return;
     }
@@ -239,7 +270,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     if (['rectangle', 'circle', 'line', 'arrow'].includes(configurator.activeTool)) {
       setShapeStart(point);
     }
-  }, [configurator.activeTool, clearSelection, getStagePoint, isSpaceDown, position]);
+  }, [configurator.activeTool, clearSelection, getStagePoint, isSpaceDown, position, setBackgroundSelected]);
 
   const handleStageMouseMove = useCallback((e) => {
     if (isPanning) {
@@ -342,6 +373,7 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const handleShapeClick = useCallback((e, id) => {
     e.cancelBubble = true;
     if (configurator.activeTool !== 'select') return;
+    setBackgroundSelected(false);
 
     if (e.evt.shiftKey || e.evt.metaKey || e.evt.ctrlKey) {
       const ids = configurator.selectedElementIds || [];
@@ -350,13 +382,14 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
     } else {
       selectElement(id);
     }
-  }, [configurator.activeTool, configurator.selectedElementIds, selectElement, addToSelection, removeFromSelection]);
+  }, [configurator.activeTool, configurator.selectedElementIds, selectElement, addToSelection, removeFromSelection, setBackgroundSelected]);
 
   const handleStageClick = useCallback((e) => {
     if (e.target === e.target.getStage() && configurator.activeTool === 'select') {
       clearSelection();
+      setBackgroundSelected(false);
     }
-  }, [configurator.activeTool, clearSelection]);
+  }, [configurator.activeTool, clearSelection, setBackgroundSelected]);
 
   const handleDragEnd = useCallback((e, id) => {
     const shape = e.target;
@@ -753,14 +786,14 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
   const renderGrid = () => {
     if (!showGrid) return null;
     const lines = [];
-    for (let i = 0; i <= CANVAS_WIDTH / GRID_SIZE; i++) {
+    for (let i = 0; i <= canvasWidth / GRID_SIZE; i++) {
       lines.push(
-        <Line key={`v-${i}`} points={[i * GRID_SIZE, 0, i * GRID_SIZE, CANVAS_HEIGHT]} stroke="#e5e7eb" strokeWidth={0.5} listening={false} />
+        <Line key={`v-${i}`} points={[i * GRID_SIZE, 0, i * GRID_SIZE, canvasHeight]} stroke="#e5e7eb" strokeWidth={0.5} listening={false} />
       );
     }
-    for (let i = 0; i <= CANVAS_HEIGHT / GRID_SIZE; i++) {
+    for (let i = 0; i <= canvasHeight / GRID_SIZE; i++) {
       lines.push(
-        <Line key={`h-${i}`} points={[0, i * GRID_SIZE, CANVAS_WIDTH, i * GRID_SIZE]} stroke="#e5e7eb" strokeWidth={0.5} listening={false} />
+        <Line key={`h-${i}`} points={[0, i * GRID_SIZE, canvasWidth, i * GRID_SIZE]} stroke="#e5e7eb" strokeWidth={0.5} listening={false} />
       );
     }
     return lines;
@@ -790,12 +823,12 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
         <div className="w-full h-full overflow-auto p-6">
           <div
             className="inline-block bg-white shadow-2xl border-4 border-gray-400"
-            style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT, minWidth: CANVAS_WIDTH, minHeight: CANVAS_HEIGHT }}
+            style={{ width: canvasWidth, height: canvasHeight, minWidth: canvasWidth, minHeight: canvasHeight }}
           >
             <Stage
               ref={stageRef}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
+              width={canvasWidth}
+              height={canvasHeight}
               scaleX={scale}
               scaleY={scale}
               x={position.x}
@@ -817,9 +850,21 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     image={customBgImage}
                     x={0}
                     y={0}
-                    width={CANVAS_WIDTH}
-                    height={CANVAS_HEIGHT}
-                    listening={false}
+                    width={backgroundWidth}
+                    height={backgroundHeight}
+                    listening={true}
+                    onClick={(e) => {
+                      e.cancelBubble = true;
+                      if (configurator.activeTool !== 'select') return;
+                      clearSelection();
+                      setBackgroundSelected(true);
+                    }}
+                    onTap={(e) => {
+                      e.cancelBubble = true;
+                      if (configurator.activeTool !== 'select') return;
+                      clearSelection();
+                      setBackgroundSelected(true);
+                    }}
                   />
                 )}
                 {!customBgImage && defaultBgImage && (
@@ -827,9 +872,21 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     image={defaultBgImage}
                     x={0}
                     y={0}
-                    width={CANVAS_WIDTH}
-                    height={CANVAS_HEIGHT}
-                    listening={false}
+                    width={backgroundWidth}
+                    height={backgroundHeight}
+                    listening={true}
+                    onClick={(e) => {
+                      e.cancelBubble = true;
+                      if (configurator.activeTool !== 'select') return;
+                      clearSelection();
+                      setBackgroundSelected(true);
+                    }}
+                    onTap={(e) => {
+                      e.cancelBubble = true;
+                      if (configurator.activeTool !== 'select') return;
+                      clearSelection();
+                      setBackgroundSelected(true);
+                    }}
                   />
                 )}
               </Layer>
@@ -838,12 +895,12 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
               <Layer name="base-layer">
                 {baseImage && (() => {
                   const iw = baseImageSize.width || baseImage.width || CANVAS_WIDTH;
-                  const ih = baseImageSize.height || baseImage.height || CANVAS_HEIGHT;
-                  const fitScale = Math.min(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih);
+                  const ih = baseImageSize.height || baseImage.height || canvasHeight;
+                  const fitScale = Math.min(canvasWidth / iw, canvasHeight / ih);
                   const drawW = iw * fitScale;
                   const drawH = ih * fitScale;
-                  const x = (CANVAS_WIDTH - drawW) / 2;
-                  const y = (CANVAS_HEIGHT - drawH) / 2;
+                  const x = (canvasWidth - drawW) / 2;
+                  const y = (canvasHeight - drawH) / 2;
                   return (
                     <Image image={baseImage} x={x} y={y} width={drawW} height={drawH} listening={false} />
                   );
@@ -857,8 +914,8 @@ const KonvaCanvasEditor = forwardRef((props, ref) => {
                     image={maskImage}
                     x={0}
                     y={0}
-                    width={CANVAS_WIDTH}
-                    height={CANVAS_HEIGHT}
+                    width={canvasWidth}
+                    height={canvasHeight}
                     opacity={0.35}
                     listening={false}
                   />

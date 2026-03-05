@@ -176,6 +176,12 @@ export function uploadProductImagesAndFiles(req, res, next) {
   });
 }
 
+export const uploadSolutionIcon = multer({
+  storage: solutionStorage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single("icon");
+
 const iconStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, ICON_UPLOAD_DIR),
   filename: (req, file, cb) => {

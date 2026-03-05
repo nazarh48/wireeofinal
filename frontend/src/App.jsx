@@ -25,7 +25,10 @@ import CategoriesManagement from './pages/admin/CategoriesManagement';
 import SolutionsManagement from './pages/admin/SolutionsManagement';
 import PdfMaterialsManagement from './pages/admin/PdfMaterialsManagement';
 import SolutionDetailsManagement from './pages/admin/SolutionDetailsManagement';
+import SolutionWhyChooseManagement from './pages/admin/SolutionWhyChooseManagement';
 import AdminCookies from './pages/admin/AdminCookies';
+import AdminPrivacy from './pages/admin/AdminPrivacy';
+import AdminTerms from './pages/admin/AdminTerms';
 import NewsletterManagement from './pages/admin/NewsletterManagement';
 import IconLibraryManagement from './pages/admin/IconLibraryManagement';
 import SolutionDetail from './pages/SolutionDetail';
@@ -115,10 +118,13 @@ function App() {
           <Route path="categories" element={<CategoriesManagement />} />
           <Route path="solutions" element={<SolutionsManagement />} />
           <Route path="solution-details" element={<SolutionDetailsManagement />} />
+          <Route path="solution-why-choose" element={<SolutionWhyChooseManagement />} />
           <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
           <Route path="newsletter" element={<NewsletterManagement />} />
           <Route path="projects" element={<AdminProjects />} />
           <Route path="cookies" element={<AdminCookies />} />
+          <Route path="privacy" element={<AdminPrivacy />} />
+          <Route path="terms" element={<AdminTerms />} />
           <Route path="icon-library" element={<IconLibraryManagement />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>

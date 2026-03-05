@@ -307,7 +307,7 @@ const SelectionContent = () => {
                   <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-teal-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
                     {/* Compact Image Preview */}
                     <div className="relative aspect-square bg-gray-100 overflow-hidden">
-                      {edits && edits.elements && edits.elements.length > 0 ? (
+                      {edits && ((edits.elements && edits.elements.length > 0) || edits.configuration?.backgroundImage) ? (
                         <EditedProductPreview product={product} edits={edits} width={300} height={300} />
                       ) : (
                         <img
@@ -529,7 +529,8 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                 (item._instanceId ? editsByInstanceId[item._instanceId] : null);
               const hasVisualEdits =
                 !!itemEdits?.editedImage ||
-                (Array.isArray(itemEdits?.elements) && itemEdits.elements.length > 0);
+                (Array.isArray(itemEdits?.elements) && itemEdits.elements.length > 0) ||
+                !!itemEdits?.configuration?.backgroundImage;
               const previewProductBase = {
                 ...item,
                 baseDeviceImageUrl:

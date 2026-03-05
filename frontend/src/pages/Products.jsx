@@ -222,25 +222,56 @@ const Products = () => {
                 {selectedRangeId ? `Standard products in ${selectedRange?.name || 'this range'}.` : 'Browse our standard electrical automation products.'}
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {displaySimpleProducts.slice(0, 12).map((product) => {
                 const imgSrc = product.baseImageUrl?.startsWith('http') ? product.baseImageUrl : getImageUrl(product.baseImageUrl || '');
                 const detailUrl = `/products/detail/${product.id}`;
                 return (
-                  <Link key={product.id} to={detailUrl} className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-emerald-200 transition-all duration-500 transform hover:-translate-y-2 shadow-md">
-                    <div className="aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 relative">
-                      <img src={imgSrc} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group transform hover:-translate-y-2"
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
+                      <img
+                        src={imgSrc}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute top-4 left-4">
+                        <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-lg">
+                          Standard
+                        </span>
+                      </div>
                     </div>
-                    <div className="p-5">
-                      <p className="text-xs font-semibold text-emerald-600 mb-2 uppercase tracking-wider">{product.range?.name || 'Product'}</p>
-                      <h3 className="font-bold text-slate-900 mb-3 line-clamp-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-emerald-600 group-hover:to-teal-600 transition-all">{product.name}</h3>
-                      <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold text-sm group-hover:gap-2 transition-all">
-                        View Details
-                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                      </span>
+                    <div className="p-6">
+                      <p className="text-sm text-emerald-600 font-bold mb-2 uppercase tracking-wider">
+                        {product.range?.name || 'Product'}
+                      </p>
+                      <h3 className="text-xl font-extrabold text-slate-900 mb-3 line-clamp-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-emerald-600 group-hover:to-teal-600 transition-all">
+                        {product.name}
+                      </h3>
+                      {product.description && (
+                        <p className="text-slate-600 text-sm mb-5 line-clamp-3 leading-relaxed">
+                          {product.description}
+                        </p>
+                      )}
+                      <Link
+                        to={detailUrl}
+                        className="inline-flex items-center justify-center w-full gap-2 py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg"
+                      >
+                        View Product
+                        <svg
+                          className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </Link>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

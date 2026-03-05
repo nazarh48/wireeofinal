@@ -6,11 +6,12 @@ const CANVAS_HEIGHT = 600;
 
 const fontFamilies = ['Arial', 'Helvetica', 'Times New Roman', 'Verdana', 'Georgia', 'Tahoma'];
 
-const ConfiguratorPropertiesPanel = () => {
+const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
   const {
     configurator,
     updateElement,
     setSelectedElements,
+    updateConfiguratorConfiguration,
   } = useStore();
   const [counterSettings, setCounterSettings] = useState({
     prefix: 'Prefix_',
@@ -27,9 +28,23 @@ const ConfiguratorPropertiesPanel = () => {
     ? configurator.elements.find((el) => el.id === selectedIds[0])
     : null;
 
+  const backgroundSelected = configurator.backgroundSelected;
+  const effectiveCanvasWidth = configurator.configuration?.canvasWidth || CANVAS_WIDTH;
+  const effectiveCanvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
+  const backgroundWidth = configurator.configuration?.backgroundWidth || effectiveCanvasWidth;
+  const backgroundHeight = configurator.configuration?.backgroundHeight || effectiveCanvasHeight;
+
   const applyToSelected = (updates) => {
     if (selectedIds.length === 0) return;
     selectedIds.forEach((id) => updateElement(id, updates));
+  };
+
+  const handleCanvasDimensionChange = (key, value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    updateConfiguratorConfiguration({
+      [key]: numeric,
+    });
   };
 
   const align = (mode) => {
@@ -52,9 +67,84 @@ const ConfiguratorPropertiesPanel = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {!selectedElement && (
-          <div className="text-sm text-[#8b9199]">
-            Click an element on canvas to edit position, style and alignment.
+        {!selectedElement && !backgroundSelected && (
+          <>
+            <div className="text-sm text-[#8b9199]">
+              Click an element on canvas to edit position, style and alignment.
+            </div>
+
+            <div className="mt-4 space-y-3 rounded-md border border-[#cfd3d9] bg-white p-3">
+              <div className="text-xs font-semibold text-[#4b5563]">Canvas</div>
+              <div className="text-[11px] text-[#6b7280] mb-1">
+                Editor art board size (in pixels).
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-[#77808a]">
+                  Width
+                  <input
+                    type="number"
+                    value={Math.round(effectiveCanvasWidth)}
+                    onChange={(e) => handleCanvasDimensionChange('canvasWidth', e.target.value)}
+                    className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    min={50}
+                  />
+                </label>
+                <label className="text-xs text-[#77808a]">
+                  Height
+                  <input
+                    type="number"
+                    value={Math.round(effectiveCanvasHeight)}
+                    onChange={(e) => handleCanvasDimensionChange('canvasHeight', e.target.value)}
+                    className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    min={50}
+                  />
+                </label>
+              </div>
+              {canvasInfo && (
+                <div className="mt-2 text-[11px] text-[#6b7280] space-y-1">
+                  <div>
+                    <span className="font-semibold">Base photo:</span>{' '}
+                    {canvasInfo.baseImageWidth || 0} × {canvasInfo.baseImageHeight || 0} px
+                  </div>
+                  <div>
+                    <span className="font-semibold">Editor window:</span>{' '}
+                    {canvasInfo.canvasWidth || effectiveCanvasWidth} ×{' '}
+                    {canvasInfo.canvasHeight || effectiveCanvasHeight} px
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {backgroundSelected && !selectedElement && (
+          <div className="space-y-3 rounded-md border border-[#cfd3d9] bg-white p-3">
+            <div className="text-xs font-semibold text-[#4b5563]">Background image</div>
+            <div className="text-[11px] text-[#6b7280] mb-1">
+              Adjust the size of the uploaded background within the canvas.
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-[#77808a]">
+                Width
+                <input
+                  type="number"
+                  value={Math.round(backgroundWidth)}
+                  onChange={(e) => handleCanvasDimensionChange('backgroundWidth', e.target.value)}
+                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                  min={10}
+                />
+              </label>
+              <label className="text-xs text-[#77808a]">
+                Height
+                <input
+                  type="number"
+                  value={Math.round(backgroundHeight)}
+                  onChange={(e) => handleCanvasDimensionChange('backgroundHeight', e.target.value)}
+                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                  min={10}
+                />
+              </label>
+            </div>
           </div>
         )}
 

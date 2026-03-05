@@ -17,7 +17,8 @@ export async function authenticate(req, res, next) {
     if (user.status !== "active") {
       return res.status(401).json({ success: false, message: "Account inactive" });
     }
-    if (!user.emailVerified) {
+    // Admin can access user-scoped resources (configurator, canvas, etc.) without email verification
+    if (user.role !== "admin" && !user.emailVerified) {
       return res.status(403).json({
         success: false,
         message: "Please verify your email before accessing this resource.",

@@ -15,7 +15,9 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
   // Keep edited image as fallback only; render from elements first to avoid editor-grid snapshots.
   const editedImageUrl = product?.editedImage?.value || null;
   const hasElements = Array.isArray(edits?.elements) && edits.elements.length > 0;
-  const backgroundImageDataUrl = edits?.configuration?.backgroundImage || null;
+  const configuration = edits?.configuration || {};
+  const backgroundImageDataUrl = configuration.backgroundImage || null;
+  const hasBackground = !!backgroundImageDataUrl;
 
   // Use the same base device image as the editor canvas so previews match exported results.
   // Fallbacks keep behavior safe if baseDeviceImageUrl is not set.
@@ -266,7 +268,15 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
   const viewWidth = Math.max(1, width || resolvedWidth || 300);
   const viewHeight = Math.max(1, height || 200);
 
-  if (editedImageUrl && !hasElements) {
+  // Match KonvaCanvasEditor/editor + PDF renderer:
+  // use configurable canvas/background sizes so background width/height adjustments
+  // are reflected in collection/projects previews.
+  const canvasWidth = configuration.canvasWidth || CANVAS_WIDTH;
+  const canvasHeight = configuration.canvasHeight || CANVAS_HEIGHT;
+  const backgroundWidth = configuration.backgroundWidth || canvasWidth;
+  const backgroundHeight = configuration.backgroundHeight || canvasHeight;
+
+  if (editedImageUrl && !hasElements && !hasBackground) {
     return (
       <div
         ref={containerRef}
@@ -282,7 +292,7 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     );
   }
 
-  if (!hasElements) {
+  if (!hasElements && !hasBackground) {
     return (
       <div
         ref={containerRef}
@@ -304,18 +314,19 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     );
   }
 
-  // Same coordinate space as editor (800x600) so element positions match; base image fitted to avoid distortion
-  const scale = Math.min(viewWidth / CANVAS_WIDTH, viewHeight / CANVAS_HEIGHT);
-  const offsetX = (viewWidth - CANVAS_WIDTH * scale) / 2;
-  const offsetY = (viewHeight - CANVAS_HEIGHT * scale) / 2;
+  // Same coordinate space as editor (canvasWidth x canvasHeight) so element positions match;
+  // base image fitted to avoid distortion.
+  const scale = Math.min(viewWidth / canvasWidth, viewHeight / canvasHeight);
+  const offsetX = (viewWidth - canvasWidth * scale) / 2;
+  const offsetY = (viewHeight - canvasHeight * scale) / 2;
 
-  const iw = baseImageSize.width || baseImage?.width || CANVAS_WIDTH;
-  const ih = baseImageSize.height || baseImage?.height || CANVAS_HEIGHT;
-  const fitScale = Math.min(CANVAS_WIDTH / iw, CANVAS_HEIGHT / ih);
+  const iw = baseImageSize.width || baseImage?.width || canvasWidth;
+  const ih = baseImageSize.height || baseImage?.height || canvasHeight;
+  const fitScale = Math.min(canvasWidth / iw, canvasHeight / ih);
   const drawW = iw * fitScale;
   const drawH = ih * fitScale;
-  const baseX = (CANVAS_WIDTH - drawW) / 2;
-  const baseY = (CANVAS_HEIGHT - drawH) / 2;
+  const baseX = (canvasWidth - drawW) / 2;
+  const baseY = (canvasHeight - drawH) / 2;
 
   return (
     <div
@@ -331,8 +342,8 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
               image={backgroundImage}
               x={0}
               y={0}
-              width={CANVAS_WIDTH}
-              height={CANVAS_HEIGHT}
+              width={backgroundWidth}
+              height={backgroundHeight}
               listening={false}
             />
           )}

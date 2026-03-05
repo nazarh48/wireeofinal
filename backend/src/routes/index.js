@@ -11,11 +11,13 @@ import adminDashboardRoutes from "./adminDashboardRoutes.js";
 import categoryRoutes from "./categoryRoutes.js";
 import solutionRoutes from "./solutionRoutes.js";
 import solutionDetailRoutes from "./solutionDetailRoutes.js";
+import solutionWhyChooseRoutes from "./solutionWhyChooseRoutes.js";
 import pdfMaterialRoutes from "./pdfMaterialRoutes.js";
 import cookiePolicyRoutes from "./cookiePolicyRoutes.js";
 import newsletterRoutes from "./newsletterRoutes.js";
 import iconCategoryRoutes from "./iconCategoryRoutes.js";
 import iconRoutes from "./iconRoutes.js";
+import legalRoutes from "./legalRoutes.js";
 
 const router = Router();
 
@@ -31,10 +33,12 @@ router.use("/admin/dashboard", adminDashboardRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/solutions", solutionRoutes);
 router.use("/solution-details", solutionDetailRoutes);
+router.use("/solution-why-choose", solutionWhyChooseRoutes);
 router.use("/pdf-materials", pdfMaterialRoutes);
 router.use("/cookie-policy", cookiePolicyRoutes);
 router.use("/newsletter", newsletterRoutes);
 router.use("/icon-categories", iconCategoryRoutes);
 router.use("/icons", iconRoutes);
+router.use("/legal", legalRoutes);
 
 export default router;

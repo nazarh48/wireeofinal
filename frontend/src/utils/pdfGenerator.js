@@ -216,7 +216,8 @@ const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 180;
 // JPEG quality for embedded images (0.75–0.85 balances size and quality)
 const PDF_JPEG_QUALITY = 0.82;
 
-// Must match KonvaCanvasEditor CANVAS_WIDTH / CANVAS_HEIGHT so element coordinates (x, y, width, height) map correctly.
+// Editor canvas coordinate space. Must match Konva editor / EditedProductPreview
+// so element positions and backgrounds line up exactly.
 const EDITOR_CANVAS_WIDTH = 800;
 const EDITOR_CANVAS_HEIGHT = 600;
 
@@ -224,13 +225,20 @@ const EDITOR_CANVAS_HEIGHT = 600;
 // Element coordinates are in editor space (EDITOR_CANVAS_WIDTH x EDITOR_CANVAS_HEIGHT). When output size differs (e.g. thumbnail 120x90), we scale so the rectangle/overlays appear in the same relative position as in the web view.
 const renderEditedProduct = async (
   product,
-  canvasWidth = 800,
-  canvasHeight = 600,
+  canvasWidth = EDITOR_CANVAS_WIDTH,
+  canvasHeight = EDITOR_CANVAS_HEIGHT,
   asJpeg = false,
   jpegQuality = PDF_JPEG_QUALITY,
 ) => {
-  const w = Math.max(1, canvasWidth || 800);
-  const h = Math.max(1, canvasHeight || 600);
+  // Use the same configurator canvas + background sizing as KonvaCanvasEditor
+  const cfg = product?.edits?.configuration || {};
+  const editorCanvasWidth = cfg.canvasWidth || EDITOR_CANVAS_WIDTH;
+  const editorCanvasHeight = cfg.canvasHeight || EDITOR_CANVAS_HEIGHT;
+  const backgroundWidth = cfg.backgroundWidth || editorCanvasWidth;
+  const backgroundHeight = cfg.backgroundHeight || editorCanvasHeight;
+
+  const w = Math.max(1, canvasWidth || editorCanvasWidth);
+  const h = Math.max(1, canvasHeight || editorCanvasHeight);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -241,8 +249,7 @@ const renderEditedProduct = async (
   ctx.fillRect(0, 0, w, h);
 
   // Optional Layer 2 – custom background uploaded in configurator (same data used in editor & previews)
-  const backgroundImageDataUrl =
-    product.edits?.configuration?.backgroundImage || null;
+  const backgroundImageDataUrl = cfg.backgroundImage || null;
 
   // Prefer the same base image order as EditedProductPreview / editor canvas
   // so the PDF visual matches Projects/editor exactly.
@@ -259,38 +266,33 @@ const renderEditedProduct = async (
       originalImageUrl ? loadImage(originalImageUrl) : Promise.resolve(null),
       backgroundImageDataUrl ? loadImage(backgroundImageDataUrl) : Promise.resolve(null),
     ]);
-    const scaleX = w / EDITOR_CANVAS_WIDTH;
-    const scaleY = h / EDITOR_CANVAS_HEIGHT;
+    // Scale from editor coordinate space (canvasWidth x canvasHeight)
+    // into the requested output size, preserving relative positions.
+    const scaleX = w / editorCanvasWidth;
+    const scaleY = h / editorCanvasHeight;
     ctx.save();
     ctx.scale(scaleX, scaleY);
-    // Draw custom background across full editor canvas, then base image fitted above it
+
+    // Draw custom background using the same sizing as the editor:
+    // (0,0) with width/height = backgroundWidth/backgroundHeight.
     if (bgImg) {
       try {
-        ctx.drawImage(
-          bgImg,
-          0,
-          0,
-          EDITOR_CANVAS_WIDTH,
-          EDITOR_CANVAS_HEIGHT,
-          0,
-          0,
-          EDITOR_CANVAS_WIDTH,
-          EDITOR_CANVAS_HEIGHT,
-        );
+        ctx.drawImage(bgImg, 0, 0, backgroundWidth, backgroundHeight);
       } catch (e) {
         // Ignore background draw errors; continue with base image and elements
       }
     }
 
-    // Draw base image fitted in editor space (800x600) to avoid distortion
+    // Draw base image fitted in editor canvas space (editorCanvasWidth x editorCanvasHeight)
+    // to avoid distortion, matching KonvaCanvasEditor / EditedProductPreview.
     if (baseImg) {
-      const iw = baseImg.naturalWidth || baseImg.width || EDITOR_CANVAS_WIDTH;
-      const ih = baseImg.naturalHeight || baseImg.height || EDITOR_CANVAS_HEIGHT;
-      const fitScale = Math.min(EDITOR_CANVAS_WIDTH / iw, EDITOR_CANVAS_HEIGHT / ih);
+      const iw = baseImg.naturalWidth || baseImg.width || editorCanvasWidth;
+      const ih = baseImg.naturalHeight || baseImg.height || editorCanvasHeight;
+      const fitScale = Math.min(editorCanvasWidth / iw, editorCanvasHeight / ih);
       const drawW = iw * fitScale;
       const drawH = ih * fitScale;
-      const bx = (EDITOR_CANVAS_WIDTH - drawW) / 2;
-      const by = (EDITOR_CANVAS_HEIGHT - drawH) / 2;
+      const bx = (editorCanvasWidth - drawW) / 2;
+      const by = (editorCanvasHeight - drawH) / 2;
       ctx.drawImage(baseImg, 0, 0, iw, ih, bx, by, drawW, drawH);
     }
     if (product.edits?.elements?.length > 0) {
@@ -543,9 +545,41 @@ export const generateProductPDF = async (products, options = {}) => {
             c.width = PDF_PRODUCT_THUMB_WIDTH;
             c.height = PDF_PRODUCT_THUMB_HEIGHT;
             const ctx = c.getContext("2d");
-            if (ctx) ctx.drawImage(img, 0, 0, c.width, c.height);
+            if (!ctx) {
+              return renderEditedProduct(
+                product,
+                PDF_PRODUCT_THUMB_WIDTH,
+                PDF_PRODUCT_THUMB_HEIGHT,
+                true,
+                0.8,
+              );
+            }
+
+            // Match Projects tab behaviour: keep aspect ratio and center
+            // the edited image on a neutral background instead of stretching.
+            ctx.fillStyle = "#f3f4f6";
+            ctx.fillRect(0, 0, c.width, c.height);
+
+            const iw = img.naturalWidth || img.width || PDF_PRODUCT_THUMB_WIDTH;
+            const ih = img.naturalHeight || img.height || PDF_PRODUCT_THUMB_HEIGHT;
+            const scale = Math.min(c.width / iw, c.height / ih);
+            const drawW = iw * scale;
+            const drawH = ih * scale;
+            const dx = (c.width - drawW) / 2;
+            const dy = (c.height - drawH) / 2;
+
+            ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
+
             return c.toDataURL("image/jpeg", 0.8);
-          }).catch(() => renderEditedProduct(product, PDF_PRODUCT_THUMB_WIDTH, PDF_PRODUCT_THUMB_HEIGHT, true, 0.8));
+          }).catch(() =>
+            renderEditedProduct(
+              product,
+              PDF_PRODUCT_THUMB_WIDTH,
+              PDF_PRODUCT_THUMB_HEIGHT,
+              true,
+              0.8,
+            ),
+          );
         }
         const hasImage = product?.baseImageUrl || product?.image;
         if (!hasImage) return Promise.resolve(null);
