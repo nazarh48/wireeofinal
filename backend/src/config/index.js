@@ -10,6 +10,16 @@ export const config = {
   port: parseInt(process.env.PORT || "5000", 10),
   mongoose: {
     uri: process.env.MONGODB_URI || "mongodb://localhost:27017/wireeo",
+    maxPoolSize: parseInt(process.env.MONGODB_MAX_POOL_SIZE || "20", 10),
+    minPoolSize: parseInt(process.env.MONGODB_MIN_POOL_SIZE || "5", 10),
+    serverSelectionTimeoutMS: parseInt(
+      process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS || "30000",
+      10,
+    ),
+    socketTimeoutMS: parseInt(
+      process.env.MONGODB_SOCKET_TIMEOUT_MS || "45000",
+      10,
+    ),
   },
   jwt: {
     secret: process.env.JWT_SECRET || "wireeo-jwt-secret-change-me",

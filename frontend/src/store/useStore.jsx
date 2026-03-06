@@ -198,17 +198,29 @@ const useStore = create((set, get) => ({
       // ignore
     }
 
-    // Persist export to backend so it appears in PDF-Configurations tab; then refresh list. Snapshot without editedImage to keep payload small.
-    const snapshot = products.map((p) => ({
-      product: p.id ?? p._id,
-      instanceId: p._instanceId,
-      edits: p.edits || {},
-    }));
+    // Safely resolve a MongoDB ObjectId string from any product shape
+    const resolveProductId = (p) => {
+      const raw = p?._id ?? p?.id ?? p?.product?._id ?? p?.product?.id ?? p?.product;
+      if (!raw) return null;
+      const str = typeof raw === 'object' ? (raw.toString?.() ?? null) : String(raw);
+      return str && /^[a-f\d]{24}$/i.test(str) ? str : null;
+    };
+
+    // Build snapshot – only include products with a resolvable MongoDB ObjectId
+    const snapshot = products
+      .map((p) => ({ productId: resolveProductId(p), p }))
+      .filter(({ productId }) => !!productId)
+      .map(({ productId, p }) => ({
+        product: productId,
+        instanceId: p._instanceId,
+        edits: p.edits || {},
+      }));
+
     apiService.pdf
       .create({
         projectId,
         projectName,
-        productCount: products.length,
+        productCount: snapshot.length || products.length,
         products: snapshot,
       })
       .then(() => {
@@ -1056,7 +1068,7 @@ const useStore = create((set, get) => ({
           color: el.color || "#000000",
           width: el.width ?? 200,
           height: el.height ?? 50,
-        });
+        }));
       return {
         productId,
         printingEnabled:

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
 import { apiService, getImageUrl } from "../../services/api";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -310,7 +311,12 @@ export default function CategoriesManagement() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 min-h-full bg-slate-50">
+      <DashboardHeader 
+        title="Categories" 
+        subtitle="Manage categories shown on the Home page. Each category can redirect to a custom link."
+        showHomeButton={true}
+      />
       {error && <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">

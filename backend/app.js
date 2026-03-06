@@ -1,14 +1,27 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import path from "path";
+import "./src/config/queryProfiler.js";
 import { config } from "./src/config/index.js";
 import routes from "./src/routes/index.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 import { NewsletterSubscriber } from "./src/models/NewsletterSubscriber.js";
 import { authenticateAdmin } from "./src/middleware/auth.js";
 import * as newsletterController from "./src/controllers/newsletterController.js";
+import { requestTiming } from "./src/middleware/requestTiming.js";
 
 const app = express();
+
+app.set("etag", "strong");
+
+app.use(requestTiming);
+
+app.use(
+  compression({
+    threshold: 1024,
+  }),
+);
 
 app.use(cors({ origin: config.cors.origin, credentials: true }));
 // Keep a generous body limit for complex canvas payloads.
@@ -50,8 +63,12 @@ app.get("/health", (req, res) => {
 
 // Serve uploaded files at /uploads (local) and under /api/uploads (deployed behind proxy that only forwards /api)
 const uploadsPath = path.join(process.cwd(), "uploads");
-app.use("/uploads", express.static(uploadsPath));
-app.use("/api/uploads", express.static(uploadsPath));
+const uploadsStaticOptions = {
+  maxAge: "30d",
+  immutable: true,
+};
+app.use("/uploads", express.static(uploadsPath, uploadsStaticOptions));
+app.use("/api/uploads", express.static(uploadsPath, uploadsStaticOptions));
 
 app.use("/api", routes);
 

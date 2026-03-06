@@ -3,7 +3,12 @@ import { config } from "./index.js";
 
 export async function connectDB() {
   try {
-    await mongoose.connect(config.mongoose.uri);
+    await mongoose.connect(config.mongoose.uri, {
+      maxPoolSize: config.mongoose.maxPoolSize,
+      minPoolSize: config.mongoose.minPoolSize,
+      serverSelectionTimeoutMS: config.mongoose.serverSelectionTimeoutMS,
+      socketTimeoutMS: config.mongoose.socketTimeoutMS,
+    });
     console.log("MongoDB connected:", config.mongoose.uri);
   } catch (err) {
     console.error("MongoDB connection error:", err.message);

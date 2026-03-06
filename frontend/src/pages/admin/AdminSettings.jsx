@@ -1,8 +1,14 @@
 import { IconSettings } from "../../components/admin/AdminIcons";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 export default function AdminSettings() {
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 min-h-full bg-slate-50">
+      <DashboardHeader 
+        title="Settings" 
+        subtitle="Admin and application settings. Extensible for future options."
+        showHomeButton={true}
+      />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
         <p className="text-slate-600 mt-1">Admin and application settings. Extensible for future options.</p>

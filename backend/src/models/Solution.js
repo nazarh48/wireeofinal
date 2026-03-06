@@ -15,6 +15,7 @@ const solutionSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     slug: { type: String, trim: true, lowercase: true },
     description: { type: String, default: "", trim: true },
+    subtitle: { type: String, default: "", trim: true },
     icon: { type: String, default: "", trim: true },
     image: { type: String, default: "", trim: true },
     features: [{ type: String, trim: true }],

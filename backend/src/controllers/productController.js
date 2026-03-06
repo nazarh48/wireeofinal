@@ -1,5 +1,7 @@
 import { Product } from "../models/Product.js";
 import { Range } from "../models/Range.js";
+import { optimizeImageAtUrl } from "../services/imageService.js";
+import { getFromCache, setInCache } from "../utils/simpleCache.js";
 
 function buildProductFilter(query) {
   const filter = {};
@@ -75,6 +77,7 @@ export async function create(req, res, next) {
     const downloadableFiles = fileFiles.map((f, i) =>
       toProductFile(f, "product-files", fileLabels[i]),
     );
+
     const product = await Product.create({
       name,
       productCode: productCode || "",
@@ -111,6 +114,14 @@ export async function create(req, res, next) {
       downloadableFiles: downloadableFiles.length ? downloadableFiles : undefined,
     });
     await product.populate("range", "name description status");
+
+    const urlsToOptimize = [
+      ...images.map((img) => img.url),
+      configuratorUrl,
+      baseDeviceUrl,
+      engravingMaskUrl,
+    ].filter(Boolean);
+    Promise.all(urlsToOptimize.map((u) => optimizeImageAtUrl(u))).catch(() => {});
     return res.status(201).json({ success: true, product });
   } catch (err) {
     next(err);
@@ -120,8 +131,20 @@ export async function create(req, res, next) {
 export async function list(req, res, next) {
   try {
     const filter = buildProductFilter(req.query);
-    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, products });
+    const cacheKey = `products:list:${JSON.stringify(filter)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    const products = await Product.find(filter)
+      .populate("range", "name description status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const payload = { success: true, products };
+    setInCache(cacheKey, payload, 10000);
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
@@ -132,8 +155,20 @@ export async function listConfigurable(req, res, next) {
     const filter = { productType: "configurable", status: "active" };
     if (req.query.range) filter.range = req.query.range;
     if (req.query.featured !== undefined) filter.featured = req.query.featured === true || req.query.featured === "true" || req.query.featured === "1";
-    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, products });
+    const cacheKey = `products:configurable:${JSON.stringify(filter)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    const products = await Product.find(filter)
+      .populate("range", "name description status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const payload = { success: true, products };
+    setInCache(cacheKey, payload, 10000);
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
@@ -144,8 +179,20 @@ export async function listNormal(req, res, next) {
     const filter = { productType: "normal", status: "active" };
     if (req.query.range) filter.range = req.query.range;
     if (req.query.featured !== undefined) filter.featured = req.query.featured === true || req.query.featured === "true" || req.query.featured === "1";
-    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, products });
+    const cacheKey = `products:normal:${JSON.stringify(filter)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    const products = await Product.find(filter)
+      .populate("range", "name description status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const payload = { success: true, products };
+    setInCache(cacheKey, payload, 10000);
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
@@ -154,8 +201,20 @@ export async function listNormal(req, res, next) {
 export async function listFeatured(req, res, next) {
   try {
     const filter = { featured: true, status: "active" };
-    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, products });
+    const cacheKey = `products:featured`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
+    const products = await Product.find(filter)
+      .populate("range", "name description status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const payload = { success: true, products };
+    setInCache(cacheKey, payload, 10000);
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }

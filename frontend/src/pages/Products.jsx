@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCatalog } from '../hooks/useCatalog';
 import { useAuthStore } from '../store/authStore';
 import { getImageUrl } from '../services/api';
+import { buildResponsiveImageProps } from '../utils/imageVariants';
 
 const PRODUCT_RANGE_COLORS = [
   'from-emerald-500 to-teal-600',
@@ -100,7 +101,7 @@ const Products = () => {
               {(publicRanges || []).map((range, index) => {
                 const isSelected = selectedRangeId === range.id;
                 const colorClass = PRODUCT_RANGE_COLORS[index % PRODUCT_RANGE_COLORS.length];
-                const rangeImageUrl = getImageUrl(range.image || '');
+                const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(range.imagePath || range.image || '');
                 return (
                   <div
                     key={range.id}
@@ -112,10 +113,14 @@ const Products = () => {
                     }}
                     className={`group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer border-2 transform hover:-translate-y-1 ${isSelected ? 'border-emerald-600 ring-4 ring-emerald-100 shadow-2xl' : 'border-gray-100 hover:border-emerald-200'}`}
                   >
-                    <div className={`relative h-64 overflow-hidden ${!rangeImageUrl ? `bg-gradient-to-br ${colorClass}` : ''}`}>
-                      {rangeImageUrl ? (
+                    <div className={`relative h-64 overflow-hidden ${!src ? `bg-gradient-to-br ${colorClass}` : ''}`}>
+                      {src ? (
                         <img
-                          src={rangeImageUrl}
+                          src={src}
+                          srcSet={srcSet}
+                          sizes={sizes}
+                          loading={loading}
+                          decoding={decoding}
                           alt={range.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                           onError={(e) => { e.target.onerror = null; }}
@@ -224,7 +229,7 @@ const Products = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {displaySimpleProducts.slice(0, 12).map((product) => {
-                const imgSrc = product.baseImageUrl?.startsWith('http') ? product.baseImageUrl : getImageUrl(product.baseImageUrl || '');
+                const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || '');
                 const detailUrl = `/products/detail/${product.id}`;
                 return (
                   <div
@@ -233,7 +238,11 @@ const Products = () => {
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
                       <img
-                        src={imgSrc}
+                        src={src}
+                        srcSet={srcSet}
+                        sizes={sizes}
+                        loading={loading}
+                        decoding={decoding}
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                       />
@@ -317,12 +326,20 @@ const Products = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {displayFeaturedProducts.map((product) => {
-                const imgSrc = product.baseImageUrl?.startsWith('http') ? product.baseImageUrl : getImageUrl(product.baseImageUrl || '');
+                const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || '');
                 const detailUrl = `/products/detail/${product.id}?pro=true`;
                 return (
                   <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group transform hover:-translate-y-2">
                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
-                      <img src={imgSrc} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      <img
+                        src={src}
+                        srcSet={srcSet}
+                        sizes={sizes}
+                        loading={loading}
+                        decoding={decoding}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <div className="absolute top-4 left-4">
                         <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-400 to-emerald-600 text-white shadow-lg">

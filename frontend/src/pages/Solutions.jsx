@@ -100,7 +100,7 @@ const Solutions = () => {
             </h1>
 
             <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed mb-10">
-              Discover comprehensive electrical automation solutions designed for modern residential, commercial, and industrial applications.
+              Wireeo solutions combine innovation, efficiency, and native KNX intelligence to deliver smarter, scalable building automation that improves comfort, energy performance, and indoor environmental quality.
             </p>
 
             <div className="flex flex-wrap gap-4 justify-center">

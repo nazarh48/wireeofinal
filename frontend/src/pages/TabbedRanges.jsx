@@ -7,7 +7,7 @@ import ProjectSelectionModal from '../components/ProjectSelectionModal';
 import EditedProductPreview from '../components/EditedProductPreview';
 import { useAuthStore } from '../store/authStore';
 import { generateProductPDF, generateProjectPDF } from '../utils/pdfGenerator';
-import { apiService, API_ORIGIN } from '../services/api';
+import { apiService, API_ORIGIN, IMAGE_BASE_URL } from '../services/api';
 
 const FALLBACK_IMAGE = '/test.png';
 
@@ -794,6 +794,15 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
     };
   };
 
+  // Safely resolve a product's MongoDB ObjectId string from any product shape
+  const resolveProductId = (p) => {
+    const raw = p?._id ?? p?.id ?? p?.product?._id ?? p?.product?.id ?? p?.product;
+    if (!raw) return null;
+    const str = typeof raw === 'object' ? (raw.toString?.() ?? null) : String(raw);
+    // Must look like a 24-char hex ObjectId
+    return str && /^[a-f\d]{24}$/i.test(str) ? str : null;
+  };
+
   const handleExportProjectPdf = async (project) => {
     if (!project?.products || project.products.length === 0) {
       showToast('No products available to export.');
@@ -803,19 +812,32 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
       setExportingProjectId(project.id);
       const enhancedProducts = project.products.map(getEnhancedProductForPdf);
       await generateProjectPDF({ ...project, products: enhancedProducts }, { user });
-      const snapshot = (project.products || []).map((p) => ({
-        product: p.id || p._id,
-        instanceId: p._instanceId || null,
-        edits: p.edits || {},
-      }));
+      // Build snapshot – only include products with a resolvable MongoDB ObjectId
+      const snapshot = (project.products || [])
+        .map((p) => ({ productId: resolveProductId(p), p }))
+        .filter(({ productId }) => !!productId)
+        .map(({ productId, p }) => ({
+          product: productId,
+          instanceId: p._instanceId || null,
+          edits: p.edits || {},
+        }));
+      if (snapshot.length === 0) {
+        showToast('Could not resolve product IDs – please refresh and try again.');
+        return;
+      }
       await apiService.pdf.create({
         projectId: project.id,
         projectName: project.name || 'Unnamed Project',
-        productCount: project.products.length,
+        productCount: snapshot.length,
         products: snapshot,
       });
       await fetchPdfConfigurations();
-      showToast('PDF exported and added to Exported projects.');
+      showToast(
+        'PDF exported and added to Exported projects.',
+        'View exports',
+        () => typeof setActiveTab === 'function' && setActiveTab('pdf-configurations'),
+      );
+      if (typeof setActiveTab === 'function') setActiveTab('pdf-configurations');
     } catch (e) {
       showToast(e?.message || 'Failed to generate or save project PDF.');
     } finally {
@@ -826,6 +848,11 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
   const handleExportSingleProductPdf = async (project, product) => {
     try {
       const productWithEdits = getEnhancedProductForPdf(product);
+      const productId = resolveProductId(product);
+      if (!productId) {
+        showToast('Could not resolve product ID – please refresh and try again.');
+        return;
+      }
       await generateProductPDF([productWithEdits], {
         user,
         projectName: `${project?.name || 'Project'} - ${product?.name || 'Product'}`,
@@ -836,14 +863,19 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
         productCount: 1,
         products: [
           {
-            product: product?.id || product?._id,
+            product: productId,
             instanceId: product?._instanceId || null,
             edits: productWithEdits.edits || {},
           },
         ],
       });
       await fetchPdfConfigurations();
-      showToast('Single product PDF exported and saved to Exported projects.');
+      showToast(
+        'Single product PDF exported and saved to Exported projects.',
+        'View exports',
+        () => typeof setActiveTab === 'function' && setActiveTab('pdf-configurations'),
+      );
+      if (typeof setActiveTab === 'function') setActiveTab('pdf-configurations');
     } catch (e) {
       showToast(e?.message || 'Failed to export product PDF.');
     }
@@ -1142,6 +1174,8 @@ const PDFConfigurationsContent = () => {
         if (!url) return "";
         if (url.startsWith("http") || url.startsWith("data:")) return url;
         const path = url.startsWith("/") ? url : `/${url}`;
+        // /uploads/ paths must go through IMAGE_BASE_URL (includes /api in production)
+        if (path.startsWith("/uploads/")) return `${IMAGE_BASE_URL}${path}`;
         return `${API_ORIGIN}${path}`;
       };
 
@@ -1161,8 +1195,10 @@ const PDFConfigurationsContent = () => {
           description: p?.description,
           sku: p?.sku,
           category: p?.category,
+          baseDeviceImageUrl: normalizeUrl(p?.baseDeviceImageUrl || p?.configuratorImageUrl || p?.baseImageUrl || p?.image),
           baseImageUrl: normalizeUrl(p?.baseImageUrl || p?.image),
           configuratorImageUrl: normalizeUrl(p?.configuratorImageUrl || p?.baseImageUrl || p?.image),
+          images: Array.isArray(p?.images) ? p.images.map((img) => typeof img === 'string' ? normalizeUrl(img) : (img?.url ? normalizeUrl(img.url) : img)) : [],
           edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
           editedImage,
         };
@@ -1192,9 +1228,9 @@ const PDFConfigurationsContent = () => {
   };
 
   const entries = Array.isArray(pendingPdfCollection) ? pendingPdfCollection.filter((e) => e && e.product) : [];
-  // Only list exports that are whole projects (more than one product), not single-product exports
+  // Show all exports that were saved (any product count >= 1)
   const displayPDFs = Array.isArray(pdfConfigurations)
-    ? pdfConfigurations.filter((c) => (c.productCount ?? c.amount ?? 0) > 1)
+    ? pdfConfigurations.filter((c) => (c.productCount ?? c.amount ?? 0) >= 1)
     : [];
 
   return (

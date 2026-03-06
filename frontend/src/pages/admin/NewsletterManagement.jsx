@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { apiService } from "../../services/api";
 import { IconMail } from "../../components/admin/AdminIcons";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 export default function NewsletterManagement() {
   const [subscribers, setSubscribers] = useState([]);
@@ -52,7 +53,12 @@ export default function NewsletterManagement() {
   }, []);
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 min-h-full bg-slate-50">
+      <DashboardHeader 
+        title="Newsletter" 
+        subtitle="Emails collected from the Resources page newsletter signup."
+        showHomeButton={true}
+      />
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Newsletter / Email List</h1>
         <p className="text-slate-600 mt-1">

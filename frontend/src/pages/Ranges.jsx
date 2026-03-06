@@ -3,6 +3,7 @@ import useStore from '../store/useStore';
 import { useCatalog } from '../hooks/useCatalog';
 import AddButton from '../components/AddButton';
 import Toast from '../components/Toast';
+import { buildResponsiveImageProps } from '../utils/imageVariants';
 
 const Ranges = () => {
   const { ranges, getConfigurableProductsByRange, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
@@ -134,30 +135,39 @@ const Ranges = () => {
           </div>
           <p className="text-gray-600 mb-6">{activeRange.description}</p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeProducts.map((product) => (
-              <div key={product.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <img
-                      src={product.baseImageUrl || product.image}
-                      alt={product.name}
-                      className="w-full h-32 object-cover rounded-md mb-4"
+            {activeProducts.map((product) => {
+              const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(
+                product.baseImagePath || product.baseImageUrl || product.image || '',
+              );
+              return (
+                <div key={product.id} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <img
+                        src={src}
+                        srcSet={srcSet}
+                        sizes={sizes}
+                        loading={loading}
+                        decoding={decoding}
+                        alt={product.name}
+                        className="w-full h-32 object-cover rounded-md mb-4"
+                      />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">{product.name}</h3>
+                      <p className="text-gray-600 text-sm mb-4">{product.description}</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedProducts.has(product.id)}
+                      onChange={() => handleProductSelect(product.id)}
+                      className="mt-2 mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4">{product.description}</p>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={selectedProducts.has(product.id)}
-                    onChange={() => handleProductSelect(product.id)}
-                    className="mt-2 mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
+                  <AddButton onClick={() => handleAddProduct(product)}>
+                    Add
+                  </AddButton>
                 </div>
-                <AddButton onClick={() => handleAddProduct(product)}>
-                  Add
-                </AddButton>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

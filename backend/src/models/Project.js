@@ -38,5 +38,6 @@ projectSchema.pre("save", async function (next) {
 });
 
 projectSchema.index({ "products.instanceId": 1 });
+projectSchema.index({ createdBy: 1, createdAt: -1 });
 
 export const Project = mongoose.model("Project", projectSchema);

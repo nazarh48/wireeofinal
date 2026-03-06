@@ -4,6 +4,7 @@ import { useAdminStore } from "../../store/adminStore";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
 import { getImageUrl } from "../../services/api";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -201,7 +202,12 @@ export default function RangesManagement() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 min-h-full bg-slate-50">
+      <DashboardHeader 
+        title="Ranges" 
+        subtitle="Create, edit, and delete product ranges"
+        showHomeButton={true}
+      />
       {error && (
         <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
       )}

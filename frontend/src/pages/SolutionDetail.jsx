@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiService, getImageUrl, getSolutionImageUrl } from "../services/api";
-import { useAuthStore } from "../store/authStore";
 
 // Base path for solution page assets (from PDF / Solution folder). Public assets are served at root in Vite.
 const SOLUTION_ASSET = (filename) => `/assets/Solution/${encodeURIComponent(filename)}`;
@@ -42,12 +41,10 @@ const WHY_CHOOSE_ITEMS = [
 
 export default function SolutionDetail() {
   const { id } = useParams();
-  const isAdmin = useAuthStore((s) => s.isAdminAuthenticated());
   const [solution, setSolution] = useState(null);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [iconPreviews, setIconPreviews] = useState({});
   const [whyChooseConfig, setWhyChooseConfig] = useState({
     introTitle: "Why Choose Our Solution",
     introSubtitle:
@@ -120,35 +117,6 @@ export default function SolutionDetail() {
     };
   }, [solution?._id]);
 
-  useEffect(() => {
-    return () => {
-      Object.values(iconPreviews || {}).forEach((url) => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch {
-          // ignore
-        }
-      });
-    };
-  }, [iconPreviews]);
-
-  const handleIconFileChange = (event, index) => {
-    if (!isAdmin) return;
-    const file = event.target?.files?.[0];
-    if (!file) return;
-    setIconPreviews((prev) => {
-      const next = { ...prev };
-      if (next[index]) {
-        try {
-          URL.revokeObjectURL(next[index]);
-        } catch {
-          // ignore
-        }
-      }
-      next[index] = URL.createObjectURL(file);
-      return next;
-    });
-  };
 
   if (loading) {
     return (
@@ -228,9 +196,11 @@ export default function SolutionDetail() {
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight text-white">
                   {solutionTitle}
                 </h1>
-                <p className="text-xl md:text-2xl text-teal-200 font-semibold mb-6">
-                  Smart KNX Automation for Hotels & Hospitality
-                </p>
+                {(solution.subtitle) && (
+                  <p className="text-xl md:text-2xl text-teal-200 font-semibold mb-6">
+                    {solution.subtitle}
+                  </p>
+                )}
                 <p className="text-lg md:text-xl text-gray-300 mb-8 leading-relaxed">
                   {solutionDesc}
                 </p>
@@ -293,7 +263,7 @@ export default function SolutionDetail() {
                 : iconPath
                 ? SOLUTION_ASSET(iconPath)
                 : "";
-              const iconSrc = iconPreviews[idx] || resolvedIcon;
+              const iconSrc = resolvedIcon;
               return (
                 <div
                   key={idx}

@@ -1,9 +1,16 @@
 import { Range } from "../models/Range.js";
 import { Product } from "../models/Product.js";
 import { User } from "../models/User.js";
+import { getFromCache, setInCache } from "../utils/simpleCache.js";
 
 export async function getStats(req, res, next) {
   try {
+    const cacheKey = "admin:dashboard:stats";
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const [totalRanges, totalProducts, configurableCount, normalCount, totalUsers] = await Promise.all([
       Range.countDocuments(),
       Product.countDocuments(),
@@ -33,7 +40,7 @@ export async function getStats(req, res, next) {
       count: countMap[r._id.toString()] || 0,
     }));
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       stats: {
         totalRanges,
@@ -45,7 +52,12 @@ export async function getStats(req, res, next) {
         recentRanges,
         productsPerRange: productsPerRangeList,
       },
-    });
+    };
+
+    // Short-lived cache to smooth repeated dashboard loads.
+    setInCache(cacheKey, payload, 15000);
+
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }

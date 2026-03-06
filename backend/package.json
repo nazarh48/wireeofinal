@@ -7,7 +7,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node src/utils/seed.js"
+    "seed": "node src/utils/seed.js",
+    "perf:api:products": "artillery run loadtest/products.yml",
+    "perf:api:ranges": "artillery run loadtest/ranges.yml",
+    "perf:api:smoke": "npm run perf:api:products && npm run perf:api:ranges",
+    "perf:db:explain": "node src/scripts/printExplain.js"
   },
   "keywords": [
     "wireeo",
@@ -19,6 +23,7 @@
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
@@ -26,6 +31,10 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^8.0.1"
+    "nodemailer": "^8.0.1",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "artillery": "^2.0.0"
   }
 }

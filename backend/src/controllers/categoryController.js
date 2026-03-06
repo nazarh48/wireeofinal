@@ -1,4 +1,5 @@
 import { Category } from "../models/Category.js";
+import { optimizeImageAtUrl } from "../services/imageService.js";
 
 function getImagePath(file) {
   if (!file || !file.filename) return "";
@@ -27,6 +28,9 @@ export async function create(req, res, next) {
     };
     if (req.file) body.image = getImagePath(req.file);
     const category = await Category.create(body);
+    if (category.image) {
+      Promise.resolve(optimizeImageAtUrl(category.image)).catch(() => {});
+    }
     return res.status(201).json({ success: true, category });
   } catch (err) {
     next(err);
@@ -88,6 +92,9 @@ export async function update(req, res, next) {
 
     if (!category) {
       return res.status(404).json({ success: false, message: "Category not found" });
+    }
+    if (category.image) {
+      Promise.resolve(optimizeImageAtUrl(category.image)).catch(() => {});
     }
     return res.status(200).json({ success: true, category });
   } catch (err) {

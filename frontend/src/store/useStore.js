@@ -73,47 +73,21 @@ const useStore = create((set, get) => ({
     }),
   // Collection actions (configurable products only)
   addToPending: (product) => {
-    if (!product || product.configurable !== true) {
-      set({
-        toast: {
-          open: true,
-          message: "Only configurable products can be added to the collection.",
-          actionLabel: null,
-          onAction: null,
-        },
-      });
-      return;
-    }
-    const productId = product.id ?? product._id;
-    const state = get();
-    const alreadyInPending = (state.pendingCollection || []).some(
-      (p) => (p.id ?? p._id) === productId
-    );
-    const alreadyInCollection = (state.collection || []).some(
-      (p) => (p.id ?? p._id) === productId
-    );
-    if (alreadyInPending || alreadyInCollection) {
-      set({
-        toast: {
-          open: true,
-          message: "This product is already in your collection. Use Duplicate in the Collection tab if you need another copy.",
-          actionLabel: null,
-          onAction: null,
-        },
-      });
-      return;
-    }
+    if (!product) return;
     set((state) => {
       try {
         console.debug("addToPending called for", product && product.id);
       } catch (e) {
         // Ignore debug errors
       }
-      // Each add creates a NEW instance; do NOT copy product-level edits so instances stay independent.
+      // Each add always creates a NEW independent instance — the same product
+      // can be added multiple times (distinct entries in the collection).
       const instanceId = `inst_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
       const productWithInstance = {
         ...product,
         _instanceId: instanceId,
+        // Force configurable flag so collection items are always recognised as configurable
+        configurable: true,
       };
 
       const updatedPending = [...state.pendingCollection, productWithInstance];
@@ -207,17 +181,29 @@ const useStore = create((set, get) => ({
       // ignore
     }
 
-    // Persist export to backend so it appears in PDF-Configurations tab; then refresh list. Snapshot without editedImage to keep payload small.
-    const snapshot = products.map((p) => ({
-      product: p.id ?? p._id,
-      instanceId: p._instanceId,
-      edits: p.edits || {},
-    }));
+    // Safely resolve a MongoDB ObjectId string from any product shape
+    const resolveProductId = (p) => {
+      const raw = p?._id ?? p?.id ?? p?.product?._id ?? p?.product?.id ?? p?.product;
+      if (!raw) return null;
+      const str = typeof raw === 'object' ? (raw.toString?.() ?? null) : String(raw);
+      return str && /^[a-f\d]{24}$/i.test(str) ? str : null;
+    };
+
+    // Build snapshot – only include products with a resolvable MongoDB ObjectId
+    const snapshot = products
+      .map((p) => ({ productId: resolveProductId(p), p }))
+      .filter(({ productId }) => !!productId)
+      .map(({ productId, p }) => ({
+        product: productId,
+        instanceId: p._instanceId,
+        edits: p.edits || {},
+      }));
+
     apiService.pdf
       .create({
         projectId,
         projectName,
-        productCount: products.length,
+        productCount: snapshot.length || products.length,
         products: snapshot,
       })
       .then(() => {
@@ -647,8 +633,8 @@ const useStore = create((set, get) => ({
     }
   },
   duplicateProductInCollection: async (product, instanceId) => {
-    if (!product || !isConfigurableProduct(product)) {
-      get().showToast("Only configurable products can be duplicated.");
+    if (!product) {
+      get().showToast("No product specified for duplication.");
       return false;
     }
     const token =

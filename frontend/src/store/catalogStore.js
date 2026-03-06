@@ -12,25 +12,31 @@ const toAbsoluteImageUrl = (url) => {
   return `${base}${path}`;
 };
 
-const mapRange = (r) => ({
-  id: r?._id || r?.id,
-  name: r?.name || "",
-  description: r?.description || "",
-  image: r?.image ? toAbsoluteImageUrl(r.image) : "",
-  status: r?.status || "active",
-  createdAt: r?.createdAt || null,
-  updatedAt: r?.updatedAt || null,
-});
+const mapRange = (r) => {
+  const rawImage = r?.image || "";
+  const imagePath = typeof rawImage === "string" ? rawImage : "";
+  return {
+    id: r?._id || r?.id,
+    name: r?.name || "",
+    description: r?.description || "",
+    image: imagePath ? toAbsoluteImageUrl(imagePath) : "",
+    imagePath,
+    status: r?.status || "active",
+    createdAt: r?.createdAt || null,
+    updatedAt: r?.updatedAt || null,
+  };
+};
 
 const mapProduct = (p) => {
   const rangeId =
     (p?.range && (p.range._id || p.range.id)) || p?.rangeId || p?.range || null;
   const rawImages = Array.isArray(p?.images) ? p.images : [];
-  const images = rawImages
+  const imagePaths = rawImages
     .map((img) => (typeof img === "string" ? img : img?.url))
-    .filter(Boolean)
-    .map(toAbsoluteImageUrl);
-  const baseImageUrlRaw = p?.baseImageUrl || images[0] || "";
+    .filter(Boolean);
+  const images = imagePaths.map(toAbsoluteImageUrl);
+  const baseImagePath = typeof p?.baseImageUrl === "string" ? p.baseImageUrl : "";
+  const baseImageUrlRaw = baseImagePath || images[0] || "";
   const baseImageUrl = toAbsoluteImageUrl(baseImageUrlRaw) || images[0] || "";
 
   // Get range name for SEO-friendly alt text
@@ -60,10 +66,12 @@ const mapProduct = (p) => {
     rangeId,
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
     baseImageUrl,
+    baseImagePath,
     configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
     baseDeviceImageUrl: p?.baseDeviceImageUrl ? toAbsoluteImageUrl(p.baseDeviceImageUrl) : "",
     engravingMaskImageUrl: p?.engravingMaskImageUrl ? toAbsoluteImageUrl(p.engravingMaskImageUrl) : "",
     images,
+    imagePaths,
     imageAlt,
     configurable:
       p?.productType === "configurable" || p?.isConfigurable === true,

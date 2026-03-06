@@ -1,4 +1,5 @@
 import { NavLink, useNavigate, Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   IconDashboard,
   IconRanges,
@@ -50,10 +51,9 @@ export default function AdminSidebar({ collapsed, onToggle }) {
 
   return (
     <aside
-      className={`${collapsed ? "w-[72px]" : "w-64"
-        } flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out shrink-0 border-r border-slate-700`}
+      className={`${collapsed ? "w-[72px]" : "w-64"} flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out shrink-0 border-r border-slate-800/50 shadow-xl`}
     >
-      <div className="flex items-center justify-between h-16 px-3 border-b border-slate-700 shrink-0">
+      <div className="flex items-center justify-between h-16 px-3 border-b border-slate-800/50 shrink-0">
         {!collapsed ? (
           <Link
             to="/"
@@ -79,9 +79,11 @@ export default function AdminSidebar({ collapsed, onToggle }) {
             />
           </Link>
         )}
-        <button
+        <motion.button
           onClick={onToggle}
-          className="p-2 rounded-lg hover:bg-slate-800 text-slate-300 hover:text-white transition-colors shrink-0"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors shrink-0"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
@@ -89,51 +91,52 @@ export default function AdminSidebar({ collapsed, onToggle }) {
           ) : (
             <IconChevronLeft className="w-5 h-5" />
           )}
-        </button>
+        </motion.button>
       </div>
 
-      <div className="px-2 pt-2 pb-1 border-b border-slate-700/80">
+      <div className="px-2 pt-2 pb-1 border-b border-slate-800/50">
         <Link
           to="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-200 hover:translate-x-0.5 group"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/70 hover:text-white transition-all duration-200 group"
         >
-          <IconHome className="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:text-emerald-300" />
-          {!collapsed && <span className="truncate font-medium">Go to home page</span>}
+          <IconHome className="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:scale-110 transition-transform" />
+          {!collapsed && <span className="truncate font-medium text-sm">Go to home page</span>}
         </Link>
       </div>
 
-      <nav className="flex-1 py-4 overflow-y-auto">
+      <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-colors ${isActive
-                ? "bg-emerald-600 text-white"
-                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              `flex items-center gap-3 px-4 py-2.5 mx-2 mb-1 rounded-xl transition-all duration-200 ${isActive
+                ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-900/30"
+                : "text-slate-300 hover:bg-slate-800/70 hover:text-white hover:translate-x-1"
               } ${collapsed ? "justify-center" : ""}`
             }
           >
             <Icon className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="truncate">{label}</span>}
+            {!collapsed && <span className="truncate text-sm font-medium">{label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      <div className="p-2 border-t border-slate-700">
+      <div className="p-2 border-t border-slate-800/50">
         {!collapsed && admin && (
-          <div className="px-3 py-2 mb-2 text-xs text-slate-400 truncate">
+          <div className="px-3 py-2 mb-2 text-xs text-slate-400 truncate bg-slate-800/30 rounded-lg">
             {admin.name || admin.email}
           </div>
         )}
-        <button
+        <motion.button
           onClick={handleLogout}
-          className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${collapsed ? "justify-center" : ""
-            }`}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/20 hover:text-red-400 transition-all duration-200 ${collapsed ? "justify-center" : ""}`}
         >
           <IconLogout className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>Logout</span>}
-        </button>
+          {!collapsed && <span className="text-sm font-medium">Logout</span>}
+        </motion.button>
       </div>
     </aside>
   );

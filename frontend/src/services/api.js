@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../store/authStore";
+import { attachAxiosPerf } from "../utils/perfMetrics";
 
 export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
@@ -89,6 +90,7 @@ function withBearerToken(getToken) {
 }
 
 const publicApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
+attachAxiosPerf(publicApi, "public");
 
 /** Get token for user-scoped APIs: prefer user token, fall back to admin token (admin can use configurator, etc.) */
 function getUserOrAdminToken() {
@@ -96,6 +98,7 @@ function getUserOrAdminToken() {
 }
 
 const userApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
+attachAxiosPerf(userApi, "user");
 userApi.interceptors.request.use(withBearerToken(getUserOrAdminToken));
 userApi.interceptors.response.use(
   (res) => res,
@@ -117,6 +120,7 @@ userApi.interceptors.response.use(
 );
 
 const adminApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
+attachAxiosPerf(adminApi, "admin");
 adminApi.interceptors.request.use(
   withBearerToken(() => localStorage.getItem(ADMIN_TOKEN_KEY)),
 );
@@ -390,6 +394,10 @@ export const apiService = {
     getPage: async (slug) => unwrap(await publicApi.get(`/legal/${slug}`)),
     updatePage: async (slug, payload) =>
       unwrap(await adminApi.put(`/legal/${slug}`, payload)),
+  },
+
+  contact: {
+    submit: async (payload) => unwrap(await publicApi.post("/contact", payload)),
   },
 };
 

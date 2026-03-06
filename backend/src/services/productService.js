@@ -10,10 +10,13 @@ function toId(v) {
 
 export async function ensureConfigurable(productIds) {
   const ids = productIds.map(toId).filter(Boolean);
-  const products = await Product.find({ _id: { $in: ids }, productType: "configurable" }).lean();
-  if (products.length !== ids.length) {
+  // Deduplicate IDs so having the same product multiple times doesn't fail length validation
+  const uniqueIds = [...new Set(ids.map(id => id.toString()))];
+  
+  const products = await Product.find({ _id: { $in: uniqueIds }, productType: "configurable" }).lean();
+  if (products.length !== uniqueIds.length) {
     const found = new Set(products.map((p) => p._id.toString()));
-    const invalid = ids.filter((id) => !found.has(id.toString()));
+    const invalid = uniqueIds.filter((id) => !found.has(id));
     throw new Error(`Only configurable products allowed. Invalid: ${invalid.join(", ")}`);
   }
   return products;

@@ -18,6 +18,7 @@ import newsletterRoutes from "./newsletterRoutes.js";
 import iconCategoryRoutes from "./iconCategoryRoutes.js";
 import iconRoutes from "./iconRoutes.js";
 import legalRoutes from "./legalRoutes.js";
+import contactRoutes from "./contactRoutes.js";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use("/newsletter", newsletterRoutes);
 router.use("/icon-categories", iconCategoryRoutes);
 router.use("/icons", iconRoutes);
 router.use("/legal", legalRoutes);
+router.use("/contact", contactRoutes);
 
 export default router;

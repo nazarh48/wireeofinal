@@ -5,19 +5,40 @@ export async function create(req, res, next) {
   try {
     const { projectId, projectName, productCount, products, pdfSettings } = req.body;
     const count = Number(productCount) || 0;
-    const productIds = (products || []).map((p) => p.product ?? p.productId ?? p).filter(Boolean);
-    if (productIds.length) await ensureConfigurable(productIds);
+    // Only validate configurability for ad-hoc exports (no projectId).
+    // When projectId is present the products were already validated when added to the project.
+    if (!projectId) {
+      const productIds = (products || []).map((p) => p.product ?? p.productId ?? p).filter(Boolean);
+      if (productIds.length) await ensureConfigurable(productIds);
+    }
 
-    const config = await PDFConfig.create({
-      projectId: projectId || null,
-      projectName: (projectName || "Unnamed Project").trim(),
-      productCount: Math.max(0, count),
-      lastExportedAt: new Date(),
-      products: Array.isArray(products) ? products : [],
-      pdfSettings: pdfSettings || {},
-      createdBy: req.user._id,
-    });
-    await config.populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku");
+    let config;
+    if (projectId) {
+      config = await PDFConfig.findOneAndUpdate(
+        { projectId, createdBy: req.user._id },
+        {
+          $set: {
+            projectName: (projectName || "Unnamed Project").trim(),
+            productCount: Math.max(0, count),
+            lastExportedAt: new Date(),
+            products: Array.isArray(products) ? products : [],
+            pdfSettings: pdfSettings || {},
+          }
+        },
+        { new: true, upsert: true }
+      );
+    } else {
+      config = await PDFConfig.create({
+        projectId: null,
+        projectName: (projectName || "Unnamed Project").trim(),
+        productCount: Math.max(0, count),
+        lastExportedAt: new Date(),
+        products: Array.isArray(products) ? products : [],
+        pdfSettings: pdfSettings || {},
+        createdBy: req.user._id,
+      });
+    }
+    await config.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl images isConfigurable productType productCode sku");
     return res.status(201).json({ success: true, config });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -41,7 +62,7 @@ export async function list(req, res, next) {
 export async function getById(req, res, next) {
   try {
     const config = await PDFConfig.findOne({ _id: req.params.id, createdBy: req.user._id })
-      .populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl images isConfigurable productType productCode sku")
       .lean();
     if (!config) {
       return res.status(404).json({ success: false, message: "PDF configuration not found" });
@@ -78,7 +99,7 @@ export async function reExport(req, res, next) {
       },
       { new: true }
     )
-      .populate("products.product", "name description baseImageUrl isConfigurable productType productCode sku")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl images isConfigurable productType productCode sku")
       .lean();
 
     if (!config) {

@@ -1,4 +1,5 @@
 import { Solution } from "../models/Solution.js";
+import { optimizeImageAtUrl } from "../services/imageService.js";
 
 function toUrl(dirName, filename) {
   if (!filename) return "";
@@ -83,7 +84,7 @@ function parseFeatures(features) {
 
 export async function create(req, res, next) {
   try {
-    const { title, description, icon, image, features, order, status } = req.body;
+    const { title, description, subtitle, icon, image, features, order, status } = req.body;
     const images = [];
     const files = Array.isArray(req.files?.images) ? req.files.images : [];
     files.forEach((f) => {
@@ -112,6 +113,7 @@ export async function create(req, res, next) {
       title: title || "",
       slug,
       description: description || "",
+      subtitle: subtitle || "",
       icon: icon || "",
       image: image || (images[0]?.url || ""),
       features: parseFeatures(features),
@@ -122,6 +124,17 @@ export async function create(req, res, next) {
     });
     const doc = solution.toObject ? solution.toObject() : solution;
     const normalized = normalizeSolutionUrls(doc);
+
+    const imageUrls = [
+      normalized.image,
+      ...normalized.images
+        .map((img) => (typeof img === "string" ? img : img?.url))
+        .filter(Boolean),
+    ].filter((u) => typeof u === "string" && u.startsWith("/uploads/"));
+    if (imageUrls.length) {
+      Promise.all(imageUrls.map((u) => optimizeImageAtUrl(u))).catch(() => {});
+    }
+
     return res.status(201).json({ success: true, solution: normalized });
   } catch (err) {
     next(err);
@@ -169,10 +182,11 @@ export async function getBySlug(req, res, next) {
 
 export async function update(req, res, next) {
   try {
-    const { title, description, icon, image, features, order, status } = req.body;
+    const { title, description, subtitle, icon, image, features, order, status } = req.body;
     const setUpdates = {};
     if (title !== undefined) setUpdates.title = title;
     if (description !== undefined) setUpdates.description = description;
+    if (subtitle !== undefined) setUpdates.subtitle = subtitle;
     if (icon !== undefined) setUpdates.icon = icon;
     if (image !== undefined) setUpdates.image = image;
     if (features !== undefined) setUpdates.features = parseFeatures(features);
@@ -194,6 +208,13 @@ export async function update(req, res, next) {
       }));
       updateOp.$push = updateOp.$push || {};
       updateOp.$push.images = { $each: images };
+
+      const urls = images
+        .map((img) => img.url)
+        .filter((u) => typeof u === "string" && u.startsWith("/uploads/"));
+      if (urls.length) {
+        Promise.all(urls.map((u) => optimizeImageAtUrl(u))).catch(() => {});
+      }
     }
     const fileList = Array.isArray(req.files?.files) ? req.files.files : [];
     if (fileList.length) {

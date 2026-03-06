@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiService } from "../../services/api";
 import { IconUsers } from "../../components/admin/AdminIcons";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 /* ─── tiny helpers ─── */
 const EMPTY_FORM = {
@@ -420,7 +421,12 @@ export default function UsersManagement() {
         onDeleted={handleDeleted}
       />
 
-      <div className="p-6 md:p-8">
+      <div className="p-6 md:p-8 min-h-full bg-slate-50">
+        <DashboardHeader 
+          title="Users" 
+          subtitle="Create, edit, and manage all user accounts."
+          showHomeButton={true}
+        />
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

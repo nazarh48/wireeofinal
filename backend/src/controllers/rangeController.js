@@ -1,5 +1,7 @@
 import { Range } from "../models/Range.js";
 import { Product } from "../models/Product.js";
+import { optimizeImageAtUrl } from "../services/imageService.js";
+import { getFromCache, setInCache } from "../utils/simpleCache.js";
 
 function toImageUrl(filename) {
   if (!filename) return "";
@@ -21,6 +23,9 @@ export async function create(req, res, next) {
     if (req.file && req.file.filename) body.image = toImageUrl(req.file.filename);
     const range = await Range.create(body);
     const normalized = normalizeRangeImage(range.toObject ? range.toObject() : range);
+    if (normalized.image) {
+      Promise.resolve(optimizeImageAtUrl(normalized.image)).catch(() => {});
+    }
     return res.status(201).json({ success: true, range: normalized });
   } catch (err) {
     next(err);
@@ -32,9 +37,17 @@ export async function list(req, res, next) {
     const { status } = req.query;
     const filter = {};
     if (status) filter.status = status;
+    const cacheKey = `ranges:list:${status || "all"}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
+
     const ranges = await Range.find(filter).sort({ createdAt: -1 }).lean();
     const normalized = ranges.map(normalizeRangeImage);
-    return res.status(200).json({ success: true, ranges: normalized });
+    const payload = { success: true, ranges: normalized };
+    setInCache(cacheKey, payload, 10000);
+    return res.status(200).json(payload);
   } catch (err) {
     next(err);
   }
@@ -66,6 +79,9 @@ export async function update(req, res, next) {
       return res.status(404).json({ success: false, message: "Range not found" });
     }
     const normalized = normalizeRangeImage(range);
+    if (normalized.image) {
+      Promise.resolve(optimizeImageAtUrl(normalized.image)).catch(() => {});
+    }
     return res.status(200).json({ success: true, range: normalized });
   } catch (err) {
     next(err);

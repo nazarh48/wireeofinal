@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCatalog } from '../hooks/useCatalog';
+import { buildResponsiveImageProps } from '../utils/imageVariants';
 
 const ProductPage = () => {
   const { rangeId } = useParams();
@@ -86,35 +87,60 @@ const ProductPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-teal-200 hover:-translate-y-2"
-                  onClick={() => handleProductSelect(product.id)}
-                >
-                  <div className="relative h-56 bg-gradient-to-br from-teal-50 to-cyan-50 overflow-hidden">
-                    <img
-                      src={product.baseImageUrl}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">{product.name}</h3>
-                    <p className="text-gray-600 mb-4 leading-relaxed line-clamp-2">{product.description}</p>
-                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                      <span className="text-sm text-gray-500 font-medium">ID: {product.id}</span>
-                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-teal-500 to-cyan-500 text-white group-hover:from-teal-600 group-hover:to-cyan-600 transition-all shadow-md group-hover:shadow-lg">
-                        Design
-                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </span>
+              {products.map((product) => {
+                const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(
+                  product.baseImagePath || product.baseImageUrl || '',
+                );
+                return (
+                  <div
+                    key={product.id}
+                    className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-teal-200 hover:-translate-y-2"
+                    onClick={() => handleProductSelect(product.id)}
+                  >
+                    <div className="relative h-56 bg-gradient-to-br from-teal-50 to-cyan-50 overflow-hidden">
+                      <img
+                        src={src}
+                        srcSet={srcSet}
+                        sizes={sizes}
+                        loading={loading}
+                        decoding={decoding}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">
+                        {product.name}
+                      </h3>
+                      <p className="text-gray-600 mb-4 leading-relaxed line-clamp-2">
+                        {product.description}
+                      </p>
+                      <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                        <span className="text-sm text-gray-500 font-medium">
+                          ID: {product.id}
+                        </span>
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-teal-500 to-cyan-500 text-white group-hover:from-teal-600 group-hover:to-cyan-600 transition-all shadow-md group-hover:shadow-lg">
+                          Design
+                          <svg
+                            className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { FixedSizeList as List } from "react-window";
 import { useCatalogStore } from "../../store/catalogStore";
 import { useAdminStore } from "../../store/adminStore";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -495,6 +497,15 @@ export default function ProductsManagement() {
 
   const activeRanges = (ranges || []).filter((r) => r.status === "active");
 
+  const productRows = useMemo(
+    () =>
+      products.map((p) => ({
+        ...p,
+        range: getAdminRangeById ? getAdminRangeById(p.rangeId) : null,
+      })),
+    [products, getAdminRangeById],
+  );
+
   const handleCreate = async (payload) => {
     setLoading(true);
     setError("");
@@ -542,7 +553,12 @@ export default function ProductsManagement() {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 min-h-full bg-slate-50">
+      <DashboardHeader 
+        title="Products" 
+        subtitle="Create, edit, and delete products. Assign range and type (configurable / normal)."
+        showHomeButton={true}
+      />
       {error && !deleting && (
         <div className="mb-4 p-4 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>
       )}
@@ -580,58 +596,168 @@ export default function ProductsManagement() {
             </button>
           </div>
         ) : (
-          <ul className="divide-y divide-slate-200">
-            {products.map((p) => {
-              const range = getAdminRangeById ? getAdminRangeById(p.rangeId) : null;
-              return (
-                <li key={p.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                  <div className="flex items-center gap-4 min-w-0">
-                    {p.baseImageUrl ? (
-                      <img
-                        src={p.baseImageUrl}
-                        alt=""
-                        className="w-14 h-14 object-cover rounded-lg bg-slate-100 flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-400 text-xs">
-                        No img
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-900 truncate">{p.name}</p>
-                      <p className="text-sm text-slate-500 truncate">{p.description || "—"}</p>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        {p.productCode && <span className="text-xs text-teal-600 font-medium">{p.productCode}</span>}
-                        <span className="text-xs text-slate-400">{range?.name ?? "—"}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${p.configurable ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-600"}`}>
-                          {p.configurable ? "Configurable" : "Normal"}
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded ${p.status === "active" ? "bg-teal-100 text-teal-800" : p.status === "draft" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
-                          {p.status}
-                        </span>
+          <>
+            {productRows.length <= 40 ? (
+              <ul className="divide-y divide-slate-200">
+                {productRows.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between px-6 py-4 hover:bg-slate-50"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {p.baseImageUrl ? (
+                        <img
+                          src={p.baseImageUrl}
+                          alt=""
+                          className="w-14 h-14 object-cover rounded-lg bg-slate-100 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-400 text-xs">
+                          No img
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{p.name}</p>
+                        <p className="text-sm text-slate-500 truncate">
+                          {p.description || "—"}
+                        </p>
+                        <div className="flex gap-2 mt-1 flex-wrap">
+                          {p.productCode && (
+                            <span className="text-xs text-teal-600 font-medium">
+                              {p.productCode}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-400">
+                            {p.range?.name ?? "—"}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              p.configurable
+                                ? "bg-teal-100 text-teal-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {p.configurable ? "Configurable" : "Normal"}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              p.status === "active"
+                                ? "bg-teal-100 text-teal-800"
+                                : p.status === "draft"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setEditing(p)}
-                      className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
-                      aria-label="Edit"
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setEditing(p)}
+                        className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                        aria-label="Edit"
+                      >
+                        <IconPencil />
+                      </button>
+                      <button
+                        onClick={() => setDeleting(p)}
+                        className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        aria-label="Delete"
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <List
+                height={600}
+                itemCount={productRows.length}
+                itemSize={80}
+                width="100%"
+              >
+                {({ index, style }) => {
+                  const p = productRows[index];
+                  return (
+                    <div
+                      style={style}
+                      key={p.id}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 border-b border-slate-200 last:border-b-0"
                     >
-                      <IconPencil />
-                    </button>
-                    <button
-                      onClick={() => setDeleting(p)}
-                      className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                      aria-label="Delete"
-                    >
-                      <IconTrash />
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <div className="flex items-center gap-4 min-w-0">
+                        {p.baseImageUrl ? (
+                          <img
+                            src={p.baseImageUrl}
+                            alt=""
+                            className="w-14 h-14 object-cover rounded-lg bg-slate-100 flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-400 text-xs">
+                            No img
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900 truncate">{p.name}</p>
+                          <p className="text-sm text-slate-500 truncate">
+                            {p.description || "—"}
+                          </p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            {p.productCode && (
+                              <span className="text-xs text-teal-600 font-medium">
+                                {p.productCode}
+                              </span>
+                            )}
+                            <span className="text-xs text-slate-400">
+                              {p.range?.name ?? "—"}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded ${
+                                p.configurable
+                                  ? "bg-teal-100 text-teal-800"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {p.configurable ? "Configurable" : "Normal"}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded ${
+                                p.status === "active"
+                                  ? "bg-teal-100 text-teal-800"
+                                  : p.status === "draft"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {p.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setEditing(p)}
+                          className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                          aria-label="Edit"
+                        >
+                          <IconPencil />
+                        </button>
+                        <button
+                          onClick={() => setDeleting(p)}
+                          className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          aria-label="Delete"
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }}
+              </List>
+            )}
+          </>
         )}
       </div>
 

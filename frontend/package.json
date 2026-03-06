@@ -28,6 +28,7 @@
     "react-konva": "^18.2.0",
     "react-quill": "^2.0.0",
     "react-router-dom": "^6.8.0",
+    "react-window": "^1.8.9",
     "xlsx": "^0.18.5",
     "zustand": "^4.3.0"
   },

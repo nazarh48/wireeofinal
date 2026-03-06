@@ -1,0 +1,20 @@
+config:
+  target: "http://127.0.0.1:5000"
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "steady-read-traffic"
+  defaults:
+    headers:
+      Accept: "application/json"
+
+scenarios:
+  - name: "Public product catalogue"
+    flow:
+      - get:
+          url: "/api/products/normal"
+      - get:
+          url: "/api/products/configurable"
+      - get:
+          url: "/api/ranges?status=active"
+

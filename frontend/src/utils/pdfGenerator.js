@@ -257,7 +257,8 @@ const renderEditedProduct = async (
     product.baseDeviceImageUrl ||
     product.configuratorImageUrl ||
     product.baseImageUrl ||
-    product.image;
+    product.image ||
+    (Array.isArray(product.images) && product.images.length > 0 ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url) : null);
   if (!originalImageUrl || typeof originalImageUrl !== "string") {
     console.warn("[PDF] renderEditedProduct: no base image URL for product", product?.id ?? product?._instanceId);
   }
@@ -581,7 +582,8 @@ export const generateProductPDF = async (products, options = {}) => {
             ),
           );
         }
-        const hasImage = product?.baseImageUrl || product?.image;
+        const imgFromArr = Array.isArray(product?.images) && product.images.length > 0 ? (typeof product.images[0] === 'string' ? product.images[0] : product.images[0]?.url) : null;
+        const hasImage = product?.baseDeviceImageUrl || product?.configuratorImageUrl || product?.baseImageUrl || product?.image || imgFromArr;
         if (!hasImage) return Promise.resolve(null);
         if (process.env.NODE_ENV !== "production") {
           console.info("[PDF] Item", idx, "instanceId:", product._instanceId, "productId:", product.id, "using renderEditedProduct (no editedImage)");

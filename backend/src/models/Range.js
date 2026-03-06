@@ -10,4 +10,6 @@ const rangeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+rangeSchema.index({ status: 1, createdAt: -1 });
+
 export const Range = mongoose.model("Range", rangeSchema);
