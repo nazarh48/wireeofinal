@@ -4,8 +4,27 @@ import { useEffect, useRef, useState } from 'react';
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 
-const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => {
+const loadPreviewImage = (src, onLoad, onError) => {
+  if (!src) {
+    onError?.();
+    return;
+  }
+
+  const primary = new window.Image();
+  primary.crossOrigin = 'anonymous';
+  primary.onload = () => onLoad(primary);
+  primary.onerror = () => {
+    const fallback = new window.Image();
+    fallback.onload = () => onLoad(fallback);
+    fallback.onerror = () => onError?.();
+    fallback.src = src;
+  };
+  primary.src = src;
+};
+
+const EditedProductPreview = ({ product, edits, width = 300, height = 200, stageRef: externalStageRef, onClick }) => {
   const [images, setImages] = useState({});
+  const imageSrcByIdRef = useRef({});
   const [baseImage, setBaseImage] = useState(null);
   const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
   const [backgroundImage, setBackgroundImage] = useState(null);
@@ -54,15 +73,50 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
       edits.elements
         .filter(el => el.type === 'image' && el.src)
         .forEach(element => {
-          if (!images[element.id]) {
-            const img = new window.Image();
-            img.crossOrigin = 'anonymous';
-            img.src = element.src;
-            img.onload = () => {
-              setImages(prev => ({ ...prev, [element.id]: img }));
-            };
+          const currentSrc = imageSrcByIdRef.current[element.id];
+          if (currentSrc !== element.src) {
+            loadPreviewImage(
+              element.src,
+              (img) => {
+                imageSrcByIdRef.current[element.id] = element.src;
+                setImages(prev => ({ ...prev, [element.id]: img }));
+              },
+              () => {
+                setImages((prev) => {
+                  delete imageSrcByIdRef.current[element.id];
+                  if (!prev[element.id]) return prev;
+                  const next = { ...prev };
+                  delete next[element.id];
+                  return next;
+                });
+              }
+            );
           }
         });
+
+      const activeImageIds = new Set(
+        edits.elements
+          .filter((el) => el.type === 'image' && el.src)
+          .map((el) => el.id)
+      );
+
+      Object.keys(imageSrcByIdRef.current).forEach((id) => {
+        if (!activeImageIds.has(id)) delete imageSrcByIdRef.current[id];
+      });
+
+      setImages((prev) => {
+        const next = { ...prev };
+        let changed = false;
+
+        Object.keys(next).forEach((id) => {
+          if (!activeImageIds.has(id)) {
+            delete next[id];
+            changed = true;
+          }
+        });
+
+        return changed ? next : prev;
+      });
     }
   }, [edits, images]);
 
@@ -280,8 +334,9 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     return (
       <div
         ref={containerRef}
-        className="bg-gray-100 rounded-lg overflow-hidden"
+        className={`bg-gray-100 rounded-lg overflow-hidden${onClick ? ' cursor-pointer' : ''}`}
         style={{ width: width || '100%', height: viewHeight }}
+        onClick={onClick}
       >
         <img
           src={editedImageUrl}
@@ -296,8 +351,9 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
     return (
       <div
         ref={containerRef}
-        className="bg-gray-100 rounded-lg overflow-hidden"
+        className={`bg-gray-100 rounded-lg overflow-hidden${onClick ? ' cursor-pointer' : ''}`}
         style={{ width: width || '100%', height: viewHeight }}
+        onClick={onClick}
       >
         {baseImage ? (
           <img
@@ -331,10 +387,11 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200 }) => 
   return (
     <div
       ref={containerRef}
-      className="bg-white rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm"
+      className={`bg-white rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm${onClick ? ' cursor-pointer' : ''}`}
       style={{ width: width || '100%', height: viewHeight }}
+      onClick={onClick}
     >
-      <Stage width={viewWidth} height={viewHeight}>
+      <Stage width={viewWidth} height={viewHeight} ref={externalStageRef}>
         <Layer scaleX={scale} scaleY={scale} x={offsetX} y={offsetY}>
           {/* Layer 2 – custom background uploaded in configurator (drawn first, behind device) */}
           {backgroundImage && (

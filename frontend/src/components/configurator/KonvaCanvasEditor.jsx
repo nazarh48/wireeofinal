@@ -27,6 +27,24 @@ const GRID_SIZE = 20;
 const MOVE_STEP = 1;
 const MOVE_STEP_SHIFT = 10;
 
+const loadCanvasImage = (src, onLoad, onError) => {
+  if (!src) {
+    onError?.();
+    return;
+  }
+
+  const primary = new window.Image();
+  primary.crossOrigin = 'anonymous';
+  primary.onload = () => onLoad(primary);
+  primary.onerror = () => {
+    const fallback = new window.Image();
+    fallback.onload = () => onLoad(fallback);
+    fallback.onerror = () => onError?.();
+    fallback.src = src;
+  };
+  primary.src = src;
+};
+
 const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
   const {
     configurator,
@@ -51,6 +69,7 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
   const transformerRef = useRef();
   const shapeRefs = useRef({});
   const layerRef = useRef();
+  const imageSrcByIdRef = useRef({});
 
   // Layered images for V2-style configurator
   const [baseImage, setBaseImage] = useState(null);           // Layer 1 – device/base photo
@@ -63,8 +82,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
   const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [showGrid, setShowGrid] = useState(true);
-  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  const [snapToGrid, setSnapToGrid] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isSpaceDown, setIsSpaceDown] = useState(false);
@@ -181,13 +200,48 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
     configurator.elements
       .filter((el) => el.type === 'image' && el.src)
       .forEach((element) => {
-        if (!images[element.id]) {
-          const img = new window.Image();
-          img.crossOrigin = 'anonymous';
-          img.src = element.src;
-          img.onload = () => setImages((prev) => ({ ...prev, [element.id]: img }));
+        const currentSrc = imageSrcByIdRef.current[element.id];
+        if (currentSrc !== element.src) {
+          loadCanvasImage(
+            element.src,
+            (img) => {
+              imageSrcByIdRef.current[element.id] = element.src;
+              setImages((prev) => ({ ...prev, [element.id]: img }));
+            },
+            () => setImages((prev) => {
+              delete imageSrcByIdRef.current[element.id];
+              if (!prev[element.id]) return prev;
+              const next = { ...prev };
+              delete next[element.id];
+              return next;
+            })
+          );
         }
       });
+
+    const activeImageIds = new Set(
+      configurator.elements
+        .filter((el) => el.type === 'image' && el.src)
+        .map((el) => el.id)
+    );
+
+    Object.keys(imageSrcByIdRef.current).forEach((id) => {
+      if (!activeImageIds.has(id)) delete imageSrcByIdRef.current[id];
+    });
+
+    setImages((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      Object.keys(next).forEach((id) => {
+        if (!activeImageIds.has(id)) {
+          delete next[id];
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
   }, [layer1Src, layer2DefaultSrc, maskSrc, configurator.elements, canvasWidth, canvasHeight]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load user-uploaded background (Layer 2 – custom)
@@ -809,7 +863,7 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
     : null;
 
   return (
-    <div className="w-full h-full flex flex-col bg-gray-50">
+    <div className="flex h-full w-full flex-col bg-slate-100">
       <CanvasControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
@@ -818,12 +872,13 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
         onToggleGrid={() => setShowGrid((g) => !g)}
         snapToGrid={snapToGrid}
         onToggleSnap={() => setSnapToGrid((s) => !s)}
+        zoomLabel={`${Math.round(scale * 100)}%`}
       />
-      <div className="flex-1 overflow-hidden bg-gray-200 relative">
-        <div className="w-full h-full overflow-auto p-6">
+      <div className="relative flex-1 overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(226,232,240,0.9)_45%,_rgba(203,213,225,0.95))]">
+        <div className="flex h-full w-full items-start justify-center overflow-auto p-1.5 sm:p-2">
           <div
-            className="inline-block bg-white shadow-2xl border-4 border-gray-400"
-            style={{ width: canvasWidth, height: canvasHeight, minWidth: canvasWidth, minHeight: canvasHeight }}
+            className="inline-block rounded-[20px] border border-slate-300 bg-white p-1.5 shadow-[0_28px_60px_-36px_rgba(15,23,42,0.55)]"
+            style={{ width: canvasWidth, minWidth: canvasWidth }}
           >
             <Stage
               ref={stageRef}

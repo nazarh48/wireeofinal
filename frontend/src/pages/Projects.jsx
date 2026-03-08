@@ -1,29 +1,25 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { useAuthStore } from '../store/authStore';
 import { generateProjectPDF } from '../utils/pdfGenerator';
-import ProjectNameModal from '../components/ProjectNameModal';
 
 const FALLBACK_IMAGE = '/test.png';
 
 const Projects = () => {
+  const navigate = useNavigate();
   const projects = useStore((state) => state.projects);
   const projectsLoading = useStore((state) => state.projectsLoading);
   const collection = useStore((state) => state.collection);
   const editsByInstanceId = useStore((state) => state.editsByInstanceId);
   const productEdits = useStore((state) => state.productEdits);
   const fetchProjects = useStore((state) => state.fetchProjects);
-  const updateProjectName = useStore((state) => state.updateProjectName);
   const deleteProject = useStore((state) => state.deleteProject);
+  const removeProductFromProject = useStore((state) => state.removeProductFromProject);
   const addProductsToPdf = useStore((state) => state.addProductsToPdf);
   const savePendingAsPdf = useStore((state) => state.savePendingAsPdf);
   const showToast = useStore((state) => state.showToast);
 
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
   const [loadingPdf, setLoadingPdf] = useState(null);
   const user = useAuthStore((s) => s.user);
 
@@ -31,23 +27,66 @@ const Projects = () => {
     fetchProjects();
   }, [fetchProjects]);
 
-  const handleEditName = (projectId, currentName) => {
-    setEditingId(projectId);
-    setEditingName(currentName);
-  };
+  const userProjects = useMemo(() => {
+    const currentUserId = user?._id || user?.id || null;
+    const currentUserEmail = user?.email?.toLowerCase?.() || null;
 
-  const handleSaveName = (projectId) => {
-    if (editingName.trim() && editingName.trim().length >= 3) {
-      updateProjectName(projectId, editingName.trim());
-      setEditingId(null);
-      setEditingName('');
-    }
+    return projects
+      .filter((project) => {
+        if (!user) return true;
+
+        const ownerId = project?.createdBy?._id || project?.createdBy?.id || null;
+        const ownerEmail = project?.createdBy?.email?.toLowerCase?.() || project?.ownerEmail?.toLowerCase?.() || null;
+
+        if (currentUserId && ownerId) {
+          return String(currentUserId) === String(ownerId);
+        }
+
+        if (currentUserEmail && ownerEmail) {
+          return currentUserEmail === ownerEmail;
+        }
+
+        return true;
+      })
+      .map((project) => ({
+        ...project,
+        title: project.name,
+        icon: '📋',
+      }));
+  }, [projects, user]);
+
+  const handleEditProject = (projectId) => {
+    if (!projectId) return;
+    navigate(`/products/ranges?tab=projects&projectId=${encodeURIComponent(projectId)}`);
   };
 
   const handleDeleteProject = (projectId) => {
     if (window.confirm('Are you sure you want to delete this project?')) {
       deleteProject(projectId);
     }
+  };
+
+  const handleEditProjectProduct = (product) => {
+    if (!product?.id) return;
+
+    const params = new URLSearchParams({ from: 'projects' });
+    if (product._instanceId) {
+      params.set('instanceId', product._instanceId);
+    }
+
+    navigate(`/editor/${product.id}?${params.toString()}`);
+  };
+
+  const handleRemoveProjectProduct = async (projectId, product) => {
+    const removeKey = product?._instanceId || product?.instanceId || product?.id || product?._id;
+    if (!removeKey) return;
+
+    const confirmed = window.confirm(
+      `Remove "${product?.name || 'this product'}" from this project?`,
+    );
+    if (!confirmed) return;
+
+    await removeProductFromProject(projectId, removeKey);
   };
 
   // Enhance products with edits + editedImage + correct image so PDF shows edited images (same as TabbedRanges)
@@ -94,12 +133,6 @@ const Projects = () => {
       );
     }
   };
-
-  const userProjects = projects.map((project) => ({
-    ...project,
-    title: project.name,
-    icon: '📋',
-  }));
 
   return (
     <div className="min-h-screen">
@@ -174,37 +207,9 @@ const Projects = () => {
                   </div>
 
                   <div className="p-6">
-                    {editingId === project.id ? (
-                      <div className="mb-4 flex gap-2">
-                        <input
-                          type="text"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          className="flex-1 px-3 py-2 border-2 border-teal-500 rounded-lg focus:outline-none focus:border-teal-600"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveName(project.id);
-                            if (e.key === 'Escape') setEditingId(null);
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => handleSaveName(project.id)}
-                          className="px-3 py-2 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-lg font-semibold hover:from-teal-700 hover:to-cyan-700"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-3 py-2 bg-gray-300 text-gray-800 rounded-lg font-semibold hover:bg-gray-400"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">
-                        {project.name || project.title}
-                      </h3>
-                    )}
+                    <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-teal-600 transition-colors">
+                      {project.name || project.title}
+                    </h3>
 
                     {project.configurationNumber && (
                       <div className="mb-2 text-xs font-mono bg-teal-50 text-teal-800 px-2 py-1 rounded inline-block border border-teal-200 shadow-sm">
@@ -223,9 +228,40 @@ const Projects = () => {
                         </p>
                         <ul className="space-y-1">
                           {project.products.slice(0, 3).map((product, idx) => (
-                            <li key={idx} className="text-xs text-gray-700 flex items-center">
-                              <span className="inline-block w-1.5 h-1.5 bg-teal-600 rounded-full mr-2"></span>
-                              {product.name || product.baseProductName || 'Product'}
+                            <li
+                              key={product._instanceId || product.id || idx}
+                              className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-2 py-1.5"
+                            >
+                              <div className="min-w-0 flex items-center text-xs text-gray-700">
+                                <span className="inline-block w-1.5 h-1.5 bg-teal-600 rounded-full mr-2 flex-shrink-0"></span>
+                                <span className="truncate">
+                                  {product.name || product.baseProductName || 'Product'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditProjectProduct(product)}
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-100 text-teal-700 transition-colors hover:bg-teal-200"
+                                  title="Edit product"
+                                  aria-label={`Edit ${product.name || product.baseProductName || 'product'}`}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveProjectProduct(project.id, product)}
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-red-100 text-red-700 transition-colors hover:bg-red-200"
+                                  title="Remove product from project"
+                                  aria-label={`Remove ${product.name || product.baseProductName || 'product'} from project`}
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
                             </li>
                           ))}
                           {project.products.length > 3 && (
@@ -239,7 +275,7 @@ const Projects = () => {
 
                     <div className="flex gap-2 mb-4">
                       <button
-                        onClick={() => handleEditName(project.id, project.name)}
+                        onClick={() => handleEditProject(project.id)}
                         className="flex-1 flex items-center justify-center gap-1 bg-teal-100 text-teal-700 hover:bg-teal-200 font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,15 +296,7 @@ const Projects = () => {
 
                     {project.products?.length > 0 && (
                       <div className="space-y-3">
-                        <button
-                          onClick={() => handleAddProjectToPdf(project)}
-                          className="w-full bg-white border-2 border-teal-200 text-teal-700 hover:bg-teal-50 hover:border-teal-300 font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add Configuration to PDF
-                        </button>
+                       
                         <button
                           onClick={() => handleDownloadPDF(project)}
                           disabled={loadingPdf === project.id}
@@ -325,13 +353,6 @@ const Projects = () => {
         </section>
       )}
 
-      <ProjectNameModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={(name) => {
-          setIsModalOpen(false);
-        }}
-      />
     </div>
   );
 };

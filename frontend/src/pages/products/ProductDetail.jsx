@@ -257,7 +257,7 @@ const ProductDetail = () => {
             <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-gray-100">
               {product?.configurable && (
                 <Link
-                  to={`/configurator/${product.id}`}
+                  to={`/editor/${product.id}`}
                   className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-lg hover:shadow-cyan-200/50 transform hover:-translate-y-1 uppercase tracking-wider"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

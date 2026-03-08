@@ -207,7 +207,7 @@ export async function update(req, res, next) {
         originalName: f.originalname || "",
       }));
       updateOp.$push = updateOp.$push || {};
-      updateOp.$push.images = { $each: images };
+      updateOp.$push.images = { $each: images, $position: 0 };
 
       const urls = images
         .map((img) => img.url)

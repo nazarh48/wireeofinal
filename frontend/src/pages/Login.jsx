@@ -13,6 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const setUserAuth = useAuthStore((s) => s.setUserAuth);
+  const setAdminAuth = useAuthStore((s) => s.setAdminAuth);
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';
@@ -49,8 +50,13 @@ const Login = () => {
       }
 
       if (response.token) {
-        setUserAuth({ token: response.token, user: response.user });
-        navigate(from, { replace: true });
+        if (response.user?.role === 'admin') {
+          setAdminAuth({ token: response.token, user: response.user });
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          setUserAuth({ token: response.token, user: response.user });
+          navigate(from, { replace: true });
+        }
       }
     } catch (err) {
       const data = err?.response?.data;
@@ -78,8 +84,13 @@ const Login = () => {
       });
 
       if (response.token) {
-        setUserAuth({ token: response.token, user: response.user });
-        navigate(from, { replace: true });
+        if (response.user?.role === 'admin') {
+          setAdminAuth({ token: response.token, user: response.user });
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          setUserAuth({ token: response.token, user: response.user });
+          navigate(from, { replace: true });
+        }
       }
     } catch (err) {
       const msg = err?.response?.data?.message || 'Invalid verification code';

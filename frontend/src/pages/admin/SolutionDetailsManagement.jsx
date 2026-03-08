@@ -32,8 +32,33 @@ function DetailForm({ initial, solutions, onSubmit, onCancel, loading }) {
   const [order, setOrder] = useState(initial?.order ?? 0);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [error, setError] = useState("");
   const [pointsText, setPointsText] = useState(pointsToText(initial));
+
+  useEffect(() => {
+    setSolutionId(initial?.solution ?? "");
+    setTitle(initial?.title ?? "");
+    setSubtitle(initial?.subtitle ?? "");
+    setBody(initial?.body ?? "");
+    setImage(initial?.image ?? "");
+    setOrder(initial?.order ?? 0);
+    setStatus(initial?.status ?? "active");
+    setImageFile(null);
+    setError("");
+    setPointsText(pointsToText(initial));
+  }, [initial]);
+
+  useEffect(() => {
+    if (imageFile) {
+      const objectUrl = URL.createObjectURL(imageFile);
+      setImagePreview(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    setImagePreview(image?.trim() ? getImageUrl(image.trim()) : "");
+    return undefined;
+  }, [image, imageFile]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -141,6 +166,28 @@ function DetailForm({ initial, solutions, onSubmit, onCancel, loading }) {
           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
           placeholder={"Field Infrastructure - Native KNX devices for access control...\nCloud Core - Microsoft Azure–based management platform...\nMobile Interaction - Guest and staff applications..."}
         />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Image preview
+        </label>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+          {imagePreview ? (
+            <img
+              src={imagePreview}
+              alt={title || "Section preview"}
+              className="w-full h-48 object-cover"
+              onError={(e) => {
+                e.target.style.display = "none";
+                setImagePreview("");
+              }}
+            />
+          ) : (
+            <div className="h-48 flex items-center justify-center text-sm text-slate-400">
+              No image selected
+            </div>
+          )}
+        </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">

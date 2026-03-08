@@ -6,7 +6,7 @@ export const USER_TOKEN_KEY = "wireeo_user_token";
 export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 
 /** Session expires after this many minutes of inactivity (must match backend). */
-export const SESSION_INACTIVITY_MINUTES = 15;
+export const SESSION_INACTIVITY_MINUTES = 1440;
 
 // Dev: "/api" uses Vite proxy to backend (localhost:5000). Prod: VITE_API_URL or production URL.
 export const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -57,15 +57,17 @@ export const getImageUrl = (imagePath) => {
 
 /**
  * Resolve the main image URL for a solution (list or detail).
- * Matches admin logic: prefer first image in images[], then solution.image.
- * Ensures relative paths are in /uploads/ form so getImageUrl works.
+ * `solution.image` is the canonical main image, especially after admin updates.
+ * Falls back to the first entry in `images[]` for older records.
  */
 export const getSolutionImageUrl = (solution) => {
   if (!solution) return "";
   const raw =
+    (solution.image && String(solution.image).trim()) ||
     (Array.isArray(solution.images) && solution.images[0]
       ? (solution.images[0].url ?? solution.images[0])
-      : null) || (solution.image && String(solution.image).trim()) || "";
+      : null) ||
+    "";
   if (!raw || typeof raw !== "string") return "";
   if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:"))
     return raw;
@@ -104,8 +106,7 @@ userApi.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err?.response?.status;
-    const data = err?.response?.data;
-    if (status === 401 && (data?.code === "TOKEN_EXPIRED" || (data?.message && String(data.message).toLowerCase().includes("expired")))) {
+    if (status === 401) {
       const hadUserToken = !!localStorage.getItem(USER_TOKEN_KEY);
       if (hadUserToken) {
         useAuthStore.getState().logoutUser();
@@ -128,8 +129,7 @@ adminApi.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err?.response?.status;
-    const data = err?.response?.data;
-    if (status === 401 && (data?.code === "TOKEN_EXPIRED" || (data?.message && String(data.message).toLowerCase().includes("expired")))) {
+    if (status === 401) {
       useAuthStore.getState().logoutAdmin();
       window.dispatchEvent(new CustomEvent("session-expired", { detail: { type: "admin" } }));
     }

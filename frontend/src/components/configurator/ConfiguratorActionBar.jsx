@@ -1,10 +1,4 @@
 import useStore from '../../store/useStore';
-import {
-  exportLayerPng,
-  exportFullCompositionPng,
-  exportConfigJson,
-  exportConfiguratorPdf,
-} from '../../services/exportService';
 
 const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
   const {
@@ -27,10 +21,10 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
   const hasSelection = selectedIds.length > 0;
 
   const product = configurator.product || null;
-  const canExport = Boolean(stageRef?.current && product);
   const backgroundCustomizable =
     product?.backgroundCustomizable === true ||
     product?.backgroundCustomizable === 'true';
+  const hasBackground = Boolean(configurator.configuration?.backgroundImage);
 
   const duplicateSelection = () => {
     if (!hasSelection) return;
@@ -48,136 +42,57 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
   };
 
   return (
-    <div className="h-20 bg-[#f0f7f2] border-t border-teal-200 flex items-center justify-between gap-4 px-4">
-      {/* Editing controls */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={undo}
-          disabled={!canUndo}
-          className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-        >
-          Undo
-        </button>
-        <button
-          onClick={redo}
-          disabled={!canRedo}
-          className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-        >
-          Redo
-        </button>
-        <button
-          onClick={duplicateSelection}
-          disabled={!hasSelection}
-          className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-        >
-          Duplicate
-        </button>
-        <button
-          onClick={() => selectedIds.forEach((id) => bringToFront(id))}
-          disabled={!hasSelection}
-          className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-        >
-          Bring to top
-        </button>
-        <button
-          onClick={deleteSelected}
-          disabled={!hasSelection}
-          className="h-8 px-3 text-xs border border-red-200 bg-red-50 text-red-700 disabled:opacity-40 hover:bg-red-100"
-        >
-          Delete
-        </button>
-        <button
-          onClick={rotateSelection}
-          disabled={!hasSelection}
-          className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-        >
-          Rotate
-        </button>
-      </div>
+    <div className="border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur">
+      <div className="-mx-1 overflow-x-auto px-1">
+        <div className="flex min-w-max items-center gap-2">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:opacity-40"
+          >
+            Undo
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:opacity-40"
+          >
+            Redo
+          </button>
+          <button
+            onClick={duplicateSelection}
+            disabled={!hasSelection}
+            className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:opacity-40"
+          >
+            Duplicate
+          </button>
+          <button
+            onClick={() => selectedIds.forEach((id) => bringToFront(id))}
+            disabled={!hasSelection}
+            className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:opacity-40"
+          >
+            Bring to top
+          </button>
+          <button
+            onClick={deleteSelected}
+            disabled={!hasSelection}
+            className="h-7 rounded-lg border border-red-200 bg-red-50 px-3 text-[11px] text-red-700 transition-colors hover:bg-red-100 disabled:opacity-40"
+          >
+            Delete
+          </button>
+          <button
+            onClick={rotateSelection}
+            disabled={!hasSelection}
+            className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:opacity-40"
+          >
+            Rotate
+          </button>
 
-      {/* Layer exports, background tools & dimensions */}
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => exportLayerPng(stageRef.current, '.base-layer', 'layer1-device.png')}
-            disabled={!canExport}
-            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-          >
-            Layer 1 PNG
-          </button>
-          {backgroundCustomizable && (
-            <button
-              onClick={() => exportLayerPng(stageRef.current, '.background-layer', 'layer2-background.png')}
-              disabled={!canExport}
-              className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-            >
-              Layer 2 PNG
-            </button>
-          )}
-          <button
-            onClick={() => exportLayerPng(stageRef.current, '.mask-layer', 'layer3-engraving-mask.png')}
-            disabled={!canExport}
-            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-          >
-            Layer 3 PNG
-          </button>
-          <button
-            onClick={() => exportLayerPng(stageRef.current, '.user-layer', 'layer4-user.png')}
-            disabled={!canExport}
-            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-          >
-            Layer 4 PNG
-          </button>
-          <button
-            onClick={() => exportFullCompositionPng(stageRef.current, 'composition.png')}
-            disabled={!canExport}
-            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-          >
-            Full PNG
-          </button>
-          <button
-            onClick={() => {
-              const config = {
-                version: 'editor-v2',
-                exportedAt: new Date().toISOString(),
-                productId: product?.id,
-                productName: product?.name,
-                processingType: configurator.configuration?.processingType,
-                elements: configurator.elements || [],
-                configuration: configurator.configuration || {},
-              };
-              exportConfigJson(config, 'configuration.json');
-            }}
-            disabled={!product}
-            className="h-8 px-3 text-xs border border-teal-200 bg-white disabled:opacity-40 hover:bg-teal-50 text-teal-800"
-          >
-            JSON
-          </button>
-          <button
-            onClick={() => {
-              const pdfConfig = {
-                capabilityType: configurator.configuration?.processingType || 'Colour printing',
-                elements: configurator.elements || [],
-                configurationCode: configurator.configuration?.id,
-                backgroundFileName: configurator.configuration?.backgroundFileName || '',
-              };
-              exportConfiguratorPdf({
-                stage: stageRef.current,
-                device: product || { name: 'Product' },
-                config: pdfConfig,
-              });
-            }}
-            disabled={!canExport}
-            className="h-8 px-3 text-xs border border-teal-200 bg-teal-600 text-white disabled:opacity-40 hover:bg-teal-700"
-          >
-            PDF
-          </button>
-        </div>
+          <span className="mx-1 h-5 w-px bg-slate-200" />
 
-        <div className="flex flex-wrap items-center gap-2">
           {backgroundCustomizable ? (
             <>
-              <label className="h-8 px-3 text-xs border border-teal-200 bg-white hover:bg-teal-50 text-teal-800 cursor-pointer flex items-center">
+              <label className="flex h-7 cursor-pointer items-center rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50">
                 <span>Upload background</span>
                 <input
                   type="file"
@@ -202,43 +117,41 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
                 />
               </label>
               <button
-                onClick={() =>
+                onClick={() => {
+                  if (!hasBackground) return;
+                  const confirmed = window.confirm(
+                    'Remove the current background from this configuration?',
+                  );
+                  if (!confirmed) return;
+
                   updateConfiguratorConfiguration({
                     backgroundImage: null,
                     backgroundFileName: '',
-                  })
-                }
-                className="h-8 px-3 text-xs border border-teal-200 bg-white hover:bg-teal-50 text-teal-800"
+                  });
+                }}
+                disabled={!hasBackground}
+                className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Clear background
               </button>
             </>
           ) : (
-            <span className="text-[10px] text-[#9ca3af] italic">
-              This product is not available for background customization.
+            <span className="text-[10px] italic text-[#9ca3af]">
+              No background customization
             </span>
           )}
 
+          <span className="mx-1 h-5 w-px bg-slate-200" />
+
           <div className="flex items-center gap-1 text-[10px] text-[#4b5563]">
-            <span className="font-semibold mr-1">Layers:</span>
-            <span className="px-2 py-0.5 border border-[#d1d5db] rounded bg-white">1 · Device photo</span>
-            <span className={`px-2 py-0.5 border border-[#d1d5db] rounded ${backgroundCustomizable ? 'bg-teal-50' : 'bg-white'}`}>
-              2 · Background
-            </span>
-            <span className="px-2 py-0.5 border border-[#d1d5db] rounded">
-              3 · Engraving zone
-            </span>
-            <span className="px-2 py-0.5 border border-[#d1d5db] rounded">
-              4 · Icons &amp; text
-            </span>
             {canvasInfo && (
               <>
                 <span className="ml-2 h-3 w-px bg-[#d1d5db]" />
-                <span className="px-2 py-0.5 border border-[#e5e7eb] rounded bg-white text-[#6b7280]">
-                  Base photo: {canvasInfo.baseImageWidth || 0} × {canvasInfo.baseImageHeight || 0} px
+                <span className="rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 text-[#6b7280]">
+                  Base: {canvasInfo.baseImageWidth || 0} × {canvasInfo.baseImageHeight || 0}
                 </span>
-                <span className="px-2 py-0.5 border border-[#e5e7eb] rounded bg-white text-[#6b7280]">
-                  Editor window: {canvasInfo.canvasWidth} × {canvasInfo.canvasHeight} px
+                <span className="rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 text-[#6b7280]">
+                  Canvas: {canvasInfo.canvasWidth} × {canvasInfo.canvasHeight}
                 </span>
               </>
             )}

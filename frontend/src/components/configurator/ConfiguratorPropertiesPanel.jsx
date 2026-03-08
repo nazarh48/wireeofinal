@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import useStore from '../../store/useStore';
+import { buildColoredSvgDataUrl, isSvgAssetUrl } from '../../utils/svgIconColor';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -33,6 +34,22 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
   const effectiveCanvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
   const backgroundWidth = configurator.configuration?.backgroundWidth || effectiveCanvasWidth;
   const backgroundHeight = configurator.configuration?.backgroundHeight || effectiveCanvasHeight;
+  const colorizableImageSource = selectedElement?.originalSrc || selectedElement?.src || '';
+  const canColorizeSelectedImage =
+    selectedElement?.type === 'image' &&
+    (selectedElement?.svgMarkup || isSvgAssetUrl(colorizableImageSource));
+  const supportsColorControls =
+    selectedElement &&
+    (
+      selectedElement.type === 'text' ||
+      selectedElement.type === 'mdiIcon' ||
+      selectedElement.type === 'rectangle' ||
+      selectedElement.type === 'circle' ||
+      selectedElement.type === 'line' ||
+      selectedElement.type === 'arrow' ||
+      selectedElement.type === 'pen' ||
+      canColorizeSelectedImage
+    );
 
   const applyToSelected = (updates) => {
     if (selectedIds.length === 0) return;
@@ -57,8 +74,34 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
     if (mode === 'bottom') applyToSelected({ y: CANVAS_HEIGHT - (selectedElement.height || 50) });
   };
 
+  const updateSelectedSvgIcon = async (changes) => {
+    if (!selectedElement || !canColorizeSelectedImage) return;
+
+    let svgMarkup = selectedElement.svgMarkup || '';
+    if (!svgMarkup) {
+      try {
+        const response = await fetch(colorizableImageSource);
+        if (!response.ok) return;
+        svgMarkup = await response.text();
+      } catch {
+        return;
+      }
+    }
+
+    const nextFill = changes.fill ?? selectedElement.fill ?? '#111827';
+    const nextStroke = changes.stroke ?? selectedElement.stroke ?? nextFill;
+
+    applyToSelected({
+      ...changes,
+      svgMarkup,
+      isColorizableIcon: true,
+      originalSrc: selectedElement.originalSrc || colorizableImageSource,
+      src: buildColoredSvgDataUrl(svgMarkup, nextFill, nextStroke),
+    });
+  };
+
   return (
-    <div className="h-full flex flex-col bg-[#f0f7f2] border-l border-teal-200/60">
+    <div className="flex h-full flex-col bg-transparent">
       <div className="px-4 py-3 border-b border-teal-200/60">
         <div className="text-[10px] uppercase tracking-wide text-teal-700/70">Properties</div>
         <div className="text-xs text-teal-800/80 mt-0.5">
@@ -285,29 +328,51 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
               </label>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-[#77808a]">
-                Fill / Text Color
-                <input
-                  type="color"
-                  value={selectedElement.fill || selectedElement.color || '#000000'}
-                  onChange={(e) => {
-                    if (selectedElement.type === 'text') applyToSelected({ color: e.target.value });
-                    else applyToSelected({ fill: e.target.value });
-                  }}
-                  className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
-                />
-              </label>
-              <label className="text-xs text-[#77808a]">
-                Stroke Color
-                <input
-                  type="color"
-                  value={selectedElement.stroke || '#000000'}
-                  onChange={(e) => applyToSelected({ stroke: e.target.value })}
-                  className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
-                />
-              </label>
-            </div>
+            {supportsColorControls && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-[#77808a]">
+                  {selectedElement.type === 'text' ? 'Text Color' : 'Fill Color'}
+                  <input
+                    type="color"
+                    value={selectedElement.fill || selectedElement.color || '#000000'}
+                    onChange={(e) => {
+                      const nextColor = e.target.value;
+
+                      if (selectedElement.type === 'text') {
+                        applyToSelected({ color: nextColor });
+                        return;
+                      }
+
+                      if (canColorizeSelectedImage) {
+                        updateSelectedSvgIcon({ fill: nextColor });
+                        return;
+                      }
+
+                      applyToSelected({ fill: nextColor });
+                    }}
+                    className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
+                  />
+                </label>
+                <label className="text-xs text-[#77808a]">
+                  Stroke Color
+                  <input
+                    type="color"
+                    value={selectedElement.stroke || '#000000'}
+                    onChange={(e) => {
+                      const nextStroke = e.target.value;
+
+                      if (canColorizeSelectedImage) {
+                        updateSelectedSvgIcon({ stroke: nextStroke });
+                        return;
+                      }
+
+                      applyToSelected({ stroke: nextStroke });
+                    }}
+                    className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
+                  />
+                </label>
+              </div>
+            )}
 
             <div>
               <div className="text-xs text-[#77808a] mb-2">Alignment</div>

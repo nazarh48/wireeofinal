@@ -1,9 +1,14 @@
 // src/pages/EditorPage.jsx
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useCatalog } from '../hooks/useCatalog';
 import useStore from '../store/useStore';
 import Configurator from '../components/configurator/Configurator';
+import EditedProductPreview from '../components/EditedProductPreview';
+import {
+  buildLayerPreviewEdits,
+  buildLayerPreviewProduct,
+} from '../utils/configurationPreview';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -14,6 +19,7 @@ const EditorPage = () => {
   const navigate = useNavigate();
   const { getConfigurableProductById, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
   const setProduct = useStore((s) => s.setProduct);
+  const configurator = useStore((s) => s.configurator);
 
   const instanceId = searchParams.get('instanceId') || null;
 
@@ -56,11 +62,51 @@ const EditorPage = () => {
     processingLabel = 'Laser + printing';
   }
 
+  const previewProduct = configurator.product || product;
+  const previewEdits = useMemo(
+    () => ({
+      elements: configurator.elements || [],
+      configuration: configurator.configuration || {},
+    }),
+    [configurator.configuration, configurator.elements],
+  );
+
+  const flowCards = [
+    {
+      id: 'complete',
+      title: 'Complete Photo',
+      description: 'Combined result of the configured device, optional background, and all editor elements.',
+      product: buildLayerPreviewProduct(previewProduct, 'complete'),
+      edits: buildLayerPreviewEdits(previewEdits, 'complete'),
+    },
+    {
+      id: 'printing',
+      title: 'Printing Layer',
+      description: 'Preview of the printable content used in the configuration flow.',
+      product: buildLayerPreviewProduct(previewProduct, 'printing'),
+      edits: buildLayerPreviewEdits(previewEdits, 'printing'),
+    },
+    {
+      id: 'background',
+      title: 'Background Layer',
+      description: 'User background only, without the device base image.',
+      product: buildLayerPreviewProduct(previewProduct, 'background'),
+      edits: buildLayerPreviewEdits(previewEdits, 'background'),
+    },
+    {
+      id: 'laser',
+      title: 'Laser Layer',
+      description: 'Preview of the engraving output used in the configuration flow.',
+      product: buildLayerPreviewProduct(previewProduct, 'laser'),
+      edits: buildLayerPreviewEdits(previewEdits, 'laser'),
+    },
+  ];
+
   return (
-    <div className="h-screen flex flex-col bg-teal-50/30 overflow-hidden">
-      <div className="bg-white shadow-sm border-b border-teal-100 flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
+    <div className="h-screen flex flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-teal-50/30 to-slate-100">
+      <div className="border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur flex-shrink-0">
+        <div className="px-3 sm:px-4 lg:px-6">
+          <div className="flex min-h-[60px] items-center justify-between gap-3 py-2">
             <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               <button
                 onClick={() =>
@@ -70,22 +116,22 @@ const EditorPage = () => {
                       : '/products/ranges?tab=collection'
                   )
                 }
-                className="text-teal-600 hover:text-teal-800 font-medium text-sm sm:text-base flex-shrink-0"
+                className="inline-flex h-9 items-center rounded-lg border border-teal-200 bg-white px-3 text-sm font-medium text-teal-700 shadow-sm transition-colors hover:bg-teal-50 hover:text-teal-800 flex-shrink-0"
               >
                 ← Back
               </button>
               <div className="min-w-0 flex-1">
-                <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">
+                <h1 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                   {product.name}
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">
+                <p className="text-xs text-slate-500 truncate">
                   • {product.productCode}
                 </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs text-gray-600">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200">
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-slate-600">
+                  <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-2.5 py-1 font-medium text-teal-800">
                     {processingLabel}
                   </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 text-gray-800 border border-gray-200">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
                     {backgroundCustomizable
                       ? 'Background customizable'
                       : 'This product is not available for background customization.'}
@@ -93,14 +139,14 @@ const EditorPage = () => {
                 </div>
               </div>
             </div>
-            <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0 ml-2 hidden sm:block">
+            <div className="hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500 lg:block">
               ID: {product.id}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 p-2 sm:p-3">
         <Configurator navigate={navigate} isFromProjects={isFromProjects} instanceId={instanceId} />
       </div>
     </div>

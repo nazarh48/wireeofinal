@@ -1,14 +1,58 @@
 import { PDFConfig } from "../models/PDFConfig.js";
 import { ensureConfigurable } from "../services/productService.js";
 
+const isPlainObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value);
+
+const isDataUrl = (value) =>
+  typeof value === "string" && value.startsWith("data:");
+
+function sanitizeEditsSnapshot(edits) {
+  if (!isPlainObject(edits)) {
+    return { elements: [], configuration: {} };
+  }
+
+  const configuration = isPlainObject(edits.configuration)
+    ? { ...edits.configuration }
+    : {};
+
+  if (isDataUrl(configuration.backgroundImage)) {
+    configuration.backgroundImage = null;
+  }
+
+  const elements = Array.isArray(edits.elements)
+    ? edits.elements.map((element) => {
+        if (!isPlainObject(element)) return element;
+        const next = { ...element };
+        if (isDataUrl(next.src)) {
+          next.src = "";
+        }
+        return next;
+      })
+    : [];
+
+  return { elements, configuration };
+}
+
+function sanitizeSnapshotProducts(products) {
+  return Array.isArray(products)
+    ? products.map((item) => ({
+        product: item?.product ?? item?.productId ?? item,
+        instanceId: item?.instanceId ?? null,
+        edits: sanitizeEditsSnapshot(item?.edits),
+      }))
+    : [];
+}
+
 export async function create(req, res, next) {
   try {
     const { projectId, projectName, productCount, products, pdfSettings } = req.body;
     const count = Number(productCount) || 0;
+    const sanitizedProducts = sanitizeSnapshotProducts(products);
     // Only validate configurability for ad-hoc exports (no projectId).
     // When projectId is present the products were already validated when added to the project.
     if (!projectId) {
-      const productIds = (products || []).map((p) => p.product ?? p.productId ?? p).filter(Boolean);
+      const productIds = sanitizedProducts.map((p) => p.product).filter(Boolean);
       if (productIds.length) await ensureConfigurable(productIds);
     }
 
@@ -21,7 +65,7 @@ export async function create(req, res, next) {
             projectName: (projectName || "Unnamed Project").trim(),
             productCount: Math.max(0, count),
             lastExportedAt: new Date(),
-            products: Array.isArray(products) ? products : [],
+            products: sanitizedProducts,
             pdfSettings: pdfSettings || {},
           }
         },
@@ -33,7 +77,7 @@ export async function create(req, res, next) {
         projectName: (projectName || "Unnamed Project").trim(),
         productCount: Math.max(0, count),
         lastExportedAt: new Date(),
-        products: Array.isArray(products) ? products : [],
+        products: sanitizedProducts,
         pdfSettings: pdfSettings || {},
         createdBy: req.user._id,
       });

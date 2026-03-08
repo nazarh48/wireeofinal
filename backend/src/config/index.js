@@ -23,10 +23,10 @@ export const config = {
   },
   jwt: {
     secret: process.env.JWT_SECRET || "wireeo-jwt-secret-change-me",
-    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+    expiresIn: process.env.JWT_EXPIRES_IN || "1d",
   },
   session: {
-    inactivityMinutes: parseInt(process.env.SESSION_INACTIVITY_MINUTES || "15", 10),
+    inactivityMinutes: parseInt(process.env.SESSION_INACTIVITY_MINUTES || "1440", 10),
   },
   cors: {
     origin: process.env.CORS_ORIGIN

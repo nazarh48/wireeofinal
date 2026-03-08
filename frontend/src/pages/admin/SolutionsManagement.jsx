@@ -99,11 +99,12 @@ function SolutionForm({ initial, onSubmit, onCancel, loading }) {
   // Resolve existing image URL for preview when editing
   const existingImageSrc = (() => {
     if (!initial) return "";
+    const mainImage = initial.image || "";
     const firstImg =
       Array.isArray(initial.images) && initial.images[0]
         ? initial.images[0].url || initial.images[0]
         : null;
-    return getImageUrl(firstImg || initial.image || "");
+    return getImageUrl(mainImage || firstImg || "");
   })();
 
   const previewSrc = mainImagePreview || existingImageSrc;
@@ -403,11 +404,12 @@ export default function SolutionsManagement() {
         ) : (
           <ul className="divide-y divide-slate-200">
             {solutions.map((s) => {
+              const mainImage = s.image || "";
               const firstImage =
                 Array.isArray(s.images) && s.images[0]
                   ? s.images[0].url || s.images[0]
                   : null;
-              const imgSrc = getImageUrl(firstImage || s.image || "");
+              const imgSrc = getImageUrl(mainImage || firstImage || "");
 
               return (
                 <li

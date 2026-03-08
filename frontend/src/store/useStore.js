@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { apiService, USER_TOKEN_KEY, ADMIN_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
 import { normalizeElements } from "../utils/editorMigration";
+import { sanitizePdfEditsSnapshot } from "../utils/pdfSnapshot";
 
 const normalizeImageUrl = (url) => {
   if (!url) return "";
@@ -196,7 +197,7 @@ const useStore = create((set, get) => ({
       .map(({ productId, p }) => ({
         product: productId,
         instanceId: p._instanceId,
-        edits: p.edits || {},
+        edits: sanitizePdfEditsSnapshot(p.edits),
       }));
 
     apiService.pdf
@@ -390,6 +391,9 @@ const useStore = create((set, get) => ({
           id: proj._id,
           name: proj.name,
           configurationNumber: proj.configurationNumber,
+          createdBy: proj.createdBy || null,
+          ownerName: proj.createdBy?.name || "",
+          ownerEmail: proj.createdBy?.email || "",
           products: await Promise.all(
             (proj.products || []).map(async (item) => {
               const p = item.product;

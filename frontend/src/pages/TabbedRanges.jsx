@@ -7,6 +7,7 @@ import ProjectSelectionModal from '../components/ProjectSelectionModal';
 import EditedProductPreview from '../components/EditedProductPreview';
 import { useAuthStore } from '../store/authStore';
 import { generateProductPDF, generateProjectPDF } from '../utils/pdfGenerator';
+import { sanitizePdfEditsSnapshot } from '../utils/pdfSnapshot';
 import { apiService, API_ORIGIN, IMAGE_BASE_URL } from '../services/api';
 
 const FALLBACK_IMAGE = '/test.png';
@@ -88,6 +89,7 @@ const TabbedRanges = () => {
             error={projectsError}
             onRetry={fetchProjects}
             setActiveTab={setActiveTab}
+            initialSelectedProjectId={searchParams.get('projectId')}
           />
         );
       case 'pdf-configurations':
@@ -128,13 +130,20 @@ const TabbedRanges = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-300 ${activeTab === tab.id
-                    ? 'text-white bg-gradient-to-r from-teal-600 to-cyan-600 shadow-lg'
-                    : 'text-gray-600 hover:text-teal-600 hover:bg-teal-50'
+                    ? tab.id === 'pdf-configurations'
+                      ? 'text-white bg-emerald-600 shadow-lg'
+                      : 'text-white bg-gradient-to-r from-teal-600 to-cyan-600 shadow-lg'
+                    : tab.id === 'pdf-configurations'
+                      ? 'text-gray-600 hover:text-emerald-700 hover:bg-emerald-50'
+                      : 'text-gray-600 hover:text-teal-600 hover:bg-teal-50'
                     }`}
                 >
                   {tab.label}
                   {activeTab === tab.id && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-teal-600 to-cyan-600 rounded-lg opacity-20"></div>
+                    <div className={`absolute inset-0 rounded-lg opacity-20 ${tab.id === 'pdf-configurations'
+                      ? 'bg-emerald-600'
+                      : 'bg-gradient-to-r from-teal-600 to-cyan-600'
+                      }`}></div>
                   )}
                 </button>
               ))}
@@ -394,6 +403,14 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
     navigate(`/editor/${item.id}?${params.toString()}`);
   };
 
+  const handleDeleteItem = (item) => {
+    const confirmed = window.confirm(
+      `Delete "${item?.name || 'this product'}" from your collection?`,
+    );
+    if (!confirmed) return;
+    onDelete(item._instanceId || item.id);
+  };
+
   const handleToggleSelection = (item) => {
     setSelectedProducts(prev => {
       const newSet = new Set(prev);
@@ -647,7 +664,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                             </svg>
                           </button>
                           <button
-                            onClick={() => onDelete(item._instanceId || item.id)}
+                            onClick={() => handleDeleteItem(item)}
                             className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
                             title="Delete Product"
                             aria-label="Delete product"
@@ -694,7 +711,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
   );
 };
 
-const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
+const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelectedProjectId = null }) => {
   const {
     projects,
     collection,
@@ -720,13 +737,22 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
   const projectsWithProducts = projects.filter((p) => p.products && p.products.length > 0);
 
   useEffect(() => {
+    if (
+      initialSelectedProjectId &&
+      projectsWithProducts.some((p) => p.id === initialSelectedProjectId) &&
+      selectedProjectId !== initialSelectedProjectId
+    ) {
+      setSelectedProjectId(initialSelectedProjectId);
+      return;
+    }
+
     if (!selectedProjectId && projectsWithProducts.length > 0) {
       setSelectedProjectId(projectsWithProducts[0].id);
     }
     if (selectedProjectId && !projectsWithProducts.some((p) => p.id === selectedProjectId)) {
       setSelectedProjectId(projectsWithProducts[0]?.id || null);
     }
-  }, [projectsWithProducts, selectedProjectId]);
+  }, [initialSelectedProjectId, projectsWithProducts, selectedProjectId]);
 
   const handleAddProjectToPdf = (project) => {
     const added = addProductsToPdf(project?.products || [], project?.name, project?.id);
@@ -819,7 +845,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
         .map(({ productId, p }) => ({
           product: productId,
           instanceId: p._instanceId || null,
-          edits: p.edits || {},
+          edits: sanitizePdfEditsSnapshot(p.edits),
         }));
       if (snapshot.length === 0) {
         showToast('Could not resolve product IDs – please refresh and try again.');
@@ -865,7 +891,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
           {
             product: productId,
             instanceId: product?._instanceId || null,
-            edits: productWithEdits.edits || {},
+            edits: sanitizePdfEditsSnapshot(productWithEdits.edits),
           },
         ],
       });
@@ -887,6 +913,10 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab }) => {
       showToast('Could not remove product: missing identifier.');
       return;
     }
+    const confirmed = window.confirm(
+      `Remove "${product?.name || 'this product'}" from this project?`,
+    );
+    if (!confirmed) return;
     await removeProductFromProject(projectId, removeKey);
   };
 
@@ -1253,12 +1283,12 @@ const PDFConfigurationsContent = () => {
       {entries.length > 0 && (
         <div className="mb-12">
           <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 rounded-3xl blur opacity-20" />
+            <div className="absolute -inset-1 rounded-3xl bg-emerald-600 blur opacity-15" />
             <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 p-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="bg-emerald-600 p-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h3 className="text-xl font-bold text-white">Current PDF list</h3>
-                  <p className="text-blue-100 text-sm mt-1">{entries.length} item{entries.length !== 1 ? 's' : ''} ready to export</p>
+                  <p className="mt-1 text-sm text-emerald-100">{entries.length} item{entries.length !== 1 ? 's' : ''} ready to export</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button

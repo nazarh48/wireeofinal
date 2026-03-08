@@ -34,8 +34,11 @@ export async function create(req, res, next) {
 
 export async function list(req, res, next) {
   try {
-    const projects = await Project.find({ createdBy: req.user._id })
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin ? {} : { createdBy: req.user._id };
+    const projects = await Project.find(filter)
       .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku")
+      .populate("createdBy", "name email role")
       .sort({ createdAt: -1 })
       .lean();
     return res.status(200).json({ success: true, projects });
@@ -46,8 +49,13 @@ export async function list(req, res, next) {
 
 export async function getById(req, res, next) {
   try {
-    const project = await Project.findOne({ _id: req.params.id, createdBy: req.user._id })
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, createdBy: req.user._id };
+    const project = await Project.findOne(filter)
       .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType range productCode sku")
+      .populate("createdBy", "name email role")
       .lean();
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
@@ -147,7 +155,11 @@ export async function updateName(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
-    const project = await Project.findOneAndDelete({ _id: req.params.id, createdBy: req.user._id });
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, createdBy: req.user._id };
+    const project = await Project.findOneAndDelete(filter);
     if (!project) {
       return res.status(404).json({ success: false, message: "Project not found" });
     }

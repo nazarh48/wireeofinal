@@ -3,6 +3,9 @@ import Modal from "../../components/Modal";
 import { IconSolutions, IconPencil } from "../../components/admin/AdminIcons";
 import { apiService, getImageUrl } from "../../services/api";
 
+const SOLUTION_ASSET = (filename) =>
+  `/assets/Solution/${encodeURIComponent(filename)}`;
+
 const DEFAULT_ITEMS = [
   {
     title: "Seamless Access Flow",
@@ -49,6 +52,19 @@ function WhyChooseForm({ solution, initial, onSubmit, onCancel, loading }) {
       ? initial.items
       : DEFAULT_ITEMS
   );
+
+  useEffect(() => {
+    setIntroTitle(initial?.introTitle || "Why Choose Our Solution");
+    setIntroSubtitle(
+      initial?.introSubtitle ||
+        "Designed to optimize access management through security, efficiency, and full operational visibility."
+    );
+    setItems(
+      Array.isArray(initial?.items) && initial.items.length
+        ? initial.items
+        : DEFAULT_ITEMS
+    );
+  }, [initial]);
 
   const updateItem = (index, field, value) => {
     setItems((prev) => {
@@ -169,13 +185,19 @@ function WhyChooseForm({ solution, initial, onSubmit, onCancel, loading }) {
         <div className="space-y-4">
           {items.map((item, index) => {
             const iconPath = item.icon || "";
-            const hasUploadsPath =
-              typeof iconPath === "string" && iconPath.startsWith("/uploads/");
-            const previewSrc = iconPath
-              ? hasUploadsPath
-                ? getImageUrl(iconPath)
-                : ""
-              : "";
+            const isAbsoluteUrl =
+              typeof iconPath === "string" &&
+              (iconPath.startsWith("http://") ||
+                iconPath.startsWith("https://") ||
+                iconPath.startsWith("data:"));
+            const previewSrc =
+              typeof iconPath === "string" && iconPath.trim()
+                ? iconPath.startsWith("/uploads/")
+                  ? getImageUrl(iconPath)
+                  : isAbsoluteUrl
+                  ? iconPath
+                  : SOLUTION_ASSET(iconPath)
+                : "";
             return (
               <div
                 key={index}
@@ -240,12 +262,12 @@ function WhyChooseForm({ solution, initial, onSubmit, onCancel, loading }) {
                     <label className="block text-xs font-medium text-slate-600 mb-1">
                       Icon image preview
                     </label>
-                    <div className="w-20 h-20 rounded-lg bg-white border border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
+                    <div className="w-full max-w-[160px] aspect-[4/3] rounded-lg bg-white border border-dashed border-slate-300 flex items-center justify-center overflow-hidden">
                       {previewSrc ? (
-                        // eslint-disable-next-line jsx-a11y/alt-text
                         <img
                           src={previewSrc}
-                          className="w-full h-full object-contain"
+                          alt={item.title || `Card ${index + 1} icon`}
+                          className="w-full h-full object-contain p-2"
                           onError={(e) => {
                             e.target.style.display = "none";
                           }}

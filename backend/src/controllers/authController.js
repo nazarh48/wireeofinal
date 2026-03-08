@@ -188,13 +188,6 @@ export async function login(req, res, next) {
       });
     }
 
-    if (user.role === "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Please use the admin login page.",
-      });
-    }
-
     // 2FA: only if explicitly enabled (disabled for login/signup flow)
     if (user.twoFactorEnabled === true) {
       const code = generate6DigitCode();

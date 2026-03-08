@@ -53,19 +53,19 @@ const TabbedRanges = lazy(() => import('./pages/TabbedRanges'));
 
 function App() {
   const { closeToast, clearPendingCollection, clearPendingPdfCollection, showToast } = useStore();
-  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     const handleGeneratePdf = async (event) => {
       const { products, projectName } = event.detail || {};
       const list = Array.isArray(products) ? products.filter(Boolean) : [];
+      const currentUser = useAuthStore.getState().user;
       console.info("[PDF] Export requested: product count =", list.length, "ids =", list.map((p) => p.id || p._id).join(", "));
       try {
         if (list.length === 0) {
           showToast("No products available to export.");
           return;
         }
-        await generateProductPDF(list, { user, projectName });
+        await generateProductPDF(list, { user: currentUser, projectName });
         clearPendingCollection();
         clearPendingPdfCollection();
         closeToast();
@@ -77,7 +77,7 @@ function App() {
 
     window.addEventListener('generatePdf', handleGeneratePdf);
     return () => window.removeEventListener('generatePdf', handleGeneratePdf);
-  }, [closeToast, clearPendingCollection]);
+  }, [closeToast, clearPendingCollection, clearPendingPdfCollection, showToast]);
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -100,7 +100,7 @@ function App() {
           <Route path="/products/ranges" element={<Layout><RequireAuth><TabbedRanges /></RequireAuth></Layout>} />
           <Route path="/products/range/:rangeId" element={<Layout><ProductsInRange /></Layout>} />
           <Route path="/products/detail/:id" element={<Layout><ProductDetail /></Layout>} />
-          <Route path="/editor/:productId" element={<Layout><RequireAuth><EditorPage /></RequireAuth></Layout>} />
+          <Route path="/editor/:productId" element={<RequireAuth><EditorPage /></RequireAuth>} />
           <Route path="/configurator/:productId" element={<Layout><RequireAuth><ConfiguratorPage /></RequireAuth></Layout>} />
           <Route path="/ranges" element={<Layout><RequireAuth><Ranges /></RequireAuth></Layout>} />
           <Route path="/product-experience" element={<Layout><ProductExperience /></Layout>} />

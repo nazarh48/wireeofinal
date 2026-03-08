@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import useStore from '../../store/useStore';
 import { useIconStore } from '../../stores/useIconStore';
 import { getImageUrl } from '../../services/api';
+import { buildColoredSvgDataUrl, isSvgAssetUrl } from '../../utils/svgIconColor';
 
 const quickActions = [
   { id: 'icons', label: 'Symbols and icons' },
@@ -31,6 +32,35 @@ const roomOptions = [
 ];
 
 const DEFAULT_PROCESSING_OPTIONS = ['Colour printing', 'Laser engraving', 'UV print'];
+
+const DEFAULT_LIBRARY_ICON_SIZE = 96;
+const MIN_LIBRARY_ICON_SIZE = 32;
+const DEFAULT_LIBRARY_ICON_COLOR = '#111827';
+
+const loadImageAsset = (src) =>
+  new Promise((resolve, reject) => {
+    if (!src) {
+      reject(new Error('Missing image source'));
+      return;
+    }
+
+    const primary = new window.Image();
+    primary.crossOrigin = 'anonymous';
+    primary.onload = () => resolve(primary);
+    primary.onerror = () => {
+      const fallback = new window.Image();
+      fallback.onload = () => resolve(fallback);
+      fallback.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+      fallback.src = src;
+    };
+    primary.src = src;
+  });
+
+const loadTextAsset = async (src) => {
+  const response = await fetch(src);
+  if (!response.ok) throw new Error(`Failed to fetch icon asset: ${response.status}`);
+  return response.text();
+};
 
 const getProcessingOptionsForProduct = (product) => {
   if (!product) return DEFAULT_PROCESSING_OPTIONS;
@@ -150,46 +180,61 @@ const ConfiguratorToolRail = () => {
 
   const addBackendIcon = async (icon) => {
     if (!icon) return;
-    const src = getImageUrl(icon.file_path);
-    const isSvg = typeof src === 'string' && src.toLowerCase().includes('.svg');
+    const originalSrc = getImageUrl(icon.file_path);
+    const isSvgIcon = isSvgAssetUrl(originalSrc);
+    let svgMarkup = '';
+    let src = originalSrc;
 
-    if (isSvg) {
+    if (isSvgIcon) {
       try {
-        const resp = await fetch(src);
-        const text = await resp.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'image/svg+xml');
-        const pathEl = doc.querySelector('path');
-        const d = pathEl?.getAttribute('d');
-        if (d) {
-          addElement({
-            type: 'mdiIcon',
-            pathData: d,
-            x: 300,
-            y: 110,
-            width: 34,
-            height: 34,
-            fill: '#111827',
-            stroke: 'transparent',
-            opacity: 1,
-          });
-          setActiveTool('select');
-          return;
-        }
+        svgMarkup = await loadTextAsset(originalSrc);
+        src = buildColoredSvgDataUrl(
+          svgMarkup,
+          DEFAULT_LIBRARY_ICON_COLOR,
+          DEFAULT_LIBRARY_ICON_COLOR
+        );
       } catch {
-        // Fall through to image fallback below
+        svgMarkup = '';
       }
     }
+
+    let width = DEFAULT_LIBRARY_ICON_SIZE;
+    let height = DEFAULT_LIBRARY_ICON_SIZE;
+
+    try {
+      const image = await loadImageAsset(src);
+      const naturalWidth = image.naturalWidth || image.width || DEFAULT_LIBRARY_ICON_SIZE;
+      const naturalHeight = image.naturalHeight || image.height || DEFAULT_LIBRARY_ICON_SIZE;
+      const scale = Math.min(
+        DEFAULT_LIBRARY_ICON_SIZE / naturalWidth,
+        DEFAULT_LIBRARY_ICON_SIZE / naturalHeight,
+        1
+      );
+
+      width = Math.max(MIN_LIBRARY_ICON_SIZE, Math.round(naturalWidth * scale));
+      height = Math.max(MIN_LIBRARY_ICON_SIZE, Math.round(naturalHeight * scale));
+    } catch {
+      // Keep a safe square fallback if metadata cannot be resolved.
+    }
+
+    const canvasWidth = Number(configurator.configuration?.canvasWidth) || 800;
+    const canvasHeight = Number(configurator.configuration?.canvasHeight) || 600;
 
     addElement({
       type: 'image',
       src,
+      originalSrc,
+      svgMarkup: svgMarkup || undefined,
+      isColorizableIcon: Boolean(svgMarkup),
       iconId: icon.id || icon._id,
       categoryId: icon.category_id || null,
-      x: 300,
-      y: 110,
-      width: 96,
-      height: 96,
+      iconName: icon.name || '',
+      fill: DEFAULT_LIBRARY_ICON_COLOR,
+      stroke: DEFAULT_LIBRARY_ICON_COLOR,
+      x: Math.max(0, Math.round((canvasWidth - width) / 2)),
+      y: Math.max(0, Math.round((canvasHeight - height) / 2)),
+      width,
+      height,
       opacity: 1,
     });
     setActiveTool('select');
@@ -216,7 +261,7 @@ const ConfiguratorToolRail = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#f0f7f2] border-r border-teal-200/60">
+    <div className="flex h-full flex-col bg-transparent">
       <div className="px-4 pt-4 pb-3 border-b border-teal-200/60">
         <div className="text-sm font-medium text-gray-800">
           {configurator.product?.name || 'Product'}

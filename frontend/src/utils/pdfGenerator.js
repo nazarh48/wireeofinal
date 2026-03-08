@@ -207,14 +207,17 @@ function drawElementOnContext(ctx, element, loadedImages, imageElements) {
   }
 }
 
-// Product image size in PDF (larger for better visibility; each product in fixed section)
-// Use 4:3 aspect ratio matching project previews, but render at higher resolution for crisper output.
-const PDF_PRODUCT_THUMB_WIDTH = 320;
-const PDF_PRODUCT_THUMB_HEIGHT = 240;
-// Fixed row height per product (px in HTML before capture) for consistent layout
-const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 180;
-// JPEG quality for embedded images (0.75–0.85 balances size and quality)
-const PDF_JPEG_QUALITY = 0.82;
+// Product images are rendered at a higher internal resolution than their displayed size
+// so the PDF stays sharp while still fitting multiple configured terminals per page.
+const PDF_PRODUCT_THUMB_WIDTH = 720;
+const PDF_PRODUCT_THUMB_HEIGHT = 540;
+const PDF_PRODUCT_IMAGE_DISPLAY_WIDTH_PX = 180;
+const PDF_PRODUCT_IMAGE_DISPLAY_HEIGHT_PX = 135;
+const PDF_PRODUCT_ROW_MIN_HEIGHT_PX = 170;
+const PDF_FIRST_PAGE_PRODUCT_COUNT = 3;
+const PDF_FOLLOWING_PAGE_PRODUCT_COUNT = 4;
+const PDF_SUMMARY_ROWS_PER_PAGE = 14;
+const PDF_JPEG_QUALITY = 0.95;
 
 // Editor canvas coordinate space. Must match Konva editor / EditedProductPreview
 // so element positions and backgrounds line up exactly.
@@ -343,6 +346,35 @@ function createPageWrapper() {
   return div;
 }
 
+function chunkProductsForPages(products) {
+  const pages = [];
+  const firstPageProducts = products.slice(0, PDF_FIRST_PAGE_PRODUCT_COUNT);
+
+  if (firstPageProducts.length) {
+    pages.push(firstPageProducts);
+  }
+
+  for (
+    let index = PDF_FIRST_PAGE_PRODUCT_COUNT;
+    index < products.length;
+    index += PDF_FOLLOWING_PAGE_PRODUCT_COUNT
+  ) {
+    pages.push(products.slice(index, index + PDF_FOLLOWING_PAGE_PRODUCT_COUNT));
+  }
+
+  return pages;
+}
+
+function chunkSummaryRows(products) {
+  const pages = [];
+
+  for (let index = 0; index < products.length; index += PDF_SUMMARY_ROWS_PER_PAGE) {
+    pages.push(products.slice(index, index + PDF_SUMMARY_ROWS_PER_PAGE));
+  }
+
+  return pages;
+}
+
 /**
  * Strip gradients and background-image from cloned DOM so html2canvas never calls
  * createPattern with a 0-size canvas (renderBackgroundImage bug).
@@ -382,7 +414,6 @@ function stripBackgroundsForClone(clonedElement) {
   walk(clonedElement);
 }
 
-// Use scale 1.25 and JPEG to reduce PDF size and memory (was scale 2 + PNG).
 async function capturePageAndAddToPdf(pdf, pageDiv, isFirstPage) {
   document.body.appendChild(pageDiv);
   await waitForRender(2);
@@ -391,7 +422,7 @@ async function capturePageAndAddToPdf(pdf, pageDiv, isFirstPage) {
     const width = Math.max(1, pageDiv.offsetWidth || PDF_PAGE_WIDTH_PX);
     const height = Math.max(1, pageDiv.offsetHeight || 1122);
     const canvas = await html2canvas(pageDiv, {
-      scale: 1.25,
+      scale: 3,
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
@@ -418,7 +449,7 @@ async function capturePageAndAddToPdf(pdf, pageDiv, isFirstPage) {
     let imgHeightMm = (canvas.height * imgWidthMm) / canvas.width;
     if (imgHeightMm > PDF_A4_HEIGHT_MM) imgHeightMm = PDF_A4_HEIGHT_MM;
     if (!isFirstPage) pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, 0, imgWidthMm, imgHeightMm);
+    pdf.addImage(imgData, "JPEG", 0, 0, imgWidthMm, imgHeightMm, undefined, "FAST");
   } catch (error) {
     console.error("[PDF] Error capturing page:", error);
     throw error;
@@ -471,64 +502,634 @@ export const generateProductPDF = async (products, options = {}) => {
 
     const configNumber = configurationNumber || `CFG-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
     const reportDate = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    const totalPages = 2;
+    const reportYear = new Date().getFullYear();
+    const accentColor = "#0f766e";
+    const accentSoft = "#ecfdf5";
+    const accentBorder = "#99f6e4";
+    const slateSoft = "#f8fafc";
+    const slateBorder = "#e2e8f0";
+    const textMuted = "#64748b";
+    const footerLegal = "The current terms and conditions of sale and delivery can always be found on our website at: wireeo.com/terms";
+    const footerCompany = `WIREEO • Professional Electrical Configuration Systems • www.wireeo.com • ${reportYear}`;
+    const resolveUserName = (account) => {
+      if (!account || typeof account !== "object") return "—";
+      const fullName = [account.firstName, account.lastName]
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean)
+        .join(" ");
+      return (
+        fullName ||
+        account.name ||
+        account.fullName ||
+        account.displayName ||
+        account.customerName ||
+        account.companyName ||
+        account.company ||
+        "—"
+      );
+    };
+    const resolveUserCompany = (account) =>
+      account?.companyName ||
+      account?.company ||
+      account?.businessName ||
+      account?.organization ||
+      "";
+    const resolveUserCustomerNumber = (account) =>
+      account?.customerNumber ||
+      account?.customerNr ||
+      account?.customerNo ||
+      account?.customerId ||
+      account?.accountNumber ||
+      account?._id ||
+      account?.id ||
+      "—";
+    const resolveUserPhone = (account) =>
+      account?.phone ||
+      account?.tel ||
+      account?.telephone ||
+      account?.mobile ||
+      account?.mobileNumber ||
+      account?.phoneNumber ||
+      "—";
+    const resolveUserEmail = (account) =>
+      account?.email ||
+      account?.mail ||
+      account?.emailAddress ||
+      "—";
+    const resolveUserAddress = (account) => {
+      if (!account || typeof account !== "object") return "—";
+      if (typeof account.address === "string" && account.address.trim()) {
+        return account.address.trim();
+      }
+      const address = account.address && typeof account.address === "object" ? account.address : null;
+      const addressLine = [
+        address?.street,
+        address?.street2,
+        address?.zip,
+        address?.postalCode,
+        address?.city,
+        address?.country,
+      ]
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter(Boolean)
+        .join(", ");
+      return addressLine || "—";
+    };
+    const pdfUser = {
+      name: resolveUserName(user),
+      company: resolveUserCompany(user),
+      customerNumber: resolveUserCustomerNumber(user),
+      phone: resolveUserPhone(user),
+      email: resolveUserEmail(user),
+      address: resolveUserAddress(user),
+    };
 
     const addText = (parent, text, fontSize = 11, color = "#1f2937", marginBottom = 4) => {
       const el = document.createElement("div");
       el.textContent = text;
+      el.style.display = "block";
       el.style.fontSize = `${fontSize}px`;
       el.style.color = color;
-      el.style.marginBottom = `${marginBottom}px`;
+      el.style.margin = `0 0 ${marginBottom}px 0`;
       el.style.lineHeight = "1.4";
       parent.appendChild(el);
       return el;
     };
 
+    const buildPillBadgeDataUrl = (label) => {
+      const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="150" height="34" viewBox="0 0 150 34">
+          <rect x="0.75" y="0.75" width="148.5" height="32.5" rx="16.25" fill="#ffffff" stroke="${accentBorder}" stroke-width="1.5"/>
+          <text
+            x="75"
+            y="17"
+            fill="${accentColor}"
+            font-family="Segoe UI, Roboto, Arial, sans-serif"
+            font-size="11"
+            font-weight="700"
+            letter-spacing="0.33"
+            text-anchor="middle"
+            dominant-baseline="middle"
+          >${label}</text>
+        </svg>
+      `;
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    };
+
     const addBrandHeader = (parent) => {
       const wrapper = document.createElement("div");
-      wrapper.style.display = "flex";
-      wrapper.style.alignItems = "center";
-      wrapper.style.justifyContent = "space-between";
-      wrapper.style.marginBottom = "20px";
+      wrapper.style.marginBottom = "18px";
+      wrapper.style.border = `1px solid ${accentBorder}`;
+      wrapper.style.borderRadius = "20px";
+      wrapper.style.backgroundColor = accentSoft;
+      wrapper.style.boxSizing = "border-box";
+      wrapper.style.overflow = "hidden";
 
-      const left = document.createElement("div");
-      left.style.display = "flex";
-      left.style.alignItems = "center";
-      left.style.gap = "12px";
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "collapse";
+      table.style.tableLayout = "fixed";
 
-      const logo = document.createElement("img");
-      logo.src = `${window.location.origin}/assets/Logowireeo.png`;
-      logo.alt = "Wireeo";
-      logo.style.height = "40px";
-      logo.style.width = "auto";
-      logo.style.maxWidth = "160px";
-      logo.style.objectFit = "contain";
-      logo.onerror = () => {
-        logo.style.display = "none";
-      };
-      left.appendChild(logo);
+      const tr = document.createElement("tr");
+      const leftTd = document.createElement("td");
+      leftTd.style.padding = "20px 16px 20px 28px";
+      leftTd.style.verticalAlign = "middle";
+      leftTd.style.width = "auto";
 
-      const title = document.createElement("div");
-      title.textContent = companyNameOption;
-      title.style.fontSize = "18px";
-      title.style.fontWeight = "700";
-      title.style.letterSpacing = "0.06em";
-      title.style.color = "#1f2937";
-      left.appendChild(title);
+      const leftTable = document.createElement("table");
+      leftTable.style.borderCollapse = "collapse";
+      leftTable.style.tableLayout = "fixed";
 
-      const right = document.createElement("div");
-      right.textContent = "Customer Report";
-      right.style.fontSize = "11px";
-      right.style.fontWeight = "600";
-      right.style.color = "#6b7280";
+      const logoImg = document.createElement("img");
+      logoImg.src = `${window.location.origin}/assets/Logowireeo.png`;
+      logoImg.alt = "Wireeo";
+      logoImg.style.height = "48px";
+      logoImg.style.width = "auto";
+      logoImg.style.maxWidth = "160px";
+      logoImg.style.display = "block";
+      logoImg.onerror = () => { logoImg.style.display = "none"; };
 
-      wrapper.appendChild(left);
-      wrapper.appendChild(right);
+      const sep = document.createElement("span");
+      sep.style.display = "block";
+      sep.style.width = "1px";
+      sep.style.height = "36px";
+      sep.style.backgroundColor = accentBorder;
+      sep.style.margin = "0 auto";
+
+      const titleMain = document.createElement("div");
+      titleMain.textContent = companyNameOption || "WIREEO";
+      titleMain.style.display = "block";
+      titleMain.style.fontSize = "19px";
+      titleMain.style.fontWeight = "700";
+      titleMain.style.letterSpacing = "0.05em";
+      titleMain.style.color = "#0f172a";
+      titleMain.style.lineHeight = "1.25";
+      titleMain.style.margin = "0 0 3px 0";
+
+      const titleSub = document.createElement("div");
+      titleSub.textContent = "Configured terminal report";
+      titleSub.style.display = "block";
+      titleSub.style.fontSize = "11px";
+      titleSub.style.color = textMuted;
+      titleSub.style.lineHeight = "1.3";
+      titleSub.style.margin = "0";
+
+      const leftRow = document.createElement("tr");
+
+      const logoCell = document.createElement("td");
+      logoCell.style.verticalAlign = "middle";
+      logoCell.style.width = "160px";
+      logoCell.appendChild(logoImg);
+
+      const dividerCell = document.createElement("td");
+      dividerCell.style.verticalAlign = "middle";
+      dividerCell.style.width = "33px";
+      dividerCell.style.padding = "0 16px";
+      dividerCell.style.boxSizing = "border-box";
+      dividerCell.appendChild(sep);
+
+      const titleCell = document.createElement("td");
+      titleCell.style.verticalAlign = "middle";
+      titleCell.style.textAlign = "center";
+      titleCell.appendChild(titleMain);
+      titleCell.appendChild(titleSub);
+
+      leftRow.appendChild(logoCell);
+      leftRow.appendChild(dividerCell);
+      leftRow.appendChild(titleCell);
+      leftTable.appendChild(leftRow);
+      leftTd.appendChild(leftTable);
+
+      const rightTd = document.createElement("td");
+      rightTd.style.padding = "20px 28px 20px 12px";
+      rightTd.style.verticalAlign = "middle";
+      rightTd.style.textAlign = "right";
+      rightTd.style.width = "200px";
+
+      const rightTable = document.createElement("table");
+      rightTable.style.borderCollapse = "collapse";
+      rightTable.style.marginLeft = "auto";
+
+      const reportChip = document.createElement("img");
+      reportChip.src = buildPillBadgeDataUrl("Customer Report");
+      reportChip.alt = "Customer Report";
+      reportChip.style.display = "block";
+      reportChip.style.width = "150px";
+      reportChip.style.height = "34px";
+      reportChip.style.margin = "0";
+
+      const generatedText = document.createElement("div");
+      generatedText.textContent = reportDate;
+      generatedText.style.display = "block";
+      generatedText.style.fontSize = "10px";
+      generatedText.style.color = textMuted;
+      generatedText.style.lineHeight = "1.2";
+      generatedText.style.textAlign = "center";
+      generatedText.style.margin = "8px 0 0 0";
+
+      const chipRow = document.createElement("tr");
+      const chipCell = document.createElement("td");
+      chipCell.style.verticalAlign = "middle";
+      chipCell.appendChild(reportChip);
+      chipRow.appendChild(chipCell);
+
+      const dateRow = document.createElement("tr");
+      const dateCell = document.createElement("td");
+      dateCell.style.verticalAlign = "middle";
+      dateCell.appendChild(generatedText);
+      dateRow.appendChild(dateCell);
+
+      rightTable.appendChild(chipRow);
+      rightTable.appendChild(dateRow);
+      rightTd.appendChild(rightTable);
+
+      tr.appendChild(leftTd);
+      tr.appendChild(rightTd);
+      table.appendChild(tr);
+      wrapper.appendChild(table);
       parent.appendChild(wrapper);
     };
 
-    const footerLegal = "The current terms and conditions of sale and delivery can always be found on our website at: wireeo.com/terms";
-    const footerCompany = "WIREEO • Professional Electrical Configuration Systems • www.wireeo.com • MADE WITH PRECISION";
+    const addHighlightStrip = (parent, items) => {
+      const outer = document.createElement("div");
+      outer.style.marginBottom = "18px";
+
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "separate";
+      table.style.borderSpacing = "0";
+      table.style.tableLayout = "fixed";
+
+      const tr = document.createElement("tr");
+
+      items.forEach(({ label, value }, idx) => {
+        const td = document.createElement("td");
+        td.style.verticalAlign = "top";
+        td.style.width = `${100 / items.length}%`;
+        if (idx > 0) td.style.paddingLeft = "12px";
+
+        const cardTable = document.createElement("table");
+        cardTable.style.width = "100%";
+        cardTable.style.height = "76px";
+        cardTable.style.borderCollapse = "separate";
+        cardTable.style.borderSpacing = "0";
+        cardTable.style.tableLayout = "fixed";
+        cardTable.style.border = `1px solid ${slateBorder}`;
+        cardTable.style.borderRadius = "16px";
+        cardTable.style.backgroundColor = "#ffffff";
+        cardTable.style.overflow = "hidden";
+
+        const cardRow = document.createElement("tr");
+        const cardCell = document.createElement("td");
+        cardCell.style.verticalAlign = "middle";
+        cardCell.style.padding = "0 18px";
+        cardCell.style.boxSizing = "border-box";
+        cardCell.style.textAlign = "left";
+
+        const cardLabel = document.createElement("div");
+        cardLabel.textContent = label;
+        cardLabel.style.display = "block";
+        cardLabel.style.width = "100%";
+        cardLabel.style.fontSize = "9px";
+        cardLabel.style.fontWeight = "700";
+        cardLabel.style.letterSpacing = "0.08em";
+        cardLabel.style.textTransform = "uppercase";
+        cardLabel.style.color = textMuted;
+        cardLabel.style.margin = "0 0 7px 0";
+        cardLabel.style.lineHeight = "1.15";
+        cardLabel.style.textAlign = "left";
+
+        const cardValue = document.createElement("div");
+        cardValue.textContent = value;
+        cardValue.style.display = "block";
+        cardValue.style.width = "100%";
+        cardValue.style.fontSize = "14px";
+        cardValue.style.fontWeight = "700";
+        cardValue.style.color = "#0f172a";
+        cardValue.style.lineHeight = "1.25";
+        cardValue.style.wordBreak = "break-word";
+        cardValue.style.margin = "0";
+        cardValue.style.textAlign = "left";
+
+        cardCell.appendChild(cardLabel);
+        cardCell.appendChild(cardValue);
+        cardRow.appendChild(cardCell);
+        cardTable.appendChild(cardRow);
+        td.appendChild(cardTable);
+        tr.appendChild(td);
+      });
+
+      table.appendChild(tr);
+      outer.appendChild(table);
+      parent.appendChild(outer);
+    };
+
+    const addSectionHeading = (parent, title, subtitle = "") => {
+      const block = document.createElement("div");
+      block.style.marginBottom = "12px";
+
+      const heading = document.createElement("div");
+      heading.textContent = title;
+      heading.style.fontSize = "16px";
+      heading.style.fontWeight = "700";
+      heading.style.color = "#0f172a";
+      heading.style.marginBottom = subtitle ? "4px" : "0";
+
+      block.appendChild(heading);
+
+      if (subtitle) {
+        const description = document.createElement("div");
+        description.textContent = subtitle;
+        description.style.fontSize = "10px";
+        description.style.color = textMuted;
+        block.appendChild(description);
+      }
+
+      parent.appendChild(block);
+    };
+
+    const addCustomerCard = (parent) => {
+      const card = document.createElement("table");
+      card.style.width = "100%";
+      card.style.borderCollapse = "separate";
+      card.style.borderSpacing = "0";
+      card.style.tableLayout = "fixed";
+      card.style.borderRadius = "18px";
+      card.style.border = `1px solid ${slateBorder}`;
+      card.style.backgroundColor = slateSoft;
+      card.style.marginBottom = "18px";
+      card.style.overflow = "hidden";
+
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.style.padding = "18px 20px";
+      cell.style.verticalAlign = "top";
+
+      addText(cell, "Customer", 10, textMuted, 6).style.fontWeight = "700";
+      addText(cell, pdfUser.name, 12, "#0f172a", 3).style.fontWeight = "700";
+      if (pdfUser.company && pdfUser.company !== pdfUser.name) {
+        addText(cell, pdfUser.company, 11, "#334155", 3);
+      }
+      addText(cell, `Customer Nr.: ${pdfUser.customerNumber}`, 11, "#334155", 3);
+      addText(cell, `Tel.: ${pdfUser.phone}`, 11, "#334155", 3);
+      addText(cell, `E-Mail: ${pdfUser.email}`, 11, "#334155", 3);
+      addText(cell, pdfUser.address, 11, "#334155", 0);
+
+      row.appendChild(cell);
+      card.appendChild(row);
+      parent.appendChild(card);
+    };
+
+    const addGeneratedByCard = (parent) => {
+      const card = document.createElement("table");
+      card.style.width = "100%";
+      card.style.borderCollapse = "separate";
+      card.style.borderSpacing = "0";
+      card.style.tableLayout = "fixed";
+      card.style.borderRadius = "18px";
+      card.style.border = `1px solid ${slateBorder}`;
+      card.style.backgroundColor = "#ffffff";
+      card.style.marginBottom = "18px";
+      card.style.overflow = "hidden";
+
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.style.padding = "18px 20px";
+      cell.style.verticalAlign = "top";
+
+      addText(cell, "Generated by customer account", 10, textMuted, 6).style.fontWeight = "700";
+      addText(cell, pdfUser.name, 12, "#0f172a", 3).style.fontWeight = "700";
+      addText(cell, `E-Mail: ${pdfUser.email}`, 11, "#334155", 3);
+      addText(cell, `Tel.: ${pdfUser.phone}`, 11, "#334155", 3);
+      addText(cell, `Customer Nr.: ${pdfUser.customerNumber}`, 11, "#334155", 3);
+      addText(cell, `This PDF was generated on ${reportDate}.`, 11, "#334155", 0);
+
+      row.appendChild(cell);
+      card.appendChild(row);
+      parent.appendChild(card);
+    };
+
+    const addUserIntroSection = (parent) => {
+      addCustomerCard(parent);
+    };
+
+    const addPageFooter = (parent, currentPage, totalPages) => {
+      const divider = document.createElement("div");
+      divider.style.height = "1px";
+      divider.style.backgroundColor = slateBorder;
+      divider.style.marginBottom = "10px";
+      parent.appendChild(divider);
+
+      addText(parent, footerLegal, 9, "#6b7280", 8);
+      addText(parent, footerCompany, 8, "#9ca3af", 16);
+
+      const pageNum = document.createElement("div");
+      pageNum.style.textAlign = "center";
+      pageNum.style.fontSize = "10px";
+      pageNum.style.color = "#9ca3af";
+      pageNum.textContent = `-- ${currentPage} of ${totalPages} --`;
+      parent.appendChild(pageNum);
+    };
+
+    const createProductTable = (productsForPage, startIndex, productThumbs) => {
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "separate";
+      table.style.borderSpacing = "0 10px";
+      table.style.fontSize = "10px";
+      table.style.marginBottom = "24px";
+
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      ["Image", "Item No./Items", "Description", "Piece"].forEach((thText) => {
+        const th = document.createElement("th");
+        th.textContent = thText;
+        th.style.textAlign = "left";
+        th.style.padding = "0 12px 8px";
+        th.style.borderBottom = `2px solid ${accentColor}`;
+        th.style.color = "#0f172a";
+        th.style.fontWeight = "700";
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      productsForPage.forEach((product, idx) => {
+        const globalIndex = startIndex + idx;
+        const tr = document.createElement("tr");
+        tr.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
+        tr.style.backgroundColor = "#ffffff";
+
+        const imgTd = document.createElement("td");
+        imgTd.style.padding = "12px";
+        imgTd.style.verticalAlign = "middle";
+        imgTd.style.width = "190px";
+        imgTd.style.minWidth = "190px";
+        imgTd.style.boxSizing = "border-box";
+        imgTd.style.borderTop = `1px solid ${slateBorder}`;
+        imgTd.style.borderBottom = `1px solid ${slateBorder}`;
+        imgTd.style.borderLeft = `1px solid ${slateBorder}`;
+        imgTd.style.borderTopLeftRadius = "16px";
+        imgTd.style.borderBottomLeftRadius = "16px";
+        imgTd.style.backgroundColor = idx % 2 === 0 ? "#ffffff" : slateSoft;
+
+        const thumbUrl = productThumbs[globalIndex];
+        const imageFrame = document.createElement("div");
+        imageFrame.style.width = `${PDF_PRODUCT_IMAGE_DISPLAY_WIDTH_PX}px`;
+        imageFrame.style.height = `${PDF_PRODUCT_IMAGE_DISPLAY_HEIGHT_PX}px`;
+        imageFrame.style.backgroundColor = "#ffffff";
+        imageFrame.style.border = `1px solid ${slateBorder}`;
+        imageFrame.style.borderRadius = "14px";
+        imageFrame.style.overflow = "hidden";
+        imageFrame.style.boxSizing = "border-box";
+
+        if (thumbUrl) {
+          const img = document.createElement("img");
+          img.src = thumbUrl;
+          img.alt = product?.name || "";
+          img.loading = "eager";
+          img.style.width = `${PDF_PRODUCT_IMAGE_DISPLAY_WIDTH_PX}px`;
+          img.style.height = `${PDF_PRODUCT_IMAGE_DISPLAY_HEIGHT_PX}px`;
+          img.style.objectFit = "contain";
+          img.style.display = "block";
+          img.style.backgroundColor = "#ffffff";
+          imageFrame.appendChild(img);
+        } else {
+          const placeholder = document.createElement("div");
+          placeholder.style.width = `${PDF_PRODUCT_IMAGE_DISPLAY_WIDTH_PX}px`;
+          placeholder.style.height = `${PDF_PRODUCT_IMAGE_DISPLAY_HEIGHT_PX}px`;
+          placeholder.style.backgroundColor = "#f3f4f6";
+          placeholder.style.textAlign = "center";
+          placeholder.style.lineHeight = `${PDF_PRODUCT_IMAGE_DISPLAY_HEIGHT_PX}px`;
+          placeholder.style.fontSize = "9px";
+          placeholder.style.color = "#9ca3af";
+          placeholder.textContent = "No image";
+          imageFrame.appendChild(placeholder);
+        }
+        imgTd.appendChild(imageFrame);
+        tr.appendChild(imgTd);
+
+        const itemNo = document.createElement("td");
+        itemNo.style.padding = "12px";
+        itemNo.style.verticalAlign = "middle";
+        itemNo.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
+        itemNo.style.borderTop = `1px solid ${slateBorder}`;
+        itemNo.style.borderBottom = `1px solid ${slateBorder}`;
+        itemNo.style.backgroundColor = idx % 2 === 0 ? "#ffffff" : slateSoft;
+        itemNo.textContent = product?.name || product?.sku || "—";
+        tr.appendChild(itemNo);
+
+        const desc = document.createElement("td");
+        desc.style.padding = "12px";
+        desc.style.verticalAlign = "middle";
+        desc.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
+        desc.style.fontSize = "10px";
+        desc.style.borderTop = `1px solid ${slateBorder}`;
+        desc.style.borderBottom = `1px solid ${slateBorder}`;
+        desc.style.backgroundColor = idx % 2 === 0 ? "#ffffff" : slateSoft;
+        const cfg = product?.edits?.configuration || {};
+        const productCode = product?.productCode || product?.sku || product?.id || "—";
+        const descLines = [
+          product?.name || "—",
+          `Code: ${productCode}`,
+         
+          `Individual labelling: ${cfg.individualLabeling || cfg.individualLabel || "—"}`,
+          `Floor: ${cfg.floor || "—"}`,
+          `Room: ${cfg.room || "—"}`,
+          `Processing: ${cfg.processingType || "Print"}`,
+          "1x incl. Processing fee",
+          `Filename: ${product?.sku || product?.id || "—"}`,
+          "1x",
+          "Item",
+          String(globalIndex + 1).padStart(2, "0"),
+        ].filter(Boolean);
+        desc.textContent = descLines.join("\n");
+        desc.style.whiteSpace = "pre-line";
+        desc.style.lineHeight = "1.35";
+        tr.appendChild(desc);
+
+        const piece = document.createElement("td");
+        piece.style.padding = "12px";
+        piece.style.verticalAlign = "middle";
+        piece.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
+        piece.style.borderTop = `1px solid ${slateBorder}`;
+        piece.style.borderBottom = `1px solid ${slateBorder}`;
+        piece.style.borderRight = `1px solid ${slateBorder}`;
+        piece.style.borderTopRightRadius = "16px";
+        piece.style.borderBottomRightRadius = "16px";
+        piece.style.backgroundColor = idx % 2 === 0 ? "#ffffff" : slateSoft;
+        piece.textContent = "1x";
+        tr.appendChild(piece);
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      return table;
+    };
+
+    const createSummaryTable = (productsForPage, startIndex) => {
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "separate";
+      table.style.borderSpacing = "0";
+      table.style.fontSize = "10px";
+      table.style.marginBottom = "24px";
+      table.style.border = `1px solid ${slateBorder}`;
+      table.style.borderRadius = "16px";
+      table.style.overflow = "hidden";
+
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      ["Item No.", "Item", "Type", "Quantity", "Single Quantity", "File"].forEach((thText) => {
+        const th = document.createElement("th");
+        th.textContent = thText;
+        th.style.textAlign = "left";
+        th.style.padding = "10px 12px";
+        th.style.backgroundColor = accentSoft;
+        th.style.color = "#0f172a";
+        th.style.fontWeight = "700";
+        th.style.borderBottom = `1px solid ${slateBorder}`;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      productsForPage.forEach((product, idx) => {
+        const cfg = product?.edits?.configuration || {};
+        const globalIndex = startIndex + idx;
+        const tr = document.createElement("tr");
+        if (idx !== productsForPage.length - 1) {
+          tr.style.borderBottom = `1px solid ${slateBorder}`;
+        }
+
+        const cells = [
+          product?.name || product?.sku || "—",
+          `${String(globalIndex + 1).padStart(2, "0")} | ${cfg.individualLabeling || cfg.individualLabel || "No label"} | Floor ${cfg.floor || "—"} | ${cfg.room || "—"}`,
+          product?.category || product?.productType || "—",
+          `${cfg.quantity || 1}x`,
+          "1x",
+          product?.sku || product?.id || "—",
+        ];
+
+        cells.forEach((cellText) => {
+          const td = document.createElement("td");
+          td.textContent = cellText;
+          td.style.padding = "10px 12px";
+          td.style.color = "#334155";
+          td.style.backgroundColor = idx % 2 === 0 ? "#ffffff" : slateSoft;
+          td.style.borderBottom =
+            idx === productsForPage.length - 1 ? "none" : `1px solid ${slateBorder}`;
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      return table;
+    };
 
     // Pre-render product thumbnails: use editedImage.value (exact edited bitmap) when present, else render from base + edits
     const productThumbUrls = await Promise.all(
@@ -552,7 +1153,7 @@ export const generateProductPDF = async (products, options = {}) => {
                 PDF_PRODUCT_THUMB_WIDTH,
                 PDF_PRODUCT_THUMB_HEIGHT,
                 true,
-                0.8,
+                PDF_JPEG_QUALITY,
               );
             }
 
@@ -571,14 +1172,14 @@ export const generateProductPDF = async (products, options = {}) => {
 
             ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
 
-            return c.toDataURL("image/jpeg", 0.8);
+            return c.toDataURL("image/jpeg", PDF_JPEG_QUALITY);
           }).catch(() =>
             renderEditedProduct(
               product,
               PDF_PRODUCT_THUMB_WIDTH,
               PDF_PRODUCT_THUMB_HEIGHT,
               true,
-              0.8,
+              PDF_JPEG_QUALITY,
             ),
           );
         }
@@ -588,204 +1189,62 @@ export const generateProductPDF = async (products, options = {}) => {
         if (process.env.NODE_ENV !== "production") {
           console.info("[PDF] Item", idx, "instanceId:", product._instanceId, "productId:", product.id, "using renderEditedProduct (no editedImage)");
         }
-        return renderEditedProduct(product, PDF_PRODUCT_THUMB_WIDTH, PDF_PRODUCT_THUMB_HEIGHT, true, 0.8).catch(() => null);
+        return renderEditedProduct(product, PDF_PRODUCT_THUMB_WIDTH, PDF_PRODUCT_THUMB_HEIGHT, true, PDF_JPEG_QUALITY).catch(() => null);
       }),
     );
 
-    // ========== PAGE 1: Customer Report (company, customer, config, items table with images) ==========
-    const page1 = createPageWrapper();
-    page1.style.padding = "40px 50px 50px";
+    const productPages = chunkProductsForPages(safeProducts);
+    const summaryPages = chunkSummaryRows(safeProducts);
+    const totalPages = productPages.length + summaryPages.length;
 
-    addBrandHeader(page1);
-    addText(page1, "Customer:", 10, "#6b7280", 2);
-    addText(page1, user?.name || user?.companyName || "—", 12, "#1f2937", 2);
-    if (user?.companyName && user?.name) addText(page1, user.companyName, 11, "#374151", 2);
-    addText(page1, `Customer Nr.: ${user?.customerNumber || user?.id || "—"}`, 11, "#374151", 2);
-    addText(page1, `Tel.: ${user?.phone || user?.tel || "—"}`, 11, "#374151", 2);
-    addText(page1, `E-Mail: ${user?.email || "—"}`, 11, "#374151", 2);
-    if (user?.address) addText(page1, user.address, 11, "#374151", 16);
-    else addText(page1, "—", 11, "#374151", 16);
+    for (let pageIndex = 0; pageIndex < productPages.length; pageIndex += 1) {
+      const pageProducts = productPages[pageIndex];
+      const page = createPageWrapper();
+      page.style.padding = "40px 50px 50px";
 
-    addText(page1, "Please give this printout to your specialist partner with your order.", 11, "#1f2937", 20);
-    addText(page1, `Configuration number: ${configNumber}`, 11, "#1f2937", 2);
-    addText(page1, `Project name: ${projectName || "—"}`, 11, "#1f2937", 2);
-    addText(page1, `Date: ${reportDate}`, 11, "#1f2937", 20);
+      addBrandHeader(page);
+      addHighlightStrip(page, [
+        { label: "Configuration", value: configNumber },
+        { label: "Project", value: projectName || "—" },
+        { label: "Configured terminals", value: String(safeProducts.length) },
+      ]);
 
-    const table1 = document.createElement("table");
-    table1.style.width = "100%";
-    table1.style.borderCollapse = "collapse";
-    table1.style.fontSize = "11px";
-    table1.style.marginBottom = "24px";
-    const thead1 = document.createElement("thead");
-    const headerRow1 = document.createElement("tr");
-    ["Image", "Item No./Items", "Description", "Piece"].forEach((thText) => {
-      const th = document.createElement("th");
-      th.textContent = thText;
-      th.style.textAlign = "left";
-      th.style.padding = "10px 12px";
-      th.style.borderBottom = "2px solid #1f2937";
-      th.style.color = "#1f2937";
-      th.style.fontWeight = "700";
-      headerRow1.appendChild(th);
-    });
-    thead1.appendChild(headerRow1);
-    table1.appendChild(thead1);
-    const tbody1 = document.createElement("tbody");
-    safeProducts.forEach((product, idx) => {
-      const tr = document.createElement("tr");
-      tr.style.borderBottom = "1px solid #e5e7eb";
-      tr.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
-      const imgTd = document.createElement("td");
-      imgTd.style.padding = "12px";
-      imgTd.style.verticalAlign = "middle";
-      imgTd.style.width = "150px";
-      imgTd.style.minWidth = "150px";
-      imgTd.style.boxSizing = "border-box";
-      const thumbUrl = productThumbUrls[idx];
-      if (thumbUrl) {
-        const img = document.createElement("img");
-        img.src = thumbUrl;
-        img.alt = product?.name || "";
-        img.loading = "eager";
-        img.style.width = "140px";
-        img.style.height = "105px";
-        img.style.minWidth = "140px";
-        img.style.minHeight = "105px";
-        img.style.objectFit = "contain";
-        img.style.display = "block";
-        img.style.backgroundColor = "#f3f4f6";
-        imgTd.appendChild(img);
-      } else {
-        const placeholder = document.createElement("div");
-        placeholder.style.width = "140px";
-        placeholder.style.height = "105px";
-        placeholder.style.minWidth = "140px";
-        placeholder.style.minHeight = "105px";
-        placeholder.style.backgroundColor = "#f3f4f6";
-        placeholder.style.display = "flex";
-        placeholder.style.alignItems = "center";
-        placeholder.style.justifyContent = "center";
-        placeholder.style.fontSize = "9px";
-        placeholder.style.color = "#9ca3af";
-        placeholder.textContent = "No image";
-        imgTd.appendChild(placeholder);
-      }
-      tr.appendChild(imgTd);
-      const itemNo = document.createElement("td");
-      itemNo.style.padding = "12px";
-      itemNo.style.verticalAlign = "middle";
-      itemNo.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
-      itemNo.textContent = product?.name || product?.sku || "—";
-      tr.appendChild(itemNo);
-      const desc = document.createElement("td");
-      desc.style.padding = "12px";
-      desc.style.verticalAlign = "middle";
-      desc.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
-      const cfg = product?.edits?.configuration || {};
-      const productCode =
-        product?.productCode || product?.sku || product?.id || "—";
-      const descLines = [
-        product?.name || "—",
-        `Code: ${productCode}`,
-        product?.description || "",
-        `Individual labelling: ${cfg.individualLabeling || cfg.individualLabel || "—"}`,
-        `Floor: ${cfg.floor || "—"}`,
-        `Room: ${cfg.room || "—"}`,
-        `Processing: ${cfg.processingType || "Print"}`,
-        "1x incl. Processing fee",
-        `Filename: ${product?.sku || product?.id || "—"}`,
-        "1x",
-        "Item",
-        String(idx + 1).padStart(2, "0"),
-      ].filter(Boolean);
-      desc.textContent = descLines.join("\n");
-      desc.style.whiteSpace = "pre-line";
-      desc.style.lineHeight = "1.5";
-      tr.appendChild(desc);
-      const piece = document.createElement("td");
-      piece.style.padding = "12px";
-      piece.style.verticalAlign = "middle";
-      piece.style.minHeight = `${PDF_PRODUCT_ROW_MIN_HEIGHT_PX}px`;
-      piece.textContent = "1x";
-      tr.appendChild(piece);
-      tbody1.appendChild(tr);
-    });
-    table1.appendChild(tbody1);
-    page1.appendChild(table1);
+      if (pageIndex === 0) {
+        addUserIntroSection(page);
+        addText(page, "Please give this printout to your specialist partner with your order.", 11, "#1f2937", 14);
+      } 
 
-    addText(page1, footerLegal, 9, "#6b7280", 8);
-    addText(page1, footerCompany, 8, "#9ca3af", 16);
-    const pageNum1 = document.createElement("div");
-    pageNum1.style.textAlign = "center";
-    pageNum1.style.fontSize = "10px";
-    pageNum1.style.color = "#9ca3af";
-    pageNum1.textContent = `-- 1 of ${totalPages} --`;
-    page1.appendChild(pageNum1);
+      addText(page, `Date: ${reportDate}`, 11, "#1f2937", 14);
 
-    await capturePageAndAddToPdf(pdf, page1, true);
+      const pageStartIndex =
+        pageIndex === 0
+          ? 0
+          : PDF_FIRST_PAGE_PRODUCT_COUNT + (pageIndex - 1) * PDF_FOLLOWING_PAGE_PRODUCT_COUNT;
 
-    // ========== PAGE 2: Summary table (Item No. | Item | Price Group | Quantity | Single Quantity | File) ==========
-    const page2 = createPageWrapper();
-    page2.style.padding = "40px 50px 50px";
+      page.appendChild(createProductTable(pageProducts, pageStartIndex, productThumbUrls));
+      addPageFooter(page, pageIndex + 1, totalPages);
 
-    addBrandHeader(page2);
-    addText(page2, `Configuration number: ${configNumber}`, 11, "#1f2937", 2);
-    addText(page2, `Project name: ${projectName || "—"}`, 11, "#1f2937", 2);
-    addText(page2, `Date: ${reportDate}`, 11, "#1f2937", 20);
+      await capturePageAndAddToPdf(pdf, page, pageIndex === 0);
+    }
 
-    const table2 = document.createElement("table");
-    table2.style.width = "100%";
-    table2.style.borderCollapse = "collapse";
-    table2.style.fontSize = "11px";
-    table2.style.marginBottom = "24px";
-    const thead2 = document.createElement("thead");
-    const headerRow2 = document.createElement("tr");
-    ["Item No.", "Item", "Price Group", "Quantity", "Single Quantity", "File"].forEach((thText) => {
-      const th = document.createElement("th");
-      th.textContent = thText;
-      th.style.textAlign = "left";
-      th.style.padding = "10px 12px";
-      th.style.borderBottom = "2px solid #1f2937";
-      th.style.color = "#1f2937";
-      th.style.fontWeight = "700";
-      headerRow2.appendChild(th);
-    });
-    thead2.appendChild(headerRow2);
-    table2.appendChild(thead2);
-    const tbody2 = document.createElement("tbody");
-    safeProducts.forEach((product, idx) => {
-      const tr = document.createElement("tr");
-      tr.style.borderBottom = "1px solid #e5e7eb";
-      const cfg = product?.edits?.configuration || {};
-      const cells = [
-        product?.name || product?.sku || "—",
-        `${String(idx + 1).padStart(2, "0")} | ${cfg.individualLabeling || "No label"} | Floor ${cfg.floor || "—"} | ${cfg.room || "—"}`,
-        product?.category || "—",
-        `${cfg.quantity || 1}x`,
-        "1x",
-        product?.sku || product?.id || "—",
-      ];
-      cells.forEach((cellText) => {
-        const td = document.createElement("td");
-        td.textContent = cellText;
-        td.style.padding = "10px 12px";
-        tr.appendChild(td);
-      });
-      tbody2.appendChild(tr);
-    });
-    table2.appendChild(tbody2);
-    page2.appendChild(table2);
+    for (let summaryPageIndex = 0; summaryPageIndex < summaryPages.length; summaryPageIndex += 1) {
+      const page = createPageWrapper();
+      page.style.padding = "40px 50px 50px";
 
-    addText(page2, footerLegal, 9, "#6b7280", 8);
-    addText(page2, footerCompany, 8, "#9ca3af", 16);
-    const pageNum2 = document.createElement("div");
-    pageNum2.style.textAlign = "center";
-    pageNum2.style.fontSize = "10px";
-    pageNum2.style.color = "#9ca3af";
-    pageNum2.textContent = `-- 2 of ${totalPages} --`;
-    page2.appendChild(pageNum2);
+      addBrandHeader(page);
+      addHighlightStrip(page, [
+        { label: "Configuration", value: configNumber },
+        { label: "Project", value: projectName || "—" },
+        { label: "Summary page", value: `${summaryPageIndex + 1} / ${summaryPages.length}` },
+      ]);
+      addSectionHeading(page, "Products Table", "A compact list of all configured terminals included in this report.");
 
-    await capturePageAndAddToPdf(pdf, page2, false);
+      const pageStartIndex = summaryPageIndex * PDF_SUMMARY_ROWS_PER_PAGE;
+      page.appendChild(createSummaryTable(summaryPages[summaryPageIndex], pageStartIndex));
+      addPageFooter(page, productPages.length + summaryPageIndex + 1, totalPages);
+
+      await capturePageAndAddToPdf(pdf, page, false);
+    }
 
     const fileName = `${filenamePrefix}_${new Date().getTime()}.pdf`;
     pdf.save(fileName);

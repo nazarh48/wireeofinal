@@ -3,6 +3,122 @@ import Modal from "../../components/Modal";
 import { apiService, getImageUrl } from "../../services/api";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
 
+const PRESET_ICON_LIBRARY = [
+  {
+    id: "warning-triangle",
+    name: "Warning triangle",
+    tags: ["safety", "warning", "general"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.7 19.2a1.2 1.2 0 0 0 1.04 1.8h16.52a1.2 1.2 0 0 0 1.04-1.8L12 3Z"/><path d="M12 9v5"/><path d="M12 17h.01"/></svg>',
+  },
+  {
+    id: "high-voltage",
+    name: "High voltage",
+    tags: ["electrical", "power", "warning"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111827"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9Z"/></svg>',
+  },
+  {
+    id: "light-bulb",
+    name: "Light bulb",
+    tags: ["electrical", "lighting", "general"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.2 14.6A6.5 6.5 0 1 1 15.8 14.6c-.8.72-1.3 1.72-1.4 2.8h-4.8c-.1-1.08-.6-2.08-1.4-2.8Z"/></svg>',
+  },
+  {
+    id: "plug",
+    name: "Power plug",
+    tags: ["electrical", "power", "connector"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7V3"/><path d="M15 7V3"/><path d="M8 7h8v3a4 4 0 0 1-4 4 4 4 0 0 1-4-4V7Z"/><path d="M12 14v7"/><path d="M10 21h4"/></svg>',
+  },
+  {
+    id: "shield-check",
+    name: "Shield check",
+    tags: ["security", "safety", "general"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6l-7-3Z"/><path d="m9.5 12.5 1.8 1.8 3.7-4"/></svg>',
+  },
+  {
+    id: "camera-cctv",
+    name: "CCTV camera",
+    tags: ["security", "camera", "monitoring"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-4 6 3-9 4-6-3Z"/><path d="M9 13v3"/><path d="M14 11l4 8"/><path d="M18 19h3"/><path d="M6 14h5"/></svg>',
+  },
+  {
+    id: "fire",
+    name: "Fire",
+    tags: ["fire", "safety", "emergency"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#111827"><path d="M12.1 2.6c.4 2.2-.5 3.8-1.7 5.2-1.1 1.2-2.3 2.4-2.3 4.2 0 1.7 1.2 3.2 2.9 3.5-.6-.7-.9-1.5-.9-2.4 0-2.2 1.7-3.4 3-4.7 1-1 1.9-2.2 1.7-4.1 2.5 1.9 4.2 4.9 4.2 8.1 0 4-3.1 7.1-7 7.1S5 16.4 5 12.5c0-3.9 2.8-7.5 7.1-9.9Z"/></svg>',
+  },
+  {
+    id: "wifi",
+    name: "Wi-Fi",
+    tags: ["network", "communication", "general"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9a11 11 0 0 1 14 0"/><path d="M8.5 12.5a6 6 0 0 1 7 0"/><path d="M12 18h.01"/></svg>',
+  },
+  {
+    id: "arrow-right",
+    name: "Arrow right",
+    tags: ["arrows", "direction", "general"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>',
+  },
+  {
+    id: "location-pin",
+    name: "Location pin",
+    tags: ["map", "general", "location"],
+    svg:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s6-4.35 6-10a6 6 0 1 0-12 0c0 5.65 6 10 6 10Z"/><circle cx="12" cy="11" r="2.5"/></svg>',
+  },
+];
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getPresetPreviewUrl(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function sanitizeFilename(value) {
+  return String(value || "icon")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "icon";
+}
+
+function createPresetFile(preset) {
+  return new File([preset.svg], `${sanitizeFilename(preset.name)}.svg`, {
+    type: "image/svg+xml",
+  });
+}
+
+function getPresetIconsForCategory(categoryName) {
+  const normalizedCategory = normalizeText(categoryName);
+  if (!normalizedCategory) return PRESET_ICON_LIBRARY.slice(0, 8);
+
+  const matching = PRESET_ICON_LIBRARY.filter((preset) =>
+    preset.tags.some(
+      (tag) =>
+        normalizedCategory.includes(tag) ||
+        tag.includes(normalizedCategory)
+    )
+  );
+
+  if (matching.length >= 6) return matching;
+
+  const fallback = PRESET_ICON_LIBRARY.filter(
+    (preset) => !matching.some((item) => item.id === preset.id)
+  );
+
+  return [...matching, ...fallback].slice(0, 8);
+}
+
 function coerceId(x) {
   return x?.id || x?._id || x;
 }
@@ -102,13 +218,59 @@ function IconForm({ categories, initial, onSubmit, onCancel, loading }) {
   const [preview, setPreview] = useState(
     initial?.file_path ? getImageUrl(initial.file_path) : ""
   );
+  const [selectedPresetId, setSelectedPresetId] = useState("");
   const [error, setError] = useState("");
+
+  const activeCategory = useMemo(
+    () => categories.find((category) => String(coerceId(category)) === String(categoryId)),
+    [categories, categoryId]
+  );
+
+  const presetIcons = useMemo(
+    () => getPresetIconsForCategory(activeCategory?.name),
+    [activeCategory?.name]
+  );
 
   useEffect(() => {
     return () => {
       if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
     };
   }, [preview]);
+
+  useEffect(() => {
+    if (!selectedPresetId) return;
+    setSelectedPresetId("");
+    setFile(null);
+    resetPreview(initial?.file_path ? getImageUrl(initial.file_path) : "");
+  }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resetPreview = (nextValue) => {
+    if (preview && preview.startsWith("blob:") && preview !== nextValue) {
+      URL.revokeObjectURL(preview);
+    }
+    setPreview(nextValue);
+  };
+
+  const handleFileChange = (nextFile) => {
+    setSelectedPresetId("");
+    setFile(nextFile);
+    resetPreview(nextFile ? URL.createObjectURL(nextFile) : (initial?.file_path ? getImageUrl(initial.file_path) : ""));
+  };
+
+  const handlePresetSelect = (preset) => {
+    setSelectedPresetId(preset.id);
+    setFile(createPresetFile(preset));
+    resetPreview(getPresetPreviewUrl(preset.svg));
+    if (!name.trim() || !initial) {
+      setName(preset.name);
+    }
+  };
+
+  const handleRemoveSelection = () => {
+    setSelectedPresetId("");
+    setFile(null);
+    resetPreview(initial?.file_path ? getImageUrl(initial.file_path) : "");
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -124,7 +286,7 @@ function IconForm({ categories, initial, onSubmit, onCancel, loading }) {
     }
     // For create: file is required. For update: file optional.
     if (!initial && !file) {
-      setError("Please upload an icon image.");
+      setError("Please upload an icon image or select a related icon.");
       return;
     }
     onSubmit({
@@ -195,13 +357,60 @@ function IconForm({ categories, initial, onSubmit, onCancel, loading }) {
             accept="image/*"
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0] || null;
-              if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-              setFile(f);
-              setPreview(f ? URL.createObjectURL(f) : (initial?.file_path ? getImageUrl(initial.file_path) : ""));
+              handleFileChange(e.target.files?.[0] || null);
             }}
           />
         </label>
+        <p className="mt-2 text-xs text-slate-500">
+          You can upload your own file or pick one of the related icons below.
+        </p>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">
+                Related icons {activeCategory?.name ? `for ${activeCategory.name}` : ""}
+              </p>
+              <p className="text-xs text-slate-500">
+                Selecting one will save it into the editor icon library just like an uploaded file.
+              </p>
+            </div>
+            {selectedPresetId && (
+              <button
+                type="button"
+                onClick={handleRemoveSelection}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              >
+                Clear selection
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {presetIcons.map((preset) => {
+              const presetPreview = getPresetPreviewUrl(preset.svg);
+              const isSelected = selectedPresetId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handlePresetSelect(preset)}
+                  className={`rounded-xl border p-3 text-left transition-colors ${
+                    isSelected
+                      ? "border-teal-500 bg-white ring-2 ring-teal-200"
+                      : "border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40"
+                  }`}
+                >
+                  <div className="h-16 rounded-lg border border-slate-100 bg-slate-50 flex items-center justify-center">
+                    <img src={presetPreview} alt={preset.name} className="w-9 h-9 object-contain" />
+                  </div>
+                  <div className="mt-2 text-xs font-medium text-slate-700 truncate">{preset.name}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {preview && (
           <div className="mt-3 flex items-start gap-2">
             <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
@@ -209,11 +418,7 @@ function IconForm({ categories, initial, onSubmit, onCancel, loading }) {
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (preview && preview.startsWith("blob:")) URL.revokeObjectURL(preview);
-                setFile(null);
-                setPreview(initial?.file_path ? getImageUrl(initial.file_path) : "");
-              }}
+              onClick={handleRemoveSelection}
               className="mt-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
             >
               Remove
