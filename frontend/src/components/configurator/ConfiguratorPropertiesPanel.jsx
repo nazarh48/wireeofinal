@@ -42,6 +42,8 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
     selectedElement &&
     (
       selectedElement.type === 'text' ||
+      selectedElement.type === 'icon' ||
+      selectedElement.type === 'sticker' ||
       selectedElement.type === 'mdiIcon' ||
       selectedElement.type === 'rectangle' ||
       selectedElement.type === 'circle' ||
@@ -338,7 +340,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
                     onChange={(e) => {
                       const nextColor = e.target.value;
 
-                      if (selectedElement.type === 'text') {
+                      if (selectedElement.type === 'text' || selectedElement.type === 'icon' || selectedElement.type === 'sticker') {
                         applyToSelected({ color: nextColor });
                         return;
                       }

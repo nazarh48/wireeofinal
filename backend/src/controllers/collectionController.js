@@ -14,10 +14,29 @@ const deepClone = (value) => JSON.parse(JSON.stringify(value ?? null));
 
 export async function addToCollection(req, res, next) {
   try {
-    const { productIds } = req.body;
-    if (!Array.isArray(productIds) || productIds.length === 0) {
-      return res.status(400).json({ success: false, message: "productIds array required" });
+    const { products: productItems, productIds: legacyProductIds } = req.body;
+
+    // Preferred format: products: [{ productId, instanceId }]
+    // Legacy format:    productIds: ["id1", "id2"]  (generates new instanceIds)
+    let items;
+    if (Array.isArray(productItems) && productItems.length > 0) {
+      items = productItems.map((item) => ({
+        productId: item.productId ?? item.product,
+        // Preserve client-provided instanceId so canvas edits made before saving are not orphaned.
+        // Fall back to generating one if caller didn't provide it.
+        instanceId: item.instanceId || makeInstanceId(),
+      }));
+    } else if (Array.isArray(legacyProductIds) && legacyProductIds.length > 0) {
+      // Legacy callers (backward compat) – generate instanceIds server-side.
+      items = legacyProductIds.map((pid) => ({
+        productId: pid,
+        instanceId: makeInstanceId(),
+      }));
+    } else {
+      return res.status(400).json({ success: false, message: "products or productIds array required" });
     }
+
+    const productIds = items.map((i) => i.productId).filter(Boolean);
     await ensureConfigurable(productIds);
 
     let collection = await Collection.findOne({ createdBy: req.user._id });
@@ -25,11 +44,12 @@ export async function addToCollection(req, res, next) {
       collection = await Collection.create({ name: "My Collection", createdBy: req.user._id, configurableProducts: [] });
     }
 
-    // Allow same product multiple times: each add gets its own instanceId (independent edits per instance).
-    for (const pid of productIds) {
+    // Each add creates a fully independent instance – same base product can be added multiple times.
+    for (const { productId, instanceId } of items) {
+      if (!productId) continue;
       collection.configurableProducts.push({
-        product: pid,
-        instanceId: `inst_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        product: productId,
+        instanceId,
       });
     }
     await collection.save();

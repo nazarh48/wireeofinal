@@ -3,6 +3,23 @@ import { Range } from "../models/Range.js";
 import { optimizeImageAtUrl } from "../services/imageService.js";
 import { getFromCache, setInCache } from "../utils/simpleCache.js";
 
+/**
+ * Resolves mutually exclusive printing/laser mode flags.
+ * Laser takes priority when explicitly set to true.
+ * backgroundCustomizable is derived: true for printing, false for laser.
+ */
+function resolveModes(printingEnabledRaw, laserEnabledRaw) {
+  const toBool = (v, fallback) =>
+    v === undefined ? fallback : v === true || v === "true" || v === "1" || v === 1;
+
+  const laserEnabled = toBool(laserEnabledRaw, false);
+  // If laser is explicitly enabled, printing is disabled regardless of input
+  const printingEnabled = laserEnabled ? false : toBool(printingEnabledRaw, true);
+  const backgroundCustomizable = printingEnabled;
+
+  return { printingEnabled, laserEnabled, backgroundCustomizable };
+}
+
 function buildProductFilter(query) {
   const filter = {};
   if (query.range) filter.range = query.range;
@@ -93,24 +110,7 @@ export async function create(req, res, next) {
       productType,
       status: status || "active",
       featured: featured === true || featured === "true" || featured === "1",
-      printingEnabled:
-        printingEnabled === undefined
-          ? true
-          : printingEnabled === true ||
-            printingEnabled === "true" ||
-            printingEnabled === "1",
-      laserEnabled:
-        laserEnabled === undefined
-          ? true
-          : laserEnabled === true ||
-            laserEnabled === "true" ||
-            laserEnabled === "1",
-      backgroundCustomizable:
-        backgroundCustomizable === undefined
-          ? true
-          : backgroundCustomizable === true ||
-            backgroundCustomizable === "true" ||
-            backgroundCustomizable === "1",
+      ...resolveModes(printingEnabled, laserEnabled),
       downloadableFiles: downloadableFiles.length ? downloadableFiles : undefined,
     });
     await product.populate("range", "name description status");
@@ -284,7 +284,6 @@ export async function update(req, res, next) {
       engravingMaskImageUrl,
       printingEnabled,
       laserEnabled,
-      backgroundCustomizable,
     } = req.body;
     const bodyFiles = parseBodyFiles(bodyFilesRaw);
     if (range !== undefined) {
@@ -324,23 +323,11 @@ export async function update(req, res, next) {
     }
     if (status !== undefined) updates.status = status;
     if (featured !== undefined) updates.featured = featured === true || featured === "true" || featured === "1";
-    if (printingEnabled !== undefined) {
-      updates.printingEnabled =
-        printingEnabled === true ||
-        printingEnabled === "true" ||
-        printingEnabled === "1";
-    }
-    if (laserEnabled !== undefined) {
-      updates.laserEnabled =
-        laserEnabled === true ||
-        laserEnabled === "true" ||
-        laserEnabled === "1";
-    }
-    if (backgroundCustomizable !== undefined) {
-      updates.backgroundCustomizable =
-        backgroundCustomizable === true ||
-        backgroundCustomizable === "true" ||
-        backgroundCustomizable === "1";
+    if (printingEnabled !== undefined || laserEnabled !== undefined) {
+      const resolved = resolveModes(printingEnabled, laserEnabled);
+      updates.printingEnabled = resolved.printingEnabled;
+      updates.laserEnabled = resolved.laserEnabled;
+      updates.backgroundCustomizable = resolved.backgroundCustomizable;
     }
 
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];

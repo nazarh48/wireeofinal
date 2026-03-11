@@ -703,6 +703,9 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
           rotation={element.rotation ?? 0}
           align={element.align || 'left'}
           verticalAlign="top"
+          listening={true}
+          hitStrokeWidth={20}
+          perfectDrawEnabled={false}
         />
       );
     }
@@ -723,7 +726,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
           align="center"
           verticalAlign="middle"
           listening={true}
-          hitStrokeWidth={10}
+          hitStrokeWidth={20}
+          perfectDrawEnabled={false}
         />
       );
     }
@@ -742,6 +746,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
           fill={element.fill ?? element.color ?? '#111827'}
           stroke={element.stroke ?? 'transparent'}
           strokeWidth={element.strokeWidth ?? 1}
+          listening={true}
+          hitStrokeWidth={12}
         />
       );
     }
@@ -755,6 +761,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
           width={element.width ?? 100}
           height={element.height ?? 100}
           rotation={element.rotation ?? 0}
+          listening={true}
+          hitStrokeWidth={16}
         />
       );
     }
@@ -1051,29 +1059,32 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
                     listening={false}
                   />
                 )}
-                <Transformer
-                  ref={transformerRef}
-                  name="transformer"
-                  boundBoxFunc={(oldBox, newBox) => {
-                    if (newBox.width < 5 || newBox.height < 5) return oldBox;
-                    if (snapToGrid) {
-                      return {
-                        ...newBox,
-                        width: Math.round(newBox.width / GRID_SIZE) * GRID_SIZE,
-                        height: Math.round(newBox.height / GRID_SIZE) * GRID_SIZE,
-                      };
-                    }
-                    return newBox;
-                  }}
-                  borderStroke="#0d9488"
-                  borderStrokeWidth={2}
-                  anchorFill="#0d9488"
-                  anchorStroke="#fff"
-                  anchorStrokeWidth={2}
-                  anchorSize={8}
-                  rotateEnabled={true}
-                  enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center', 'middle-left', 'middle-right']}
-                />
+                {/* Only mount Transformer when something is selected so it doesn't block clicks on shapes */}
+                {selectedIds.length > 0 && (
+                  <Transformer
+                    ref={transformerRef}
+                    name="transformer"
+                    boundBoxFunc={(oldBox, newBox) => {
+                      if (newBox.width < 5 || newBox.height < 5) return oldBox;
+                      if (snapToGrid) {
+                        return {
+                          ...newBox,
+                          width: Math.round(newBox.width / GRID_SIZE) * GRID_SIZE,
+                          height: Math.round(newBox.height / GRID_SIZE) * GRID_SIZE,
+                        };
+                      }
+                      return newBox;
+                    }}
+                    borderStroke="#0d9488"
+                    borderStrokeWidth={2}
+                    anchorFill="#0d9488"
+                    anchorStroke="#fff"
+                    anchorStrokeWidth={2}
+                    anchorSize={8}
+                    rotateEnabled={true}
+                    enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center', 'middle-left', 'middle-right']}
+                  />
+                )}
               </Layer>
             </Stage>
           </div>

@@ -60,7 +60,7 @@ const TabbedRanges = () => {
   const duplicateProductInCollection = useStore((state) => state.duplicateProductInCollection);
 
   const duplicateProduct = (item) => {
-    duplicateProductInCollection(item, item._instanceId);
+    duplicateProductInCollection(item, item.instanceId || item._instanceId);
   };
 
   const deleteProduct = (instanceId) => {
@@ -187,8 +187,7 @@ const SelectionContent = () => {
   const { ranges, getConfigurableProductsByRange, getRangeById } = useCatalog();
   const [selectedRange, setSelectedRange] = useState('');
   const addToPending = useStore((s) => s.addToPending);
-  const productEdits = useStore((s) => s.productEdits);
-  const getProductEdits = useStore((s) => s.getProductEdits);
+  // Selection shows catalog products (no instance yet) – no per-instance edits to display here.
 
   useEffect(() => {
     // Check if rangeId is in URL params (from returning from editor)
@@ -311,14 +310,10 @@ const SelectionContent = () => {
             {/* Products grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {selectedProducts.map((product) => {
-                const edits = getProductEdits(product.id);
                 return (
                   <div key={product.id} className="group relative bg-white rounded-lg border border-gray-200 hover:border-teal-400 hover:shadow-lg transition-all duration-200 overflow-hidden">
-                    {/* Compact Image Preview */}
+                    {/* Compact Image Preview – catalog view, no per-instance edits */}
                     <div className="relative aspect-square bg-gray-100 overflow-hidden">
-                      {edits && ((edits.elements && edits.elements.length > 0) || edits.configuration?.backgroundImage) ? (
-                        <EditedProductPreview product={product} edits={edits} width={300} height={300} />
-                      ) : (
                         <img
                           src={
                             product.baseDeviceImageUrl
@@ -334,16 +329,6 @@ const SelectionContent = () => {
                             e.currentTarget.src = FALLBACK_IMAGE;
                           }}
                         />
-                      )}
-                      {/* Edited Badge */}
-                      {edits && edits.elements && edits.elements.length > 0 && (
-                        <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 z-10">
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          Edited
-                        </div>
-                      )}
                       {/* Hover Actions Overlay */}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                         <button
@@ -399,7 +384,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
 
   const handleStartEditing = (item) => {
     const params = new URLSearchParams({ from: 'collection' });
-    if (item._instanceId) params.set('instanceId', item._instanceId);
+    if (item.instanceId) params.set('instanceId', item.instanceId);
     navigate(`/editor/${item.id}?${params.toString()}`);
   };
 
@@ -408,13 +393,15 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
       `Delete "${item?.name || 'this product'}" from your collection?`,
     );
     if (!confirmed) return;
-    onDelete(item._instanceId || item.id);
+    // Always remove by instanceId – never by product.id to avoid removing the wrong copy.
+    onDelete(item.instanceId || item.id);
   };
 
   const handleToggleSelection = (item) => {
     setSelectedProducts(prev => {
       const newSet = new Set(prev);
-      const key = item._instanceId || item.id;
+      // Key by instanceId so selecting one copy never affects another copy of the same product.
+      const key = item.instanceId || item.id;
       if (newSet.has(key)) {
         newSet.delete(key);
       } else {
@@ -428,7 +415,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
     // If single item, add just that one; otherwise use selected products
     const products = item
       ? [item]
-      : collection.filter(p => selectedProducts.has(p._instanceId || p.id));
+      : collection.filter(p => selectedProducts.has(p.instanceId || p.id));
 
     if (products.length === 0) {
       return;
@@ -534,16 +521,18 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             {collection.filter(item => item).map((item, idx) => {
-              const itemKey = item._instanceId || item.id;
+              // Use instanceId as key – safe even when same base product appears multiple times.
+              const itemKey = item.instanceId || item.id;
               const isSelected = selectedProducts.has(itemKey);
               const catalogProduct = getConfigurableProductById?.(item.id) || null;
               const resolvedBaseDeviceImageUrl =
                 item.baseDeviceImageUrl || catalogProduct?.baseDeviceImageUrl || "";
               const resolvedConfiguratorImageUrl =
                 item.configuratorImageUrl || catalogProduct?.configuratorImageUrl || "";
+              // Resolve edits by instanceId only – never by product.id to avoid cross-instance leakage.
               const itemEdits =
-                item.edits ||
-                (item._instanceId ? editsByInstanceId[item._instanceId] : null);
+                (item.instanceId ? editsByInstanceId[item.instanceId] : null) ||
+                item.edits || null;
               const hasVisualEdits =
                 !!itemEdits?.editedImage ||
                 (Array.isArray(itemEdits?.elements) && itemEdits.elements.length > 0) ||
@@ -571,7 +560,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
                 ? { ...previewProductBase, editedImage: itemEdits.editedImage }
                 : previewProductBase;
               return (
-                <div key={`${item._instanceId || item.id}_${idx}`} className={`group relative ${isSelected ? 'ring-4 ring-teal-500' : ''}`}>
+                <div key={`${item.instanceId || item.id}_${idx}`} className={`group relative ${isSelected ? 'ring-4 ring-teal-500' : ''}`}>
                   <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-300"></div>
                   <div className={`relative bg-white rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 border ${isSelected ? 'border-teal-500' : 'border-slate-200'} overflow-hidden`}>
 
@@ -715,7 +704,6 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
   const {
     projects,
     collection,
-    productEdits,
     editsByInstanceId,
     addProductsToPdf,
     savePendingAsPdf,
@@ -726,6 +714,8 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
     removeProductFromProject,
     updateProjectName,
   } = useStore();
+  // productEdits (product-level map) is intentionally NOT used here;
+  // all edit lookups must go through editsByInstanceId keyed by instanceId.
   const { getConfigurableProductById } = useCatalog();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
@@ -796,12 +786,16 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
     }
   };
 
-  // Build product with edits + editedImage (use project snapshot so re-editing in collection does not change project/PDF)
+  // Build product with edits + editedImage resolved by instanceId (never productEdits[product.id]).
   const getEnhancedProductForPdf = (product) => {
-    const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
-    const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
-    const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
-    const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+    const instanceId = product.instanceId;
+    const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
+    // Priority: live instance edits > project snapshot edits.
+    // Never fall back to productEdits[product.id] – that would mix edits across instances.
+    const edits = (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null)
+      || product.edits || null;
+    const editedImage = instanceEdits?.editedImage ?? product.editedImage ?? null;
+    const collectionItem = (collection || []).find((c) => c.instanceId === product.instanceId);
     const catalogProduct = getConfigurableProductById?.(product.id) || null;
     const baseImg =
       collectionItem?.baseDeviceImageUrl ||
@@ -844,7 +838,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
         .filter(({ productId }) => !!productId)
         .map(({ productId, p }) => ({
           product: productId,
-          instanceId: p._instanceId || null,
+          instanceId: p.instanceId || p._instanceId || null,
           edits: sanitizePdfEditsSnapshot(p.edits),
         }));
       if (snapshot.length === 0) {
@@ -890,8 +884,8 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
         products: [
           {
             product: productId,
-            instanceId: product?._instanceId || null,
-            edits: sanitizePdfEditsSnapshot(productWithEdits.edits),
+            instanceId: product?.instanceId || product?._instanceId || null,
+          edits: sanitizePdfEditsSnapshot(productWithEdits.edits),
           },
         ],
       });
@@ -908,7 +902,8 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
   };
 
   const handleRemoveProduct = async (projectId, product) => {
-    const removeKey = product?._instanceId || product?.instanceId || product?.id || product?._id || null;
+    // Always remove by instanceId – never by product.id to avoid removing the wrong instance.
+    const removeKey = product?.instanceId || product?._instanceId || product?.id || product?._id || null;
     if (!removeKey) {
       showToast('Could not remove product: missing identifier.');
       return;
@@ -1063,12 +1058,16 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {project.products.map((product, idx) => {
-                      // Use project snapshot (product.edits) so re-editing in collection does not change project
-                      const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
-                      const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
-                      const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
+                      // Resolve edits by instanceId only.
+                      // Project snapshot (product.edits) is used as fallback so re-editing in collection
+                      // does not automatically override the project's saved state.
+                      const instanceId = product.instanceId;
+                      const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
+                      const edits = (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null)
+                        || product.edits || null;
+                      const editedImage = instanceEdits?.editedImage ?? product.editedImage ?? null;
                       const productWithEdits = edits ? { ...product, edits } : product;
-                      const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+                      const collectionItem = (collection || []).find((c) => c.instanceId === product.instanceId);
                       const catalogProduct = getConfigurableProductById?.(product.id) || null;
                       const baseImg =
                         collectionItem?.baseDeviceImageUrl ||
@@ -1085,13 +1084,13 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                         baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
                       };
                       return (
-                        <div key={`${product._instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
+                        <div key={`${product.instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
                           <div className="mb-4">
                             <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-violet-600 transition-colors">{product.name}</h4>
                             <p className="text-sm text-gray-600 font-medium">Code: {product.productCode || product.sku || "—"}</p>
                           </div>
                           <div className="mb-4 bg-white rounded-lg p-2 border border-gray-200">
-                            <EditedProductPreview key={`preview_${product._instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
+                            <EditedProductPreview key={`preview_${product.instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
                           </div>
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
                             <button onClick={() => handleExportSingleProductPdf(project, productWithEdits)} className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors" title="Export this product PDF">
@@ -1160,7 +1159,7 @@ const PDFConfigurationsContent = () => {
     deletePdfConfiguration,
     showToast,
     editsByInstanceId,
-    productEdits,
+    // productEdits intentionally omitted – all edit lookups use instanceId via editsByInstanceId.
   } = useStore();
   const [reExportingId, setReExportingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -1211,16 +1210,18 @@ const PDFConfigurationsContent = () => {
 
       const products = rawProducts.map((item) => {
         const p = item.product || item;
-        const instanceId = item.instanceId || p._instanceId;
+        // Normalize: prefer instanceId field (no underscore); fall back to _instanceId for legacy records.
+        const instanceId = item.instanceId || p.instanceId || p._instanceId;
         const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
+        // Never fall back to productEdits[product.id] – use snapshot from PDF record if no live edits.
         const edits = instanceEdits
           ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
-          : item.edits || productEdits[p?._id ?? p?.id] || p.edits || null;
+          : item.edits || p.edits || null;
         const editedImage = instanceEdits?.editedImage || null;
         return {
           ...p,
           id: p?._id ?? p?.id,
-          _instanceId: instanceId,
+          instanceId,
           name: p?.name,
           description: p?.description,
           sku: p?.sku,

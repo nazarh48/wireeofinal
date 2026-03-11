@@ -19,6 +19,7 @@ export const submitContactForm = async (req, res) => {
 
     await sendEmail({
       to: "contact@wireeo.com",
+      replyTo: email,
       subject: `New Contact Message from ${name}`,
       html,
     });

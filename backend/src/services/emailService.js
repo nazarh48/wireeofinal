@@ -85,7 +85,7 @@ async function getTransporter() {
   return transporter;
 }
 
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, replyTo, subject, html, text }) {
   const trans = await getTransporter();
   if (!trans) {
     console.warn("[Email] No transporter. Configure MAIL_* in .env or check Ethereal.");
@@ -97,6 +97,7 @@ export async function sendEmail({ to, subject, html, text }) {
     const info = await trans.sendMail({
       from,
       to,
+      ...(replyTo && { replyTo }),
       subject,
       html: html || text,
       text: text || html?.replace(/<[^>]*>/g, "") || "",

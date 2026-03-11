@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { apiService, USER_TOKEN_KEY, ADMIN_TOKEN_KEY, IMAGE_BASE_URL } from "../services/api";
 import { normalizeElements } from "../utils/editorMigration";
+import { generateInstanceId } from "../utils/instanceUtils";
 
 const normalizeImageUrl = (url) => {
   if (!url) return "";
@@ -75,36 +76,18 @@ const useStore = create((set, get) => ({
       });
       return;
     }
-    const productId = product.id ?? product._id;
-    const state = get();
-    const alreadyInPending = (state.pendingCollection || []).some(
-      (p) => (p.id ?? p._id) === productId
-    );
-    const alreadyInCollection = (state.collection || []).some(
-      (p) => (p.id ?? p._id) === productId
-    );
-    if (alreadyInPending || alreadyInCollection) {
-      set({
-        toast: {
-          open: true,
-          message: "This product is already in your collection. Use Duplicate in the Collection tab if you need another copy.",
-          actionLabel: null,
-          onAction: null,
-        },
-      });
-      return;
-    }
+    // Each add always creates a NEW independent instance.
+    // Same base product can be added multiple times – every copy is fully isolated.
     set((state) => {
       try {
         console.debug("addToPending called for", product && product.id);
       } catch (e) {
         // Ignore debug errors
       }
-      // Each add creates a NEW instance; do NOT copy product-level edits so instances stay independent.
-      const instanceId = `inst_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      const instanceId = generateInstanceId();
       const productWithInstance = {
         ...product,
-        _instanceId: instanceId,
+        instanceId, // canonical field; no _instanceId
       };
 
       const updatedPending = [...state.pendingCollection, productWithInstance];
@@ -168,20 +151,22 @@ const useStore = create((set, get) => ({
       get().showToast("No products available for PDF export.");
       return;
     }
-    console.info("[PDF] savePendingAsPdf: selected count =", products.length, "instanceIds =", products.map((p) => p._instanceId || p.id).join(", "));
+    console.info("[PDF] savePendingAsPdf: selected count =", products.length, "instanceIds =", products.map((p) => p.instanceId || p.id).join(", "));
 
-    // Enhance each product INSTANCE with its own edits and editedImage (from editsByInstanceId); fallback to product-level edits.
+    // Enhance each product INSTANCE with its own edits from editsByInstanceId.
+    // NEVER fall back to productEdits[product.id] – that map is shared across all instances of
+    // the same base product and would corrupt independent copies.
     products = products.map((product) => {
-      const instanceId = product._instanceId;
+      const instanceId = product.instanceId;
       const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
       const edits = instanceEdits
         ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
-        : state.productEdits[product.id] || product.edits || null;
+        : product.edits || null;
       const editedImage = instanceEdits?.editedImage || product.editedImage || null;
       const normalized = normalizeProduct(product, edits);
       return {
         ...normalized,
-        _instanceId: instanceId || product._instanceId,
+        instanceId: instanceId || product.instanceId,
         edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
         editedImage: editedImage || null,
       };
@@ -212,7 +197,7 @@ const useStore = create((set, get) => ({
       .filter(({ productId }) => !!productId)
       .map(({ productId, p }) => ({
         product: productId,
-        instanceId: p._instanceId,
+        instanceId: p.instanceId,
         edits: p.edits || {},
       }));
 
@@ -259,7 +244,8 @@ const useStore = create((set, get) => ({
         return {
           ...(typeof p === "object" ? normalized : {}),
           id: p?._id ?? p?.id ?? p,
-          _instanceId: item.instanceId,
+          // Map backend instanceId → canonical frontend instanceId (no underscore)
+          instanceId: item.instanceId,
         };
       });
 
@@ -267,7 +253,7 @@ const useStore = create((set, get) => ({
       const state = get();
       const collectWithEdits = await Promise.all(
         collection.map(async (product) => {
-          const instanceId = product._instanceId;
+          const instanceId = product.instanceId;
           const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
           if (instanceEdits) {
             return {
@@ -325,7 +311,7 @@ const useStore = create((set, get) => ({
       const currentEdits = get().editsByInstanceId;
       const nextEditsByInstanceId = { ...currentEdits };
       collectWithEdits.forEach((item) => {
-        const instanceId = item?._instanceId;
+        const instanceId = item?.instanceId;
         if (!instanceId) return;
         const hasElements =
           Array.isArray(item?.edits?.elements) && item.edits.elements.length > 0;
@@ -399,7 +385,7 @@ const useStore = create((set, get) => ({
                 return {
                   ...(typeof p === "object" ? normalized : {}),
                   id: p?._id ?? p?.id ?? p,
-                  _instanceId: instanceId,
+                  instanceId,
                   edits: {
                     elements: Array.isArray(el) ? el : (el?.elements || []),
                     configuration: instanceEdits.configuration || {},
@@ -460,7 +446,7 @@ const useStore = create((set, get) => ({
               return {
                 ...(typeof p === "object" ? normalized : {}),
                 id: p?._id ?? p?.id ?? p,
-                _instanceId: instanceId,
+                instanceId,
                 edits: safeEdits,
                 editedImage: editedImage || null,
                 configuratorImageUrl,
@@ -477,7 +463,7 @@ const useStore = create((set, get) => ({
       const nextEditsByInstanceIdProjects = { ...currentEditsProjects };
       projects.forEach((project) => {
         (project?.products || []).forEach((product) => {
-          const instanceId = product?._instanceId;
+          const instanceId = product?.instanceId;
           if (!instanceId) return;
           const hasElements =
             Array.isArray(product?.edits?.elements) &&
@@ -544,33 +530,34 @@ const useStore = create((set, get) => ({
       return;
     }
     const state = get();
-    const productIds = state.pendingCollection.map((p) => p.id).filter(Boolean);
-    if (productIds.length === 0) {
+    const pendingItems = state.pendingCollection.filter((p) => p.id);
+    if (pendingItems.length === 0) {
       set({ pendingCollection: [] });
       return;
     }
     try {
-      // Save all pending edits before adding to collection (from editsByInstanceId or pendingEdits)
-      const pendingItemsWithEdits = state.pendingCollection.filter((item) => {
-        const instId = item._instanceId;
-        const edits = state.editsByInstanceId[instId] || state.pendingEdits[instId];
-        return edits && edits.elements && edits.elements.length > 0;
-      });
-
-      for (const item of pendingItemsWithEdits) {
-        const edits = state.editsByInstanceId[item._instanceId] || state.pendingEdits[item._instanceId];
+      // Save instance canvas edits BEFORE adding to collection.
+      // We use the client-generated instanceId so edits survive the transition into
+      // the persistent collection (backend will store edits under the same instanceId).
+      for (const item of pendingItems) {
+        const instId = item.instanceId;
+        const edits = state.editsByInstanceId[instId] || state.pendingEdits?.[instId];
         if (edits && edits.elements && edits.elements.length > 0) {
-          await apiService.canvas.save({
+          await apiService.canvas.saveInstance({
+            instanceId: instId,
             productId: item.id,
             canvasData: edits.elements,
             textOverlays: edits.elements.filter((el) => el.type === "text"),
-            layoutConfig: edits.configuration,
+            layoutConfig: edits.configuration || {},
           });
         }
       }
 
-      // Now add to collection
-      await apiService.collections.add(productIds);
+      // Add to collection, passing client-generated instanceIds so backend preserves them.
+      // This prevents the disconnect where backend would create different instanceIds,
+      // orphaning any canvas edits the user made before saving.
+      const productItems = pendingItems.map((p) => ({ productId: p.id, instanceId: p.instanceId }));
+      await apiService.collections.add(productItems);
       await get().fetchCollection();
       set({
         pendingCollection: [],
@@ -613,7 +600,9 @@ const useStore = create((set, get) => ({
       return false;
     }
     try {
-      await apiService.collections.add([product.id]);
+      // Generate a fresh instanceId so this add is fully independent of any other instance.
+      const instanceId = generateInstanceId();
+      await apiService.collections.add([{ productId: product.id, instanceId }]);
       await get().fetchCollection();
       return true;
     } catch (e) {
@@ -629,8 +618,11 @@ const useStore = create((set, get) => ({
     }
   },
   duplicateProductInCollection: async (product, instanceId) => {
-    if (!product || !isConfigurableProduct(product)) {
-      get().showToast("Only configurable products can be duplicated.");
+    // Products already in the collection were validated as configurable when added.
+    // Re-checking isConfigurableProduct here is redundant and fails when the collection
+    // item's field path differs from the catalog path (e.g. isConfigurable vs configurable).
+    if (!product) {
+      get().showToast("No product selected for duplication.");
       return false;
     }
     const token =
@@ -688,7 +680,7 @@ const useStore = create((set, get) => ({
     set((state) => {
       const duplicatedProduct = {
         ...product,
-        _instanceId: Date.now() + Math.random(),
+        instanceId: generateInstanceId(),
         id: Date.now() + Math.random(),
         name: `${product.name} (Copy)`,
       };
@@ -743,7 +735,7 @@ const useStore = create((set, get) => ({
     }
     set((state) => {
       const exists = state.pendingProjects.some(
-        (p) => p._instanceId === product._instanceId,
+        (p) => p.instanceId === product.instanceId,
       );
       if (exists) {
         set({
@@ -772,7 +764,7 @@ const useStore = create((set, get) => ({
   removeFromPendingProjects: (productInstanceId) => {
     set((state) => {
       const updatedPending = state.pendingProjects.filter(
-        (p) => p._instanceId !== productInstanceId,
+        (p) => p.instanceId !== productInstanceId,
       );
       return { pendingProjects: updatedPending };
     });
@@ -919,6 +911,7 @@ const useStore = create((set, get) => ({
     elements: [],
     selectedElementId: null,
     selectedElementIds: [], // Multi-select; primary selection is first
+    backgroundSelected: false,
     copyBuffer: [], // For ctrl+c / ctrl+v
     activeTool: "select",
     history: [[]],
@@ -1482,6 +1475,13 @@ const useStore = create((set, get) => ({
         selectedElementIds: [],
       },
     })),
+  setBackgroundSelected: (value) =>
+    set((state) => ({
+      configurator: {
+        ...state.configurator,
+        backgroundSelected: Boolean(value),
+      },
+    })),
   copyElements: () =>
     set((state) => {
       const ids = state.configurator.selectedElementIds || [];
@@ -1776,7 +1776,13 @@ const useStore = create((set, get) => ({
     const eligible = list
       .filter((product) => isConfigurableProduct(product))
       .map((product) => {
-        const edits = product.edits || state.productEdits[product.id] || null;
+        // Resolve edits from instance store only – never fall back to productEdits[product.id]
+        // because that map is shared across all instances of the same base product.
+        const instanceId = product.instanceId;
+        const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
+        const edits = instanceEdits
+          ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
+          : product.edits || null;
         return normalizeProduct(product, edits);
       });
     if (eligible.length === 0) {
@@ -1821,8 +1827,10 @@ const useStore = create((set, get) => ({
       get().showToast("Project has no products to duplicate.");
       return false;
     }
+    // Only use actual instanceIds – never fall back to product.id.
+    // Falling back to product.id would merge independent instances of the same base product.
     const instanceIds = project.products
-      .map((p) => p._instanceId || p.id)
+      .map((p) => p.instanceId)
       .filter(Boolean);
     if (instanceIds.length === 0) {
       get().showToast("Could not get product instances for duplicate.");
@@ -1843,8 +1851,9 @@ const useStore = create((set, get) => ({
   },
 
   addProductsToProject: async (products, projectId, projectName = null) => {
+    // Only use actual instanceIds – falling back to product.id would corrupt cross-instance identity.
     const instanceIds = (products || [])
-      .map((p) => p._instanceId || p.id)
+      .map((p) => p.instanceId)
       .filter(Boolean);
     if (instanceIds.length === 0) return false;
     try {
@@ -1935,13 +1944,25 @@ const useStore = create((set, get) => ({
     })),
   markProductAsEdited: (productId) =>
     set((state) => {
-      // Save current edits when marking as edited
       const edits = {
         elements: [...state.configurator.elements],
         configuration: { ...state.configurator.configuration },
         lastSaved: new Date().toISOString(),
       };
 
+      // Prefer instance-level storage when an editingInstanceId is active.
+      // Fall back to legacy productEdits map only when no instance context exists
+      // (e.g. editing from selection before adding to collection).
+      const editingInstanceId = state.configurator.editingInstanceId;
+      if (editingInstanceId) {
+        return {
+          editedProductIds: new Set([...state.editedProductIds, productId]),
+          editsByInstanceId: {
+            ...state.editsByInstanceId,
+            [editingInstanceId]: edits,
+          },
+        };
+      }
       return {
         editedProductIds: new Set([...state.editedProductIds, productId]),
         productEdits: {

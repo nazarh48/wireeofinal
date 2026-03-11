@@ -61,6 +61,29 @@ export const buildLayerPreviewProduct = (product, mode = "complete") => {
     return safeProduct;
   }
 
+  // Printing layer: icon and text only (no product image).
+  if (mode === "printing") {
+    return {
+      ...safeProduct,
+      editedImage: null,
+      baseDeviceImageUrl: "",
+      configuratorImageUrl: "",
+      baseImageUrl: "",
+    };
+  }
+
+  // Engraving layer: icon and text only (no product image).
+  if (mode === "laser") {
+    return {
+      ...safeProduct,
+      editedImage: null,
+      baseDeviceImageUrl: "",
+      configuratorImageUrl: "",
+      baseImageUrl: "",
+    };
+  }
+
+  // Background-only mode: hide base device so only background layer is visible.
   return {
     ...safeProduct,
     editedImage: null,

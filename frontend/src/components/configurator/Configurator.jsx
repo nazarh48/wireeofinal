@@ -40,7 +40,13 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
     fetchProjects,
   } = useStore();
   const currentProductId = configurator.product?.id;
-  const editingInstanceId = configurator.editingInstanceId || instanceId;
+  // IMPORTANT: prefer the URL's instanceId prop over configurator.editingInstanceId.
+  // On the very first render after navigation, configurator.editingInstanceId may still
+  // hold the value from the PREVIOUS product edit (it is updated asynchronously by the
+  // setProduct useEffect in EditorPage). If we let the stale value win, the cleanup of the
+  // unmount/dependency-change effect would call saveProductEdits with the wrong instanceId
+  // and overwrite the previous product's edits with an empty canvas.
+  const editingInstanceId = instanceId || configurator.editingInstanceId;
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [canvasInfo, setCanvasInfo] = useState(null);
@@ -66,22 +72,30 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
       hasPersistedEdits(existingEdits)
     );
 
-  // Save edits when product changes or component unmounts.
-  // Keep this lightweight (no editedImage snapshot) to avoid large payload failures.
+  // Keep a ref so the cleanup effect can read the latest value without it being a
+  // dependency — avoids spurious saves every time the user adds/removes an element.
+  const hasPersistableRef = useRef(hasPersistableState);
+  hasPersistableRef.current = hasPersistableState;
+
+  // Save edits when the product or instance changes, or when the component unmounts.
+  // hasPersistableState is intentionally NOT in the dep array: using the ref lets the
+  // cleanup always see the current value without re-registering the effect (and firing
+  // its cleanup) on every canvas element change.
   useEffect(() => {
     return () => {
-      if (currentProductId && hasPersistableState) {
+      if (currentProductId && hasPersistableRef.current) {
         saveProductEdits(currentProductId, editingInstanceId || undefined);
       }
     };
-  }, [currentProductId, saveProductEdits, editingInstanceId, hasPersistableState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProductId, saveProductEdits, editingInstanceId]);
 
   // Auto-save edits periodically (elements/config only; editedImage generated on explicit Save)
   useEffect(() => {
     if (!currentProductId) return;
 
     const autoSaveInterval = setInterval(() => {
-      if (hasPersistableState) {
+      if (hasPersistableRef.current) {
         setIsSaving(true);
         setSaveStatus('Auto-saving...');
         saveProductEdits(currentProductId, editingInstanceId || undefined)
@@ -99,7 +113,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
     }, 30000);
 
     return () => clearInterval(autoSaveInterval);
-  }, [currentProductId, saveProductEdits, editingInstanceId, hasPersistableState]);
+  }, [currentProductId, saveProductEdits, editingInstanceId]);
 
   const navigateBack = () => {
     if (isFromSelection) {

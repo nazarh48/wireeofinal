@@ -70,6 +70,20 @@ const normalizeAssetUrl = (url) => {
   return `${API_ORIGIN}${path}`;
 };
 
+/** Resolve product base image URLs to absolute so previews load the product photo. */
+const productWithResolvedUrls = (product) => {
+  if (!product) return product;
+  const base = product.baseDeviceImageUrl || product.configuratorImageUrl || product.baseImageUrl || product?.image || "";
+  const configurator = product.configuratorImageUrl || product.baseImageUrl || product?.image || "";
+  const primary = product.baseImageUrl || product.configuratorImageUrl || product?.image || "";
+  return {
+    ...product,
+    baseDeviceImageUrl: normalizeAssetUrl(base),
+    configuratorImageUrl: normalizeAssetUrl(configurator),
+    baseImageUrl: normalizeAssetUrl(primary),
+  };
+};
+
 const normalizePdfConfigProduct = (item) => {
   const product = item?.product || item || {};
   const instanceId = item?.instanceId || product?._instanceId || null;
@@ -140,14 +154,11 @@ export default function AdminProjects() {
 
   const projectRows = useMemo(
     () =>
-      withProducts.flatMap((project) =>
-        (project.products || []).map((product, index) => ({
-          key: `${project.id}_${product._instanceId || product.id || index}`,
-          project,
-          product,
-          edits: product.edits || { elements: [], configuration: {} },
-        })),
-      ),
+      withProducts.map((project) => ({
+        key: String(project.id),
+        project,
+        products: Array.isArray(project.products) ? project.products : [],
+      })),
     [withProducts],
   );
 
@@ -155,18 +166,23 @@ export default function AdminProjects() {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return projectRows;
 
-    return projectRows.filter(({ project, product }) => {
-      const fields = [
+    return projectRows.filter(({ project, products }) => {
+      const projectFields = [
         project.name,
         project.configurationNumber,
         project.ownerName,
         project.ownerEmail,
-        product.name,
-        product.productCode,
-        product.sku,
-        product._instanceId,
       ];
-      return fields.some((value) => String(value || "").toLowerCase().includes(query));
+      const productFields = (products || []).flatMap((p) => [
+        p.name,
+        p.productCode,
+        p.sku,
+        p._instanceId,
+        p.instanceId,
+      ]);
+      return [...projectFields, ...productFields].some((value) =>
+        String(value || "").toLowerCase().includes(query),
+      );
     });
   }, [projectRows, searchTerm]);
 
@@ -183,40 +199,80 @@ export default function AdminProjects() {
     return map;
   }, [pdfConfigurations]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+  // Expand projects into individual product rows
+  const expandedRows = useMemo(() => {
+    const expanded = [];
+    filteredRows.forEach(({ project, products }) => {
+      if (!Array.isArray(products) || products.length === 0) {
+        // No products, show project with empty state
+        expanded.push({
+          project,
+          product: null,
+          isFirstProduct: true,
+          isLastProduct: true,
+          productIndex: 0,
+          totalProducts: 0,
+          key: `${project.id}-none`,
+        });
+      } else {
+        // Multiple products: create a row for each
+        products.forEach((product, idx) => {
+          expanded.push({
+            project,
+            product,
+            isFirstProduct: idx === 0,
+            isLastProduct: idx === products.length - 1,
+            productIndex: idx,
+            totalProducts: products.length,
+            key: `${project.id}-${product._id || product.id || idx}`,
+          });
+        });
+      }
+    });
+    return expanded;
+  }, [filteredRows]);
+
+  const totalPages = Math.max(1, Math.ceil(expandedRows.length / ROWS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * ROWS_PER_PAGE;
-    return filteredRows.slice(start, start + ROWS_PER_PAGE);
-  }, [currentPage, filteredRows]);
+    return expandedRows.slice(start, start + ROWS_PER_PAGE);
+  }, [currentPage, expandedRows]);
+
+  const getEnhancedProductForPdf = (product) => {
+    const withUrls = productWithResolvedUrls(product);
+    return {
+      ...withUrls,
+      id: product._id ?? product.id,
+      _instanceId: product.instanceId ?? product._instanceId ?? null,
+      edits: product.edits
+        ? { elements: product.edits.elements || [], configuration: product.edits.configuration || {} }
+        : { elements: [], configuration: {} },
+    };
+  };
 
   const handleDownloadOriginalPdf = async (project) => {
-    const config = pdfConfigByProjectId.get(String(project.id));
-    if (!config?._id) return;
+    const products = Array.isArray(project.products) ? project.products : [];
+    if (products.length === 0) {
+      window.alert("No products in this project.");
+      return;
+    }
 
     setDownloadingPdfId(project.id);
     try {
-      const res = await apiService.pdf.getById(config._id);
-      const fullConfig = res?.config || res;
-      const rawProducts = Array.isArray(fullConfig?.products) ? fullConfig.products : [];
-
-      if (rawProducts.length === 0) {
-        throw new Error("No products found in saved PDF configuration.");
-      }
-
-      const products = rawProducts.map(normalizePdfConfigProduct);
+      const enhancedProducts = products.map(getEnhancedProductForPdf);
       await generateProjectPDF(
         {
           ...project,
-          name: fullConfig.projectName || project.name,
-          configurationNumber: project.configurationNumber || fullConfig.configurationNumber,
-          products,
+          name: project.name || "Unnamed Project",
+          configurationNumber: project.configurationNumber || null,
+          products: enhancedProducts,
         },
         {},
       );
     } catch (error) {
-      console.error("[AdminProjects] Failed to download original PDF:", error);
-      window.alert(error?.message || "Failed to download original PDF.");
+      console.error("[AdminProjects] Failed to download project PDF:", error);
+      window.alert(error?.message || "Failed to download PDF.");
     } finally {
       setDownloadingPdfId(null);
     }
@@ -307,39 +363,42 @@ export default function AdminProjects() {
     const isDownloading = downloadingPdfId === projectId || downloadingPdfId === project?.id;
     const isDeleting = deletingPdfId === projectId || deletingPdfId === project?.id;
     const hasSavedPdf = Boolean(originalPdfConfig?._id);
-
-    if (!hasSavedPdf) return null;
+    const hasProducts = Array.isArray(project?.products) && project.products.length > 0;
 
     return (
       <>
-        <button
-          type="button"
-          onClick={() => handleDownloadOriginalPdf(project)}
-          disabled={isDownloading || isDeleting}
-          title={isDownloading ? "Preparing PDF..." : "Download PDF"}
-          aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isDownloading ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-600 border-b-transparent" />
-          ) : (
-            <IconPdf className="h-4 w-4" />
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => handleDeleteOriginalPdf(project)}
-          disabled={isDownloading || isDeleting}
-          title={isDeleting ? "Deleting saved PDF..." : "Delete saved PDF"}
-          aria-label={isDeleting ? "Deleting saved PDF" : "Delete saved PDF"}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isDeleting ? (
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-b-transparent" />
-          ) : (
-            <IconTrash className="h-4 w-4" />
-          )}
-        </button>
+        {hasProducts && (
+          <button
+            type="button"
+            onClick={() => handleDownloadOriginalPdf(project)}
+            disabled={isDownloading || isDeleting}
+            title={isDownloading ? "Preparing PDF..." : "Download PDF (all products)"}
+            aria-label={isDownloading ? "Preparing PDF" : "Download PDF"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-sky-600 border-b-transparent" />
+            ) : (
+              <IconPdf className="h-4 w-4" />
+            )}
+          </button>
+        )}
+        {hasSavedPdf && (
+          <button
+            type="button"
+            onClick={() => handleDeleteOriginalPdf(project)}
+            disabled={isDownloading || isDeleting}
+            title={isDeleting ? "Deleting saved PDF..." : "Delete saved PDF"}
+            aria-label={isDeleting ? "Deleting saved PDF" : "Delete saved PDF"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isDeleting ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-b-transparent" />
+            ) : (
+              <IconTrash className="h-4 w-4" />
+            )}
+          </button>
+        )}
       </>
     );
   };
@@ -440,7 +499,9 @@ export default function AdminProjects() {
             <span className="font-medium text-slate-700">Total projects</span>
             <span className="text-2xl font-bold text-slate-900">{projectsLoading ? "…" : withProducts.length}</span>
             <span className="text-sm text-slate-500">
-              {projectsLoading ? "" : `${projectRows.length} configured item${projectRows.length === 1 ? "" : "s"}`}
+              {projectsLoading
+                ? ""
+                : `${projectRows.reduce((n, r) => n + (r.products?.length || 0), 0)} product${projectRows.reduce((n, r) => n + (r.products?.length || 0), 0) === 1 ? "" : "s"} in ${projectRows.length} project${projectRows.length === 1 ? "" : "s"}`}
             </span>
           </div>
           <div className="flex w-full sm:w-auto items-center gap-3">
@@ -491,28 +552,60 @@ export default function AdminProjects() {
                   <th className="px-4 py-4 text-left font-semibold align-top">Complete Photo</th>
                   <th className="px-4 py-4 text-left font-semibold align-top">Printing Layer</th>
                   <th className="px-4 py-4 text-left font-semibold align-top">Background Layer</th>
-                  <th className="px-4 py-4 text-left font-semibold align-top">Laser Layer</th>
+                  <th className="px-4 py-4 text-left font-semibold align-top">Engraving Layer</th>
                   <th className="px-4 py-4 text-center font-semibold align-top whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedRows.map((row) => {
-                  const completeProduct = buildLayerPreviewProduct(row.product, "complete");
-                  const completeEdits = buildLayerPreviewEdits(row.edits, "complete");
-                  const printingProduct = buildLayerPreviewProduct(row.product, "printing");
-                  const printingEdits = buildLayerPreviewEdits(row.edits, "printing");
-                  const backgroundProduct = buildLayerPreviewProduct(row.product, "background");
-                  const backgroundEdits = buildLayerPreviewEdits(row.edits, "background");
-                  const laserProduct = buildLayerPreviewProduct(row.product, "laser");
-                  const laserEdits = buildLayerPreviewEdits(row.edits, "laser");
+                  const product = row.product;
+                  const productCount = row.totalProducts;
+                  const isFirstProduct = row.isFirstProduct;
+                  
+                  if (!product) {
+                    // No products in this project
+                    return (
+                      <tr key={row.key} className="border-b border-slate-200 align-top bg-slate-50">
+                        <td className="px-4 py-4">
+                          <div className="font-semibold text-slate-900">{row.project.name || "Untitled project"}</div>
+                          <div className="mt-1 text-xs text-slate-500">No products</div>
+                          {(row.project.ownerName || row.project.ownerEmail) && (
+                            <div className="mt-1 text-xs text-slate-500">
+                              {row.project.ownerName || row.project.ownerEmail}
+                              {row.project.ownerName && row.project.ownerEmail ? ` (${row.project.ownerEmail})` : ""}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-4" colSpan="8">
+                          <div className="text-xs text-slate-400">—</div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const isLaserMode = product?.laserEnabled === true && product?.printingEnabled === false;
+                  const rowProduct = productWithResolvedUrls(product);
+                  const edits = product?.edits || { elements: [], configuration: {} };
+
+                  const completeProduct = buildLayerPreviewProduct(rowProduct, "complete");
+                  const completeEdits = buildLayerPreviewEdits(edits, "complete");
+                  const printingProduct = buildLayerPreviewProduct(rowProduct, "printing");
+                  const printingEdits = buildLayerPreviewEdits(edits, "printing");
+                  const backgroundProduct = buildLayerPreviewProduct(rowProduct, "background");
+                  const backgroundEdits = buildLayerPreviewEdits(edits, "background");
+                  const laserProduct = buildLayerPreviewProduct(rowProduct, "laser");
+                  const laserEdits = isLaserMode
+                    ? { ...edits, configuration: { ...(edits?.configuration || {}), backgroundImage: null }, elements: Array.isArray(edits?.elements) ? edits.elements : [] }
+                    : buildLayerPreviewEdits(edits, "laser");
                   const originalPdfConfig = pdfConfigByProjectId.get(String(row.project.id));
+                  const rowForModal = { project: row.project, product, edits };
 
                   return (
                     <tr key={row.key} className="border-b border-slate-200 align-top hover:bg-slate-50/70">
                       <td className="px-4 py-4">
                         <div className="font-semibold text-slate-900">{row.project.name || "Untitled project"}</div>
                         <div className="mt-1 text-xs text-slate-500">
-                          Product: {row.product.name || "Unnamed product"}
+                          {row.totalProducts === 0 ? "No products" : `${row.totalProducts} product${row.totalProducts === 1 ? "" : "s"}`}
                         </div>
                         {(row.project.ownerName || row.project.ownerEmail) && (
                           <div className="mt-1 text-xs text-slate-500">
@@ -520,26 +613,54 @@ export default function AdminProjects() {
                             {row.project.ownerName && row.project.ownerEmail ? ` (${row.project.ownerEmail})` : ""}
                           </div>
                         )}
+                        <div className="mt-2">
+                          <div className="font-medium text-slate-800 text-sm">{product.name || "Unnamed"}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {product._instanceId || product.productCode || product.sku || "—"}
+                          </div>
+                        </div>
+                        {product && (
+                          <span className={`mt-1.5 inline-block text-[10px] px-2 py-0.5 rounded-full font-medium ${isLaserMode ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}>
+                            {isLaserMode ? "Engraving" : "Printing"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <div className="font-medium text-slate-900">{row.project.configurationNumber || "—"}</div>
-                        <div className="mt-1 text-xs text-slate-500 break-all">
-                          File: {row.product._instanceId || row.product.productCode || row.product.sku || "—"}
-                        </div>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap">{formatDate(row.project.createdAt)}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">{formatTime(row.project.createdAt)}</td>
-                      <td className="px-4 py-4">
-                        <EditedProductPreview product={completeProduct} edits={completeEdits} width={140} height={105} onClick={() => openLayerModal("Complete Photo", completeProduct, completeEdits, row)} />
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {formatDate(row.project.createdAt)}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {formatTime(row.project.createdAt)}
                       </td>
                       <td className="px-4 py-4">
-                        <EditedProductPreview product={printingProduct} edits={printingEdits} width={140} height={105} onClick={() => openLayerModal("Printing Layer", printingProduct, printingEdits, row)} />
+                        {completeProduct && rowForModal ? (
+                          <EditedProductPreview product={completeProduct} edits={completeEdits} width={140} height={105} onClick={() => openLayerModal("Complete Photo", completeProduct, completeEdits, rowForModal)} />
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4">
-                        <EditedProductPreview product={backgroundProduct} edits={backgroundEdits} width={140} height={105} onClick={() => openLayerModal("Background Layer", backgroundProduct, backgroundEdits, row)} />
+                        {!isLaserMode ? (
+                          <EditedProductPreview product={printingProduct} edits={printingEdits} width={140} height={105} onClick={() => openLayerModal("Printing Layer", printingProduct, printingEdits, rowForModal)} />
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">N/A</span>
+                        )}
                       </td>
                       <td className="px-4 py-4">
-                        <EditedProductPreview product={laserProduct} edits={laserEdits} width={140} height={105} onClick={() => openLayerModal("Laser Layer", laserProduct, laserEdits, row)} />
+                        {!isLaserMode ? (
+                          <EditedProductPreview product={backgroundProduct} edits={backgroundEdits} width={140} height={105} onClick={() => openLayerModal("Background Layer", backgroundProduct, backgroundEdits, rowForModal)} />
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {isLaserMode ? (
+                          <EditedProductPreview product={laserProduct} edits={laserEdits} width={140} height={105} onClick={() => openLayerModal("Engraving Layer", laserProduct, laserEdits, rowForModal)} />
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">N/A</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 align-middle">
                         <div className="flex items-center justify-center gap-2">
@@ -569,55 +690,100 @@ export default function AdminProjects() {
 
           <div className="xl:hidden p-4 sm:p-6 space-y-4">
             {paginatedRows.map((row) => {
-              const completeProduct = buildLayerPreviewProduct(row.product, "complete");
-              const completeEdits = buildLayerPreviewEdits(row.edits, "complete");
-              const printingProduct = buildLayerPreviewProduct(row.product, "printing");
-              const printingEdits = buildLayerPreviewEdits(row.edits, "printing");
-              const backgroundProduct = buildLayerPreviewProduct(row.product, "background");
-              const backgroundEdits = buildLayerPreviewEdits(row.edits, "background");
-              const laserProduct = buildLayerPreviewProduct(row.product, "laser");
-              const laserEdits = buildLayerPreviewEdits(row.edits, "laser");
+              const product = row.product;
+              const isFirstProduct = row.isFirstProduct;
+              const productCount = row.totalProducts;
+              
+              if (!product) {
+                // No products state
+                return (
+                  <article key={row.key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                    <h3 className="text-base font-semibold text-slate-900">{row.project.name || "Untitled project"}</h3>
+                    <p className="mt-2 text-sm text-slate-600">No products</p>
+                    {(row.project.ownerName || row.project.ownerEmail) && (
+                      <div className="mt-2 text-xs text-slate-500">
+                        {row.project.ownerName || row.project.ownerEmail}
+                        {row.project.ownerName && row.project.ownerEmail ? ` (${row.project.ownerEmail})` : ""}
+                      </div>
+                    )}
+                  </article>
+                );
+              }
+
+              const isLaserMode = product?.laserEnabled === true && product?.printingEnabled === false;
+              const rowProduct = productWithResolvedUrls(product);
+              const edits = product?.edits || { elements: [], configuration: {} };
+
+              const completeProduct = buildLayerPreviewProduct(rowProduct, "complete");
+              const completeEdits = buildLayerPreviewEdits(edits, "complete");
+              const printingProduct = buildLayerPreviewProduct(rowProduct, "printing");
+              const printingEdits = buildLayerPreviewEdits(edits, "printing");
+              const backgroundProduct = buildLayerPreviewProduct(rowProduct, "background");
+              const backgroundEdits = buildLayerPreviewEdits(edits, "background");
+              const laserProduct = buildLayerPreviewProduct(rowProduct, "laser");
+              const laserEdits = isLaserMode
+                ? { ...edits, configuration: { ...(edits?.configuration || {}), backgroundImage: null }, elements: Array.isArray(edits?.elements) ? edits.elements : [] }
+                : buildLayerPreviewEdits(edits, "laser");
               const originalPdfConfig = pdfConfigByProjectId.get(String(row.project.id));
+              const rowForModal = { project: row.project, product, edits };
 
               return (
-                <article key={row.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <article 
+                  key={row.key} 
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-base font-semibold text-slate-900">
-                        {row.project.name || "Untitled project"}
-                      </h3>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-slate-900">
+                          {row.project.name || "Untitled project"}
+                        </h3>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${isLaserMode ? "bg-amber-100 text-amber-700" : "bg-sky-100 text-sky-700"}`}>
+                          {isLaserMode ? "Engraving" : "Printing"}
+                        </span>
+                      </div>
                       <p className="mt-1 text-sm text-slate-600">
-                        {row.product.name || "Unnamed product"}
+                        {productCount === 0 ? "No products" : `${productCount} product${productCount === 1 ? "" : "s"}`}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
                         {row.project.configurationNumber || "—"} • {formatDate(row.project.createdAt)} • {formatTime(row.project.createdAt)}
                       </p>
+                      <div className="mt-2">
+                        <p className="font-medium text-slate-800 text-sm">{product.name || "Unnamed"}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{product._instanceId || product.productCode || product.sku || "—"}</p>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">
-                      {(row.project.ownerName || row.project.ownerEmail) &&
-                        `${row.project.ownerName || row.project.ownerEmail}${
-                          row.project.ownerName && row.project.ownerEmail ? ` (${row.project.ownerEmail})` : ""
-                        }`}
-                    </div>
+                    {row.project.ownerName || row.project.ownerEmail ? (
+                      <div className="text-xs text-slate-500 sm:text-right">
+                        {row.project.ownerName || row.project.ownerEmail}
+                        {row.project.ownerName && row.project.ownerEmail ? ` (${row.project.ownerEmail})` : ""}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Complete Photo</p>
-                      <EditedProductPreview product={completeProduct} edits={completeEdits} width={280} height={180} onClick={() => openLayerModal("Complete Photo", completeProduct, completeEdits, row)} />
+                      <EditedProductPreview product={completeProduct} edits={completeEdits} width={280} height={180} onClick={() => openLayerModal("Complete Photo", completeProduct, completeEdits, rowForModal)} />
                     </div>
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Printing Layer</p>
-                      <EditedProductPreview product={printingProduct} edits={printingEdits} width={280} height={180} onClick={() => openLayerModal("Printing Layer", printingProduct, printingEdits, row)} />
-                    </div>
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Background Layer</p>
-                      <EditedProductPreview product={backgroundProduct} edits={backgroundEdits} width={280} height={180} onClick={() => openLayerModal("Background Layer", backgroundProduct, backgroundEdits, row)} />
-                    </div>
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Laser Layer</p>
-                      <EditedProductPreview product={laserProduct} edits={laserEdits} width={280} height={180} onClick={() => openLayerModal("Laser Layer", laserProduct, laserEdits, row)} />
-                    </div>
+                    {!isLaserMode && (
+                      <>
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Printing Layer</p>
+                          <EditedProductPreview product={printingProduct} edits={printingEdits} width={280} height={180} onClick={() => openLayerModal("Printing Layer", printingProduct, printingEdits, rowForModal)} />
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Background Layer</p>
+                          <EditedProductPreview product={backgroundProduct} edits={backgroundEdits} width={280} height={180} onClick={() => openLayerModal("Background Layer", backgroundProduct, backgroundEdits, rowForModal)} />
+                        </div>
+                      </>
+                    )}
+                    {isLaserMode && (
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Engraving Layer</p>
+                        <EditedProductPreview product={laserProduct} edits={laserEdits} width={280} height={180} onClick={() => openLayerModal("Engraving Layer", laserProduct, laserEdits, rowForModal)} />
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
@@ -642,10 +808,10 @@ export default function AdminProjects() {
             })}
           </div>
 
-          {filteredRows.length > 0 && (
+          {expandedRows.length > 0 && (
             <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-sm text-slate-500">
-                Showing {(currentPage - 1) * ROWS_PER_PAGE + 1}-{Math.min(currentPage * ROWS_PER_PAGE, filteredRows.length)} of {filteredRows.length}
+                Showing {(currentPage - 1) * ROWS_PER_PAGE + 1}-{Math.min(currentPage * ROWS_PER_PAGE, expandedRows.length)} of {expandedRows.length}
               </p>
               <div className="flex items-center gap-2">
                 <button

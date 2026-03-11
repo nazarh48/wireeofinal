@@ -4,11 +4,11 @@ import { useIconStore } from '../../stores/useIconStore';
 import { getImageUrl } from '../../services/api';
 import { buildColoredSvgDataUrl, isSvgAssetUrl } from '../../utils/svgIconColor';
 
-const quickActions = [
+const ALL_QUICK_ACTIONS = [
   { id: 'icons', label: 'Symbols and icons' },
   { id: 'text', label: 'Text field' },
   { id: 'counter', label: 'Counter' },
-  { id: 'image', label: 'Own picture' },
+  { id: 'image', label: 'Own picture', printingOnly: true },
 ];
 
 const roomOptions = [
@@ -111,6 +111,16 @@ const ConfiguratorToolRail = () => {
     [configurator.product]
   );
 
+  // For laser-only products, hide image upload (no background/own picture allowed)
+  const isLaserOnly =
+    configurator.product?.laserEnabled === true &&
+    configurator.product?.printingEnabled === false;
+
+  const quickActions = useMemo(
+    () => ALL_QUICK_ACTIONS.filter((a) => !(a.printingOnly && isLaserOnly)),
+    [isLaserOnly]
+  );
+
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
@@ -120,7 +130,11 @@ const ConfiguratorToolRail = () => {
   useEffect(() => {
     const cfg = configurator.configuration || {};
     setTextValue('');
-    setActiveAction('icons');
+    // Reset to icons if current action is not available for this product mode
+    setActiveAction((prev) => {
+      if (prev === 'image' && isLaserOnly) return 'icons';
+      return 'icons';
+    });
     const nextProcessing =
       (cfg.processingType && processingOptions.includes(cfg.processingType))
         ? cfg.processingType

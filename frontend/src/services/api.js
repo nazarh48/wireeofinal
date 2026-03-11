@@ -287,8 +287,14 @@ export const apiService = {
 
   collections: {
     getMine: async () => unwrap(await userApi.get("/collections")),
-    add: async (productIds) =>
-      unwrap(await userApi.post("/collections/add", { productIds })),
+    /**
+     * Add products to collection.
+     * Accepts: [{ productId, instanceId }]  – backend preserves provided instanceIds.
+     * This prevents the mismatch where backend would generate new instanceIds,
+     * orphaning any canvas edits the user made before saving.
+     */
+    add: async (productItems) =>
+      unwrap(await userApi.post("/collections/add", { products: productItems })),
     duplicateItem: async (instanceId) =>
       unwrap(await userApi.post(`/collections/${encodeURIComponent(instanceId)}/duplicate`)),
     removeItem: async (instanceId) =>

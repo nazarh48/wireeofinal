@@ -197,7 +197,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                 <div className="text-sm text-gray-500 italic">No products selected</div>
               ) : (
                 products.map((product) => (
-                  <div key={product._instanceId || product.id} className="text-sm text-gray-600 flex items-center space-x-2">
+                  <div key={product.instanceId || product._instanceId || product.id} className="text-sm text-gray-600 flex items-center space-x-2">
                     <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                     <span>{product.name}</span>
                   </div>

@@ -93,9 +93,19 @@ export const productValidators = {
 
 export const collectionValidators = {
   add: [
-    body("productIds")
-      .isArray({ min: 1 })
-      .withMessage("productIds must be non-empty array"),
+    // Accept either the new format ({ products: [{productId, instanceId}] })
+    // or the legacy format ({ productIds: ["id1"] }). At least one must be a non-empty array.
+    body()
+      .custom((_, { req }) => {
+        const hasNewFormat =
+          Array.isArray(req.body?.products) && req.body.products.length > 0;
+        const hasLegacyFormat =
+          Array.isArray(req.body?.productIds) && req.body.productIds.length > 0;
+        if (!hasNewFormat && !hasLegacyFormat) {
+          throw new Error("products (or productIds) must be a non-empty array");
+        }
+        return true;
+      }),
   ],
   instanceId: [param("instanceId").trim().notEmpty().withMessage("instanceId required")],
 };

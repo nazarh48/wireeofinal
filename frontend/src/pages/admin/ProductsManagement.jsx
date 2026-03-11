@@ -39,14 +39,9 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [baseDevicePreview, setBaseDevicePreview] = useState(initial?.baseDeviceImageUrl ?? "");
   const [engravingMaskImageFile, setEngravingMaskImageFile] = useState(null);
   const [engravingMaskPreview, setEngravingMaskPreview] = useState(initial?.engravingMaskImageUrl ?? "");
-  const [printingEnabled, setPrintingEnabled] = useState(
-    initial?.printingEnabled !== undefined ? !!initial.printingEnabled : true
-  );
-  const [laserEnabled, setLaserEnabled] = useState(
-    initial?.laserEnabled !== undefined ? !!initial.laserEnabled : true
-  );
-  const [backgroundCustomizable, setBackgroundCustomizable] = useState(
-    initial?.backgroundCustomizable !== undefined ? !!initial.backgroundCustomizable : true
+  // Mutually exclusive: either 'printing' or 'laser'
+  const [mode, setMode] = useState(
+    initial?.laserEnabled === true && initial?.printingEnabled === false ? 'laser' : 'printing'
   );
 
   useEffect(() => {
@@ -95,10 +90,10 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       downloadableFiles: initial ? keptAttachments : undefined,
       downloadFiles: downloadFiles.length ? downloadFiles : undefined,
       baseDeviceImageFile: baseDeviceImageFile || undefined,
-      engravingMaskImageFile: engravingMaskImageFile || undefined,
-      printingEnabled,
-      laserEnabled,
-      backgroundCustomizable,
+      engravingMaskImageFile: mode === 'laser' ? (engravingMaskImageFile || undefined) : undefined,
+      printingEnabled: mode === 'printing',
+      laserEnabled: mode === 'laser',
+      backgroundCustomizable: mode === 'printing',
     });
   };
 
@@ -272,39 +267,35 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           Configurable (use in configurator, collections, projects, PDF)
         </label>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Processing type *</label>
+        <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${mode === 'printing' ? 'bg-teal-50 border-teal-400' : 'bg-slate-50 border-slate-200 hover:border-teal-300'}`}>
           <input
-            type="checkbox"
-            checked={printingEnabled}
-            onChange={(e) => setPrintingEnabled(e.target.checked)}
-            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
+            type="radio"
+            name="processingMode"
+            value="printing"
+            checked={mode === 'printing'}
+            onChange={() => setMode('printing')}
+            className="w-4 h-4 text-teal-600 border-slate-300 focus:ring-teal-500"
           />
-          <span className="text-sm font-medium text-slate-700">
-            Printing enabled (background layer / colour printing)
-          </span>
+          <div>
+            <span className="text-sm font-medium text-slate-700">Printing enabled</span>
+            <p className="text-xs text-slate-500 mt-0.5">Background layer + colour printing. Users can add background, icons and text (2 layers).</p>
+          </div>
         </label>
-        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+        <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${mode === 'laser' ? 'bg-teal-50 border-teal-400' : 'bg-slate-50 border-slate-200 hover:border-teal-300'}`}>
           <input
-            type="checkbox"
-            checked={laserEnabled}
-            onChange={(e) => setLaserEnabled(e.target.checked)}
-            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
+            type="radio"
+            name="processingMode"
+            value="laser"
+            checked={mode === 'laser'}
+            onChange={() => setMode('laser')}
+            className="w-4 h-4 text-teal-600 border-slate-300 focus:ring-teal-500"
           />
-          <span className="text-sm font-medium text-slate-700">
-            Laser / engraving enabled (icons & text tools)
-          </span>
-        </label>
-        <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 md:col-span-2">
-          <input
-            type="checkbox"
-            checked={backgroundCustomizable}
-            onChange={(e) => setBackgroundCustomizable(e.target.checked)}
-            className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
-          />
-          <span className="text-sm font-medium text-slate-700">
-            Background customizable (allow user background upload when printing is enabled)
-          </span>
+          <div>
+            <span className="text-sm font-medium text-slate-700">Laser / engraving enabled</span>
+            <p className="text-xs text-slate-500 mt-0.5">Icons and text tools only. No background layer. Upload an engraving mask below.</p>
+          </div>
         </label>
       </div>
       <div>
@@ -345,46 +336,48 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           This image is used as the locked base layer inside the configurator.
         </p>
       </div>
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-          Engraving mask image (white = allowed, black = forbidden)
-        </label>
-        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
-          <span className="text-sm text-slate-500 mt-1">Click to upload engraving mask</span>
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (engravingMaskPreview && engravingMaskPreview.startsWith("blob:")) URL.revokeObjectURL(engravingMaskPreview);
-              setEngravingMaskImageFile(file || null);
-              setEngravingMaskPreview(file ? URL.createObjectURL(file) : (initial?.engravingMaskImageUrl ?? ""));
-            }}
-          />
-        </label>
-        {(engravingMaskPreview || engravingMaskImageFile) && (
-          <div className="mt-3 flex items-start gap-2">
-            <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
-              <img src={engravingMaskPreview} alt="" className="w-full h-full object-cover" />
-            </div>
-            <button
-              type="button"
-              onClick={() => {
+      {mode === 'laser' && (
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+            Engraving mask image (white = allowed, black = forbidden)
+          </label>
+          <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
+            <span className="text-sm text-slate-500 mt-1">Click to upload engraving mask</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
                 if (engravingMaskPreview && engravingMaskPreview.startsWith("blob:")) URL.revokeObjectURL(engravingMaskPreview);
-                setEngravingMaskImageFile(null);
-                setEngravingMaskPreview(initial?.engravingMaskImageUrl ?? "");
+                setEngravingMaskImageFile(file || null);
+                setEngravingMaskPreview(file ? URL.createObjectURL(file) : (initial?.engravingMaskImageUrl ?? ""));
               }}
-              className="mt-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
-            >
-              Remove
-            </button>
-          </div>
-        )}
-        <p className="mt-2 text-xs text-slate-500">
-          Used to validate engraving area in real time and during server-side export. White = allowed, black = forbidden.
-        </p>
-      </div>
+            />
+          </label>
+          {(engravingMaskPreview || engravingMaskImageFile) && (
+            <div className="mt-3 flex items-start gap-2">
+              <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
+                <img src={engravingMaskPreview} alt="" className="w-full h-full object-cover" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (engravingMaskPreview && engravingMaskPreview.startsWith("blob:")) URL.revokeObjectURL(engravingMaskPreview);
+                  setEngravingMaskImageFile(null);
+                  setEngravingMaskPreview(initial?.engravingMaskImageUrl ?? "");
+                }}
+                className="mt-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Used to validate engraving area in real time and during server-side export. White = allowed, black = forbidden.
+          </p>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
         <select

@@ -12,7 +12,7 @@ const Projects = () => {
   const projectsLoading = useStore((state) => state.projectsLoading);
   const collection = useStore((state) => state.collection);
   const editsByInstanceId = useStore((state) => state.editsByInstanceId);
-  const productEdits = useStore((state) => state.productEdits);
+  // productEdits (product-level map) intentionally not used – all lookups are by instanceId.
   const fetchProjects = useStore((state) => state.fetchProjects);
   const deleteProject = useStore((state) => state.deleteProject);
   const removeProductFromProject = useStore((state) => state.removeProductFromProject);
@@ -70,15 +70,16 @@ const Projects = () => {
     if (!product?.id) return;
 
     const params = new URLSearchParams({ from: 'projects' });
-    if (product._instanceId) {
-      params.set('instanceId', product._instanceId);
-    }
+    // Use canonical instanceId (no underscore); fall back to legacy _instanceId for old records.
+    const instId = product.instanceId || product._instanceId;
+    if (instId) params.set('instanceId', instId);
 
     navigate(`/editor/${product.id}?${params.toString()}`);
   };
 
   const handleRemoveProjectProduct = async (projectId, product) => {
-    const removeKey = product?._instanceId || product?.instanceId || product?.id || product?._id;
+    // Always remove by instanceId – never by product.id to avoid removing the wrong instance.
+    const removeKey = product?.instanceId || product?._instanceId || product?.id || product?._id;
     if (!removeKey) return;
 
     const confirmed = window.confirm(
@@ -89,12 +90,15 @@ const Projects = () => {
     await removeProductFromProject(projectId, removeKey);
   };
 
-  // Enhance products with edits + editedImage + correct image so PDF shows edited images (same as TabbedRanges)
+  // Enhance products with edits + editedImage + correct image so PDF shows edited images.
   const getEnhancedProductForPdf = (product) => {
-    const instanceEdits = product._instanceId ? editsByInstanceId[product._instanceId] : null;
-    const edits = product.edits || (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null) || productEdits[product.id] || null;
-    const editedImage = product.editedImage ?? instanceEdits?.editedImage ?? null;
-    const collectionItem = (collection || []).find((c) => c._instanceId === product._instanceId);
+    const instanceId = product.instanceId || product._instanceId; // support legacy field
+    const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
+    // Never fall back to productEdits[product.id] – that map is shared across all instances.
+    const edits = (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null)
+      || product.edits || null;
+    const editedImage = instanceEdits?.editedImage ?? product.editedImage ?? null;
+    const collectionItem = (collection || []).find((c) => (c.instanceId || c._instanceId) === instanceId);
     const baseImg = collectionItem?.configuratorImageUrl || collectionItem?.baseImageUrl;
     return {
       ...product,
@@ -229,7 +233,7 @@ const Projects = () => {
                         <ul className="space-y-1">
                           {project.products.slice(0, 3).map((product, idx) => (
                             <li
-                              key={product._instanceId || product.id || idx}
+                              key={product.instanceId || product._instanceId || product.id || idx}
                               className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-2 py-1.5"
                             >
                               <div className="min-w-0 flex items-center text-xs text-gray-700">
