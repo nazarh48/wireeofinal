@@ -38,7 +38,7 @@ const TabbedRanges = () => {
   }, [activeTab, fetchCollection]);
 
   useEffect(() => {
-    if (activeTab === 'projects') fetchProjects();
+    if (activeTab === 'projects') fetchProjects({ mine: true });
   }, [activeTab, fetchProjects]);
 
   useEffect(() => {
@@ -80,6 +80,7 @@ const TabbedRanges = () => {
             onDuplicate={duplicateProduct}
             onDelete={deleteProduct}
             onRetry={fetchCollection}
+            useMineProjects
           />
         );
       case 'projects':
@@ -87,7 +88,7 @@ const TabbedRanges = () => {
           <ProjectsContent
             loading={projectsLoading}
             error={projectsError}
-            onRetry={fetchProjects}
+            onRetry={() => fetchProjects({ mine: true })}
             setActiveTab={setActiveTab}
             initialSelectedProjectId={searchParams.get('projectId')}
           />
@@ -371,7 +372,7 @@ const SelectionContent = () => {
   );
 };
 
-const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, onDelete }) => {
+const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, onDelete, useMineProjects }) => {
   const {
     addProductsToProject,
     editsByInstanceId,
@@ -381,6 +382,7 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
   const [selectedProducts, setSelectedProducts] = useState(new Set());
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [productsToAdd, setProductsToAdd] = useState([]);
+  const [deleteCollectionItem, setDeleteCollectionItem] = useState(null);
 
   const handleStartEditing = (item) => {
     const params = new URLSearchParams({ from: 'collection' });
@@ -389,12 +391,13 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
   };
 
   const handleDeleteItem = (item) => {
-    const confirmed = window.confirm(
-      `Delete "${item?.name || 'this product'}" from your collection?`,
-    );
-    if (!confirmed) return;
-    // Always remove by instanceId – never by product.id to avoid removing the wrong copy.
-    onDelete(item.instanceId || item.id);
+    setDeleteCollectionItem(item);
+  };
+
+  const confirmDeleteCollectionItem = () => {
+    if (!deleteCollectionItem) return;
+    onDelete(deleteCollectionItem.instanceId || deleteCollectionItem.id);
+    setDeleteCollectionItem(null);
   };
 
   const handleToggleSelection = (item) => {
@@ -693,7 +696,35 @@ const CollectionContent = ({ collection, loading, error, onRetry, onDuplicate, o
             }}
             products={productsToAdd}
             onConfirm={handleConfirmAddToProject}
+            useMineProjects={useMineProjects}
           />
+
+          {deleteCollectionItem && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-collection-item-title">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                <h3 id="delete-collection-item-title" className="text-xl font-bold text-gray-900 mb-2">Remove from collection?</h3>
+                <p className="text-gray-600 mb-6">
+                  Are you sure you want to remove &quot;{deleteCollectionItem?.name || 'this product'}&quot; from your collection?
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteCollectionItem(null)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmDeleteCollectionItem}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -722,6 +753,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
   const [exportingProjectId, setExportingProjectId] = useState(null);
   const [duplicatingId, setDuplicatingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [removeProductConfirm, setRemoveProductConfirm] = useState(null);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
 
   const projectsWithProducts = projects.filter((p) => p.products && p.products.length > 0);
@@ -786,15 +818,10 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
     }
   };
 
-  // Build product with edits + editedImage resolved by instanceId (never productEdits[product.id]).
+  // Use only the project snapshot so products in projects are independent of collection edits.
   const getEnhancedProductForPdf = (product) => {
-    const instanceId = product.instanceId;
-    const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
-    // Priority: live instance edits > project snapshot edits.
-    // Never fall back to productEdits[product.id] – that would mix edits across instances.
-    const edits = (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null)
-      || product.edits || null;
-    const editedImage = instanceEdits?.editedImage ?? product.editedImage ?? null;
+    const edits = product.edits || null;
+    const editedImage = product.editedImage ?? null;
     const collectionItem = (collection || []).find((c) => c.instanceId === product.instanceId);
     const catalogProduct = getConfigurableProductById?.(product.id) || null;
     const baseImg =
@@ -901,17 +928,23 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
     }
   };
 
-  const handleRemoveProduct = async (projectId, product) => {
-    // Always remove by instanceId – never by product.id to avoid removing the wrong instance.
-    const removeKey = product?.instanceId || product?._instanceId || product?.id || product?._id || null;
+  const handleRemoveProduct = (projectId, product) => {
+    const removeKey =
+      (product?._id && String(product._id).length === 24 ? product._id : null) ||
+      product?.instanceId ||
+      product?._instanceId ||
+      null;
     if (!removeKey) {
       showToast('Could not remove product: missing identifier.');
       return;
     }
-    const confirmed = window.confirm(
-      `Remove "${product?.name || 'this product'}" from this project?`,
-    );
-    if (!confirmed) return;
+    setRemoveProductConfirm({ projectId, product, removeKey });
+  };
+
+  const confirmRemoveProductFromProject = async () => {
+    if (!removeProductConfirm) return;
+    const { projectId, removeKey } = removeProductConfirm;
+    setRemoveProductConfirm(null);
     await removeProductFromProject(projectId, removeKey);
   };
 
@@ -1002,7 +1035,7 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                           setSelectedProjectId(project.id);
                           handleRenameProject(project);
                         }}
-                        className="text-blue-600 hover:text-blue-700 font-medium"
+                        className="text-teal-600 hover:text-teal-700 font-medium"
                       >
                         Edit
                       </button>
@@ -1058,14 +1091,9 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {project.products.map((product, idx) => {
-                      // Resolve edits by instanceId only.
-                      // Project snapshot (product.edits) is used as fallback so re-editing in collection
-                      // does not automatically override the project's saved state.
-                      const instanceId = product.instanceId;
-                      const instanceEdits = instanceId ? editsByInstanceId[instanceId] : null;
-                      const edits = (instanceEdits ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} } : null)
-                        || product.edits || null;
-                      const editedImage = instanceEdits?.editedImage ?? product.editedImage ?? null;
+                      // Use only the project snapshot so editing in Collection does not change the project.
+                      const edits = product.edits || null;
+                      const editedImage = product.editedImage ?? null;
                       const productWithEdits = edits ? { ...product, edits } : product;
                       const collectionItem = (collection || []).find((c) => c.instanceId === product.instanceId);
                       const catalogProduct = getConfigurableProductById?.(product.id) || null;
@@ -1084,16 +1112,16 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                         baseImageUrl: baseImg ? (collectionItem?.baseImageUrl || baseImg) : (product.baseImageUrl || product.configuratorImageUrl),
                       };
                       return (
-                        <div key={`${product.instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
+                        <div key={product._id || `${product.instanceId || product.id}_${idx}`} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200 hover:border-violet-300 transition-all group">
                           <div className="mb-4">
                             <h4 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-violet-600 transition-colors">{product.name}</h4>
                             <p className="text-sm text-gray-600 font-medium">Code: {product.productCode || product.sku || "—"}</p>
                           </div>
                           <div className="mb-4 bg-white rounded-lg p-2 border border-gray-200">
-                            <EditedProductPreview key={`preview_${product.instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
+                            <EditedProductPreview key={`preview_${product._id || product.instanceId || product.id}_${idx}`} product={previewProduct} edits={edits} width={280} height={180} />
                           </div>
                           <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-200">
-                            <button onClick={() => handleExportSingleProductPdf(project, productWithEdits)} className="p-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors" title="Export this product PDF">
+                            <button onClick={() => handleExportSingleProductPdf(project, productWithEdits)} className="p-2 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-600 transition-colors" title="Export this product PDF">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                             </button>
                             <button onClick={() => handleAddProductToPdf(productWithEdits)} className="p-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition-colors" title="Add to PDF list">
@@ -1139,6 +1167,33 @@ const ProjectsContent = ({ loading, error, onRetry, setActiveTab, initialSelecte
                 className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeProductConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="remove-product-title">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 id="remove-product-title" className="text-xl font-bold text-gray-900 mb-2">Remove from project?</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to remove &quot;{removeProductConfirm.product?.name || 'this product'}&quot; from this project?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRemoveProductConfirm(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveProductFromProject}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Remove
               </button>
             </div>
           </div>

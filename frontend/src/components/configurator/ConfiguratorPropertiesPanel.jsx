@@ -7,7 +7,7 @@ const CANVAS_HEIGHT = 600;
 
 const fontFamilies = ['Arial', 'Helvetica', 'Times New Roman', 'Verdana', 'Georgia', 'Tahoma'];
 
-const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
+const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
   const {
     configurator,
     updateElement,
@@ -34,6 +34,8 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
   const effectiveCanvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
   const backgroundWidth = configurator.configuration?.backgroundWidth || effectiveCanvasWidth;
   const backgroundHeight = configurator.configuration?.backgroundHeight || effectiveCanvasHeight;
+  const backgroundX = configurator.configuration?.backgroundX ?? 0;
+  const backgroundY = configurator.configuration?.backgroundY ?? 0;
   const colorizableImageSource = selectedElement?.originalSrc || selectedElement?.src || '';
   const canColorizeSelectedImage =
     selectedElement?.type === 'image' &&
@@ -166,7 +168,44 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo }) => {
           <div className="space-y-3 rounded-md border border-[#cfd3d9] bg-white p-3">
             <div className="text-xs font-semibold text-[#4b5563]">Background image</div>
             <div className="text-[11px] text-[#6b7280] mb-1">
-              Adjust the size of the uploaded background within the canvas.
+              Adjust the size and position of the uploaded background. Drag on the canvas to move it.
+            </div>
+            {onOpenCrop && (
+              <button
+                type="button"
+                onClick={() => onOpenCrop()}
+                className="w-full h-8 rounded border border-teal-200 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100"
+              >
+                Crop background
+              </button>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-[#77808a]">
+                Position X
+                <input
+                  type="number"
+                  value={Math.round(backgroundX)}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    updateConfiguratorConfiguration({ backgroundX: v });
+                  }}
+                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                />
+              </label>
+              <label className="text-xs text-[#77808a]">
+                Position Y
+                <input
+                  type="number"
+                  value={Math.round(backgroundY)}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    updateConfiguratorConfiguration({ backgroundY: v });
+                  }}
+                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                />
+              </label>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs text-[#77808a]">

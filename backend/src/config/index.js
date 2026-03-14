@@ -38,6 +38,14 @@ export const config = {
     frontendUrl:
       process.env.FRONTEND_URL ||
       (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173"),
+    // OAuth callback base URL (where Google redirects). Dev: backend port; prod: same as API origin.
+    backendPublicUrl:
+      process.env.BACKEND_PUBLIC_URL ||
+      (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5000"),
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || "",
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   },
   email: {
     host: process.env.MAIL_HOST,

@@ -4,6 +4,7 @@ import { User } from "../models/User.js";
 import { config } from "../config/index.js";
 import {
   sendVerificationEmail,
+  sendSignUpOtpEmail,
   send2FACode,
   sendPasswordResetEmail,
 } from "../services/emailService.js";
@@ -51,34 +52,30 @@ export async function register(req, res, next) {
         .json({ success: false, message: "Email already registered" });
     }
 
-    const emailVerificationToken = generateSecureToken();
-    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const otp = generate6DigitCode();
+    const emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 min for OTP
 
     const user = await User.create({
       name,
       email,
       password,
       emailVerified: false,
-      emailVerificationToken,
+      emailVerificationToken: otp,
       emailVerificationExpires,
       twoFactorEnabled: false,
     });
 
     try {
-      await sendVerificationEmail(email, name, emailVerificationToken);
+      await sendSignUpOtpEmail(email, name, otp);
     } catch (emailErr) {
-      console.error("[Auth] Failed to send verification email:", emailErr?.message);
-      const baseUrl =
-        config.app?.frontendUrl ??
-        (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173");
-      const url = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
-      console.log("[Auth] Verification link (copy for testing):", url);
+      console.error("[Auth] Failed to send OTP email:", emailErr?.message);
+      console.log("[Auth] OTP (copy for testing):", otp);
       // Continue - user is created, they can use resend
     }
 
     return res.status(201).json({
       success: true,
-      message: "Registration successful. Please check your email to verify your account.",
+      message: "Registration successful. Check your email for the verification code.",
       user: toUserResponse(user),
       requiresVerification: true,
     });
@@ -115,6 +112,62 @@ export async function verifyEmail(req, res, next) {
   }
 }
 
+/** Verify signup OTP (email + 6-digit code). */
+export async function verifySignUpOtp(req, res, next) {
+  try {
+    const { email, code } = req.body;
+    const otp = String(code).trim();
+    const user = await User.findOne({ email }).select(
+      "+emailVerificationToken +emailVerificationExpires"
+    );
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired verification code" });
+    }
+
+    if (user.emailVerified) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Email is already verified. You can sign in." });
+    }
+
+    if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No pending verification. Please request a new code." });
+    }
+
+    if (user.emailVerificationExpires < new Date()) {
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      return res
+        .status(400)
+        .json({ success: false, message: "Verification code expired. Please request a new code." });
+    }
+
+    if (user.emailVerificationToken !== otp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid verification code" });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json({
+      success: true,
+      message: "Email verified successfully. You can now sign in.",
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function resendVerificationEmail(req, res, next) {
   try {
     const { email } = req.body;
@@ -135,26 +188,22 @@ export async function resendVerificationEmail(req, res, next) {
         .json({ success: false, message: "Email is already verified. You can sign in." });
     }
 
-    const emailVerificationToken = generateSecureToken();
-    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    user.emailVerificationToken = emailVerificationToken;
+    const otp = generate6DigitCode();
+    const emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.emailVerificationToken = otp;
     user.emailVerificationExpires = emailVerificationExpires;
     await user.save({ validateBeforeSave: false });
 
     try {
-      await sendVerificationEmail(user.email, user.name, emailVerificationToken);
+      await sendSignUpOtpEmail(user.email, user.name, otp);
     } catch (emailErr) {
-      console.error("[Auth] Resend verification email failed:", emailErr?.message);
-      const baseUrl =
-        config.app?.frontendUrl ??
-        (process.env.NODE_ENV === "production" ? "https://wireeo.com" : "http://localhost:5173");
-      const url = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
-      console.log("[Auth] Verification link (copy for testing):", url);
+      console.error("[Auth] Resend OTP failed:", emailErr?.message);
+      console.log("[Auth] OTP (copy for testing):", otp);
     }
 
     return res.status(200).json({
       success: true,
-      message: "Verification email sent. Please check your inbox.",
+      message: "New verification code sent. Please check your inbox.",
     });
   } catch (err) {
     next(err);
@@ -476,6 +525,128 @@ export async function refreshAdminSession(req, res, next) {
       token: newToken,
       user: toUserResponse(user),
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Redirect user to Google OAuth consent screen.
+ */
+export async function googleAuth(req, res, next) {
+  try {
+    const { clientId } = config.google || {};
+    const baseUrl = config.app?.backendPublicUrl || "http://localhost:5000";
+    const redirectUri = `${baseUrl}/api/auth/google/callback`;
+
+    if (!clientId) {
+      const frontendUrl = config.app?.frontendUrl || "http://localhost:5173";
+      return res.redirect(302, `${frontendUrl}/login?error=${encodeURIComponent("Google sign-in is not configured.")}`);
+    }
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: "openid email profile",
+      access_type: "offline",
+      prompt: "select_account",
+    });
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    return res.redirect(302, url);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Google OAuth callback: exchange code for tokens, get profile, find or create user, redirect to frontend with JWT.
+ */
+export async function googleCallback(req, res, next) {
+  try {
+    const { code, error } = req.query;
+    const frontendUrl = config.app?.frontendUrl || "http://localhost:5173";
+    const loginPath = "/login";
+
+    if (error) {
+      const errMsg = error === "access_denied" ? "Sign-in was cancelled." : "Google sign-in failed.";
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent(errMsg)}`);
+    }
+
+    if (!code) {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Missing authorization code.")}`);
+    }
+
+    const { clientId, clientSecret } = config.google || {};
+    if (!clientId || !clientSecret) {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Google sign-in is not configured.")}`);
+    }
+
+    const baseUrl = config.app?.backendPublicUrl || "http://localhost:5000";
+    const redirectUri = `${baseUrl}/api/auth/google/callback`;
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errData = await tokenRes.text();
+      console.error("[Auth] Google token exchange failed:", tokenRes.status, errData);
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Google sign-in failed. Try again.")}`);
+    }
+
+    const tokens = await tokenRes.json();
+    const accessToken = tokens.access_token;
+    if (!accessToken) {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Google sign-in failed.")}`);
+    }
+
+    const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!userInfoRes.ok) {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Could not load Google profile.")}`);
+    }
+    const profile = await userInfoRes.json();
+    const email = profile.email?.trim().toLowerCase();
+    const name = (profile.name || profile.email || "User").trim();
+
+    if (!email) {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Google account has no email.")}`);
+    }
+
+    let user = await User.findOne({ email }).select(USER_SELECT);
+    if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString("hex");
+      user = await User.create({
+        name,
+        email,
+        password: randomPassword,
+        emailVerified: true,
+        twoFactorEnabled: false,
+      });
+    } else if (!user.emailVerified) {
+      user.emailVerified = true;
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (user.status !== "active") {
+      return res.redirect(302, `${frontendUrl}${loginPath}?error=${encodeURIComponent("Account is inactive.")}`);
+    }
+
+    const token = signToken(user);
+    const redirectTo = `${frontendUrl}${loginPath}?token=${encodeURIComponent(token)}`;
+    return res.redirect(302, redirectTo);
   } catch (err) {
     next(err);
   }

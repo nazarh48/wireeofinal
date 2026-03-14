@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import useStore from '../store/useStore';
 
-const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
+const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm, useMineProjects }) => {
   const projects = useStore((s) => s.projects) || [];
   const projectsLoading = useStore((s) => s.projectsLoading);
   const projectsError = useStore((s) => s.projectsError);
@@ -13,8 +13,8 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
   const [localError, setLocalError] = useState('');
 
   useEffect(() => {
-    if (isOpen) fetchProjects();
-  }, [isOpen, fetchProjects]);
+    if (isOpen) fetchProjects(useMineProjects ? { mine: true } : undefined);
+  }, [isOpen, fetchProjects, useMineProjects]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -110,7 +110,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                   setIsCreatingNew(true);
                   setSelectedProjectId('');
                 }}
-                className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                className="w-5 h-5 text-teal-600 focus:ring-teal-500"
               />
               <span className="text-lg font-semibold text-gray-900">Create New Project</span>
             </label>
@@ -121,7 +121,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder="Enter project name..."
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-lg"
                 />
               </div>
             )}
@@ -137,7 +137,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                   setIsCreatingNew(false);
                   setNewProjectName('');
                 }}
-                className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                className="w-5 h-5 text-teal-600 focus:ring-teal-500"
               />
               <span className="text-lg font-semibold text-gray-900">Select Existing Project</span>
             </label>
@@ -150,8 +150,8 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                     {projectsError}
                     <button
                       type="button"
-                      onClick={fetchProjects}
-                      className="ml-3 text-blue-600 underline"
+                      onClick={() => fetchProjects(useMineProjects ? { mine: true } : undefined)}
+                      className="ml-3 text-teal-600 underline"
                     >
                       Retry
                     </button>
@@ -164,7 +164,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                       key={project.id}
                       className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer border-2 transition-all ${
                         selectedProjectId === project.id
-                          ? 'border-blue-500 bg-blue-50'
+                          ? 'border-teal-500 bg-teal-50'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
@@ -174,7 +174,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
                         value={project.id}
                         checked={selectedProjectId === project.id}
                         onChange={(e) => setSelectedProjectId(e.target.value)}
-                        className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                        className="w-5 h-5 text-teal-600 focus:ring-teal-500"
                       />
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900">{project.name}</div>
@@ -198,7 +198,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
               ) : (
                 products.map((product) => (
                   <div key={product.instanceId || product._instanceId || product.id} className="text-sm text-gray-600 flex items-center space-x-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    <span className="w-2 h-2 bg-teal-500 rounded-full"></span>
                     <span>{product.name}</span>
                   </div>
                 ))
@@ -217,7 +217,7 @@ const ProjectSelectionModal = ({ isOpen, onClose, products, onConfirm }) => {
           <button
             onClick={handleConfirm}
             disabled={submitDisabled}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? 'Adding…' : 'Add to Project'}
           </button>

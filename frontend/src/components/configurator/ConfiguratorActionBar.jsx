@@ -1,6 +1,6 @@
 import useStore from '../../store/useStore';
 
-const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
+const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
   const {
     configurator,
     undo,
@@ -92,6 +92,14 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
 
           {backgroundCustomizable ? (
             <>
+              <button
+                type="button"
+                onClick={() => onOpenCrop?.()}
+                disabled={!hasBackground}
+                className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Crop background
+              </button>
               <label className="flex h-7 cursor-pointer items-center rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50">
                 <span>Upload background</span>
                 <input
@@ -108,6 +116,8 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
                         updateConfiguratorConfiguration({
                           backgroundImage: result,
                           backgroundFileName: file.name,
+                          backgroundX: 0,
+                          backgroundY: 0,
                         });
                       }
                     };
@@ -127,6 +137,8 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo }) => {
                   updateConfiguratorConfiguration({
                     backgroundImage: null,
                     backgroundFileName: '',
+                    backgroundX: 0,
+                    backgroundY: 0,
                   });
                 }}
                 disabled={!hasBackground}

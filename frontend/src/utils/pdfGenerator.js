@@ -239,6 +239,8 @@ const renderEditedProduct = async (
   const editorCanvasHeight = cfg.canvasHeight || EDITOR_CANVAS_HEIGHT;
   const backgroundWidth = cfg.backgroundWidth || editorCanvasWidth;
   const backgroundHeight = cfg.backgroundHeight || editorCanvasHeight;
+  const backgroundX = cfg.backgroundX ?? 0;
+  const backgroundY = cfg.backgroundY ?? 0;
 
   const w = Math.max(1, canvasWidth || editorCanvasWidth);
   const h = Math.max(1, canvasHeight || editorCanvasHeight);
@@ -277,11 +279,10 @@ const renderEditedProduct = async (
     ctx.save();
     ctx.scale(scaleX, scaleY);
 
-    // Draw custom background using the same sizing as the editor:
-    // (0,0) with width/height = backgroundWidth/backgroundHeight.
+    // Draw custom background using the same position/sizing as the editor.
     if (bgImg) {
       try {
-        ctx.drawImage(bgImg, 0, 0, backgroundWidth, backgroundHeight);
+        ctx.drawImage(bgImg, backgroundX, backgroundY, backgroundWidth, backgroundHeight);
       } catch (e) {
         // Ignore background draw errors; continue with base image and elements
       }

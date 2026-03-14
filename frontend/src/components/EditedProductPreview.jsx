@@ -329,6 +329,8 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200, stage
   const canvasHeight = configuration.canvasHeight || CANVAS_HEIGHT;
   const backgroundWidth = configuration.backgroundWidth || canvasWidth;
   const backgroundHeight = configuration.backgroundHeight || canvasHeight;
+  const backgroundX = configuration.backgroundX ?? 0;
+  const backgroundY = configuration.backgroundY ?? 0;
 
   if (editedImageUrl && !hasElements && !hasBackground) {
     return (
@@ -397,8 +399,8 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200, stage
           {backgroundImage && (
             <Image
               image={backgroundImage}
-              x={0}
-              y={0}
+              x={backgroundX}
+              y={backgroundY}
               width={backgroundWidth}
               height={backgroundHeight}
               listening={false}

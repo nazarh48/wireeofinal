@@ -35,7 +35,8 @@ export async function create(req, res, next) {
 export async function list(req, res, next) {
   try {
     const isAdmin = req.user?.role === "admin";
-    const filter = isAdmin ? {} : { createdBy: req.user._id };
+    const mineOnly = req.query.mine === "1" || req.query.mine === "true";
+    const filter = mineOnly || !isAdmin ? { createdBy: req.user._id } : {};
     const projects = await Project.find(filter)
       .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled")
       .populate("createdBy", "name email role")
@@ -91,7 +92,7 @@ export async function addProducts(req, res, next) {
 
 export async function addFromCollection(req, res, next) {
   try {
-    const { projectId, instanceIds } = req.body;
+    const { projectId, instanceIds, editsSnapshot } = req.body;
     const collection = await Collection.findOne({ createdBy: req.user._id });
     if (!collection) {
       return res.status(404).json({ success: false, message: "Collection not found" });
@@ -120,11 +121,21 @@ export async function addFromCollection(req, res, next) {
     const productIds = toAdd.map((p) => (p.product && p.product._id ? p.product._id : p.product));
     await ensureConfigurable(productIds);
 
-    const mapped = toAdd.map((p) => ({
-      product: p.product && p.product._id ? p.product._id : p.product,
-      instanceId: p.instanceId,
-      edits: {},
-    }));
+    const snapshot = editsSnapshot && typeof editsSnapshot === "object" ? editsSnapshot : {};
+    const mapped = toAdd.map((p) => {
+      const saved = snapshot[p.instanceId];
+      const edits = saved && typeof saved === "object"
+        ? {
+            elements: Array.isArray(saved.elements) ? saved.elements : [],
+            configuration: saved.configuration && typeof saved.configuration === "object" ? saved.configuration : {},
+          }
+        : {};
+      return {
+        product: p.product && p.product._id ? p.product._id : p.product,
+        instanceId: p.instanceId,
+        edits,
+      };
+    });
     project.products.push(...mapped);
     await project.save();
     await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
@@ -178,18 +189,28 @@ export async function removeProduct(req, res, next) {
     }
 
     const before = Array.isArray(project.products) ? project.products.length : 0;
-    // Primary removal path: by unique collection instanceId.
-    let nextProducts = (project.products || []).filter(
-      (p) => String(p.instanceId || "") !== String(instanceId),
-    );
+    let nextProducts;
 
-    // Fallback path: if caller passed a productId instead of instanceId, remove one matching item.
-    if (nextProducts.length === before && mongoose.Types.ObjectId.isValid(instanceId)) {
-      let removedByProductId = false;
+    // Prefer removal by project-entry _id so the same product (same instanceId) can appear multiple times and be removed one by one.
+    const isValidObjectId =
+      typeof instanceId === "string" &&
+      instanceId.length === 24 &&
+      /^[a-f\d]{24}$/i.test(instanceId) &&
+      mongoose.Types.ObjectId.isValid(instanceId);
+    if (isValidObjectId) {
+      const entry = project.products?.id?.(instanceId);
+      if (entry) {
+        nextProducts = project.products.filter((p) => String(p._id) !== String(instanceId));
+      } else {
+        nextProducts = (project.products || []).slice();
+      }
+    } else {
+      // Remove by instanceId: remove only the FIRST match so one "row" is removed.
+      let removed = false;
       nextProducts = (project.products || []).filter((p) => {
-        if (removedByProductId) return true;
-        if (String(p.product || "") === String(instanceId)) {
-          removedByProductId = true;
+        if (removed) return true;
+        if (String(p.instanceId || "") === String(instanceId)) {
+          removed = true;
           return false;
         }
         return true;

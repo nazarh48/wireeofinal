@@ -94,6 +94,7 @@ export async function create(req, res, next) {
 
 export async function list(req, res, next) {
   try {
+    // Always restrict to current user so Exported projects tab shows only their exports.
     const configs = await PDFConfig.find({ createdBy: req.user._id })
       .sort({ createdAt: -1 })
       .lean();
@@ -105,7 +106,9 @@ export async function list(req, res, next) {
 
 export async function getById(req, res, next) {
   try {
-    const config = await PDFConfig.findOne({ _id: req.params.id, createdBy: req.user._id })
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin ? { _id: req.params.id } : { _id: req.params.id, createdBy: req.user._id };
+    const config = await PDFConfig.findOne(filter)
       .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl images isConfigurable productType productCode sku")
       .lean();
     if (!config) {
@@ -119,8 +122,10 @@ export async function getById(req, res, next) {
 
 export async function updateLastExported(req, res, next) {
   try {
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin ? { _id: req.params.id } : { _id: req.params.id, createdBy: req.user._id };
     const config = await PDFConfig.findOneAndUpdate(
-      { _id: req.params.id, createdBy: req.user._id },
+      filter,
       { $set: { lastExportedAt: new Date() } },
       { new: true }
     ).lean();
@@ -135,8 +140,10 @@ export async function updateLastExported(req, res, next) {
 
 export async function reExport(req, res, next) {
   try {
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin ? { _id: req.params.id } : { _id: req.params.id, createdBy: req.user._id };
     const config = await PDFConfig.findOneAndUpdate(
-      { _id: req.params.id, createdBy: req.user._id },
+      filter,
       {
         $set: { lastExportedAt: new Date() },
         $inc: { reExportCount: 1 }
@@ -157,10 +164,9 @@ export async function reExport(req, res, next) {
 
 export async function remove(req, res, next) {
   try {
-    const deleted = await PDFConfig.findOneAndDelete({
-      _id: req.params.id,
-      createdBy: req.user._id,
-    });
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin ? { _id: req.params.id } : { _id: req.params.id, createdBy: req.user._id };
+    const deleted = await PDFConfig.findOneAndDelete(filter);
     if (!deleted) {
       return res.status(404).json({ success: false, message: "PDF configuration not found" });
     }

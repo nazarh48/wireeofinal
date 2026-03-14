@@ -9,7 +9,7 @@ const projectProductSchema = new mongoose.Schema(
       configuration: { type: mongoose.Schema.Types.Mixed },
     },
   },
-  { _id: false }
+  { _id: true }
 );
 
 const projectSchema = new mongoose.Schema(

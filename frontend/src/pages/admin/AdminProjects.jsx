@@ -142,9 +142,19 @@ export default function AdminProjects() {
   const [isDownloadingLayer, setIsDownloadingLayer] = useState(false);
   const modalStageRef = useRef(null);
 
+  // Refetch on mount and when page regains focus so exports from TabbedRanges stay in sync
   useEffect(() => {
     fetchProjects();
     fetchPdfConfigurations();
+  }, [fetchProjects, fetchPdfConfigurations]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      fetchProjects();
+      fetchPdfConfigurations();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [fetchProjects, fetchPdfConfigurations]);
 
   const withProducts = useMemo(
@@ -186,10 +196,6 @@ export default function AdminProjects() {
     });
   }, [projectRows, searchTerm]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchTerm]);
-
   const pdfConfigByProjectId = useMemo(() => {
     const map = new Map();
     (pdfConfigurations || []).forEach((config) => {
@@ -224,7 +230,7 @@ export default function AdminProjects() {
             isLastProduct: idx === products.length - 1,
             productIndex: idx,
             totalProducts: products.length,
-            key: `${project.id}-${product._id || product.id || idx}`,
+            key: `${project.id}-${idx}-${product.instanceId || product._instanceId || product._id || product.id}`,
           });
         });
       }
@@ -234,6 +240,22 @@ export default function AdminProjects() {
 
   const totalPages = Math.max(1, Math.ceil(expandedRows.length / ROWS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
+
+  // Reset to page 1 when list length changes (e.g. after refetch) so products don’t appear to “increase” when returning
+  const prevExpandedLengthRef = useRef(expandedRows.length);
+  useEffect(() => {
+    if (expandedRows.length !== prevExpandedLengthRef.current) {
+      prevExpandedLengthRef.current = expandedRows.length;
+      setPage(1);
+    } else if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [expandedRows.length, totalPages, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
   const paginatedRows = useMemo(() => {
     const start = (currentPage - 1) * ROWS_PER_PAGE;
     return expandedRows.slice(start, start + ROWS_PER_PAGE);

@@ -63,6 +63,7 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
     pasteElements,
     saveToHistory,
     setBackgroundSelected,
+    updateConfiguratorConfiguration,
   } = useStore();
 
   const stageRef = useRef();
@@ -99,6 +100,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
   const canvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
   const backgroundWidth = configurator.configuration?.backgroundWidth || canvasWidth;
   const backgroundHeight = configurator.configuration?.backgroundHeight || canvasHeight;
+  const backgroundX = configurator.configuration?.backgroundX ?? 0;
+  const backgroundY = configurator.configuration?.backgroundY ?? 0;
 
   useImperativeHandle(ref, () => stageRef.current);
 
@@ -911,11 +914,19 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
                 {customBgImage && (
                   <Image
                     image={customBgImage}
-                    x={0}
-                    y={0}
+                    x={backgroundX}
+                    y={backgroundY}
                     width={backgroundWidth}
                     height={backgroundHeight}
                     listening={true}
+                    draggable={configurator.backgroundSelected}
+                    onDragEnd={(e) => {
+                      const node = e.target;
+                      updateConfiguratorConfiguration({
+                        backgroundX: node.x(),
+                        backgroundY: node.y(),
+                      });
+                    }}
                     onClick={(e) => {
                       e.cancelBubble = true;
                       if (configurator.activeTool !== 'select') return;
@@ -933,11 +944,19 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
                 {!customBgImage && defaultBgImage && (
                   <Image
                     image={defaultBgImage}
-                    x={0}
-                    y={0}
+                    x={backgroundX}
+                    y={backgroundY}
                     width={backgroundWidth}
                     height={backgroundHeight}
                     listening={true}
+                    draggable={configurator.backgroundSelected}
+                    onDragEnd={(e) => {
+                      const node = e.target;
+                      updateConfiguratorConfiguration({
+                        backgroundX: node.x(),
+                        backgroundY: node.y(),
+                      });
+                    }}
                     onClick={(e) => {
                       e.cancelBubble = true;
                       if (configurator.activeTool !== 'select') return;

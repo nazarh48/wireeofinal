@@ -141,6 +141,54 @@ export async function sendVerificationEmail(email, name, token) {
   return sendEmail({ to: email, subject, html });
 }
 
+/** Beautiful OTP email for signup verification (6-digit code). */
+export async function sendSignUpOtpEmail(email, name, otp) {
+  const subject = "Your Wireeo verification code";
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your Wireeo account</title>
+</head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f0fdf4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 50%,#d1fae5 100%);min-height:100vh;">
+    <tr>
+      <td align="center" style="padding:40px 20px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:480px;background:#ffffff;border-radius:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.08);border:1px solid rgba(255,255,255,0.8);overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#059669 0%,#10b981 50%,#34d399 100%);padding:32px 40px;text-align:center;">
+              <div style="display:inline-block;width:64px;height:64px;background:rgba(255,255,255,0.2);border-radius:16px;line-height:64px;margin-bottom:16px;">
+                <span style="font-size:28px;">✉️</span>
+              </div>
+              <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Verify your email</h1>
+              <p style="margin:8px 0 0;font-size:14px;color:rgba(255,255,255,0.9);">Welcome to Wireeo, ${name}!</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px;">
+              <p style="margin:0 0 24px;font-size:16px;color:#374151;line-height:1.6;">Use the code below to verify your account. Enter it on the sign-up page to complete registration.</p>
+              <div style="background:linear-gradient(135deg,#ecfdf5 0%,#d1fae5 100%);border:2px dashed #10b981;border-radius:16px;padding:24px;text-align:center;margin-bottom:24px;">
+                <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:2px;color:#059669;font-weight:600;">Your verification code</p>
+                <p style="margin:0;font-size:36px;font-weight:800;letter-spacing:8px;color:#047857;font-family:ui-monospace,monospace;">${otp}</p>
+              </div>
+              <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">This code expires in <strong>15 minutes</strong>.</p>
+              <p style="margin:0;font-size:13px;color:#6b7280;">If you didn't create a Wireeo account, you can safely ignore this email.</p>
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:28px 0;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;">— The Wireeo Team</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+  return sendEmail({ to: email, subject, html });
+}
+
 export async function send2FACode(email, name, code) {
   const subject = "Your Wireeo login code";
   const html = `

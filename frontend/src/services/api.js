@@ -155,6 +155,8 @@ export const apiService = {
       unwrap(await adminApi.post("/auth/admin/refresh")),
     verifyEmail: async (token) =>
       unwrap(await publicApi.post("/auth/verify-email", { token })),
+    verifySignUpOtp: async ({ email, code }) =>
+      unwrap(await publicApi.post("/auth/verify-signup-otp", { email, code })),
     resendVerification: async (email) =>
       unwrap(await publicApi.post("/auth/resend-verification", { email })),
     verify2FA: async ({ email, code }) =>
@@ -302,7 +304,10 @@ export const apiService = {
   },
 
   projects: {
-    list: async () => unwrap(await userApi.get("/projects")),
+    list: async (opts) => {
+      const params = opts?.mine ? { mine: "1" } : {};
+      return unwrap(await userApi.get("/projects", { params }));
+    },
     getById: async (id) => unwrap(await userApi.get(`/projects/${id}`)),
     create: async ({ name, products }) =>
       unwrap(await userApi.post("/projects", { name, products })),
@@ -310,12 +315,13 @@ export const apiService = {
       unwrap(
         await userApi.post("/projects/add-products", { projectId, products }),
       ),
-    addFromCollection: async ({ projectId, projectName, instanceIds }) =>
+    addFromCollection: async ({ projectId, projectName, instanceIds, editsSnapshot }) =>
       unwrap(
         await userApi.post("/projects/add-from-collection", {
           projectId,
           projectName,
           instanceIds,
+          editsSnapshot,
         }),
       ),
     removeProduct: async ({ projectId, instanceId }) =>

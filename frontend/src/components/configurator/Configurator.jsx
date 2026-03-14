@@ -4,6 +4,7 @@ import KonvaCanvasEditor from './KonvaCanvasEditor';
 import ConfiguratorToolRail from './ConfiguratorToolRail';
 import ConfiguratorPropertiesPanel from './ConfiguratorPropertiesPanel';
 import ConfiguratorActionBar from './ConfiguratorActionBar';
+import BackgroundCropModal from './BackgroundCropModal';
 
 const DEFAULT_CANVAS_WIDTH = 800;
 const DEFAULT_CANVAS_HEIGHT = 600;
@@ -38,8 +39,10 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
     saveProductEdits,
     fetchCollection,
     fetchProjects,
+    updateConfiguratorConfiguration,
   } = useStore();
   const currentProductId = configurator.product?.id;
+  const [cropModalOpen, setCropModalOpen] = useState(false);
   // IMPORTANT: prefer the URL's instanceId prop over configurator.editingInstanceId.
   // On the very first render after navigation, configurator.editingInstanceId may still
   // hold the value from the PREVIOUS product edit (it is updated asynchronously by the
@@ -197,13 +200,29 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
               onCanvasInfo={(info) => setCanvasInfo(info)}
             />
           </div>
-          <ConfiguratorActionBar stageRef={stageRef} canvasInfo={canvasInfo} />
+          <ConfiguratorActionBar
+              stageRef={stageRef}
+              canvasInfo={canvasInfo}
+              onOpenCrop={() => setCropModalOpen(true)}
+            />
         </div>
 
         <div className="w-52 min-h-0 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-[#f0f7f2] 2xl:w-56">
-          <ConfiguratorPropertiesPanel canvasInfo={canvasInfo} />
+          <ConfiguratorPropertiesPanel
+            canvasInfo={canvasInfo}
+            onOpenCrop={() => setCropModalOpen(true)}
+          />
         </div>
       </div>
+
+      <BackgroundCropModal
+        isOpen={cropModalOpen}
+        imageDataUrl={configurator.configuration?.backgroundImage || null}
+        onSave={(croppedDataUrl) => {
+          updateConfiguratorConfiguration({ backgroundImage: croppedDataUrl });
+        }}
+        onClose={() => setCropModalOpen(false)}
+      />
     </div>
   );
 };

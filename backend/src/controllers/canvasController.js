@@ -71,10 +71,11 @@ export async function saveInstance(req, res, next) {
 
 export async function getByInstance(req, res, next) {
   try {
-    const edit = await CanvasEdit.findOne({
-      instanceId: req.params.instanceId,
-      createdBy: req.user._id,
-    }).lean();
+    const isAdmin = req.user?.role === "admin";
+    const filter = isAdmin
+      ? { instanceId: req.params.instanceId }
+      : { instanceId: req.params.instanceId, createdBy: req.user._id };
+    const edit = await CanvasEdit.findOne(filter).lean();
     if (!edit) {
       return res.status(200).json({ success: true, edit: null });
     }

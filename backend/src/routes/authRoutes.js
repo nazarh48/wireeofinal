@@ -6,11 +6,14 @@ import {
   refreshSession,
   refreshAdminSession,
   verifyEmail,
+  verifySignUpOtp,
   resendVerificationEmail,
   verify2FA,
   resend2FACode,
   forgotPassword,
   resetPassword,
+  googleAuth,
+  googleCallback,
 } from "../controllers/authController.js";
 import { validate } from "../middleware/validate.js";
 import { authValidators } from "../utils/validators.js";
@@ -24,6 +27,7 @@ router.post("/refresh", refreshSession);
 router.post("/admin/refresh", refreshAdminSession);
 
 router.post("/verify-email", validate(authValidators.verifyEmail), verifyEmail);
+router.post("/verify-signup-otp", validate(authValidators.verifySignUpOtp), verifySignUpOtp);
 router.post(
   "/resend-verification",
   validate(authValidators.resendVerification),
@@ -35,5 +39,8 @@ router.post("/resend-2fa", validate(authValidators.resend2FA), resend2FACode);
 
 router.post("/forgot-password", validate(authValidators.forgotPassword), forgotPassword);
 router.post("/reset-password", validate(authValidators.resetPassword), resetPassword);
+
+router.get("/google", googleAuth);
+router.get("/google/callback", googleCallback);
 
 export default router;

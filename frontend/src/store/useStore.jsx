@@ -51,6 +51,7 @@ const useStore = create((set, get) => ({
   projects: [],
   projectsLoading: false,
   projectsError: null,
+  lastFetchProjectsScope: null,
   pendingCollection: [],
   pendingDuplicates: [],
   pendingProjects: [],
@@ -359,86 +360,40 @@ const useStore = create((set, get) => ({
       return [];
     }
   },
-  fetchProjects: async () => {
-    set({ projectsLoading: true, projectsError: null });
+  fetchProjects: async (options) => {
+    const mineOnly = !!(options && options.mine);
+    set({ projectsLoading: true, projectsError: null, projects: [], lastFetchProjectsScope: mineOnly });
     try {
-      const res = await apiService.projects.list();
+      const res = await apiService.projects.list({ mine: mineOnly });
       const raw = res?.projects ?? [];
+      // Deduplicate by project id so navigation/refetch never accumulates
+      const seenProjectIds = new Set();
+      const rawDeduped = raw.filter((proj) => {
+        const id = proj?._id ?? proj?.id;
+        if (!id || seenProjectIds.has(String(id))) return false;
+        seenProjectIds.add(String(id));
+        return true;
+      });
 
       const state = get();
-      // Fetch canvas edits for all products in all projects; overlay instance-level edits from editsByInstanceId
+      // Project products use only the snapshot stored with the project (item.edits).
+      // Do NOT overlay editsByInstanceId so that editing in Collection does not change the project view.
       const projects = await Promise.all(
-        raw.map(async (proj) => ({
+        rawDeduped.map(async (proj) => ({
           id: proj._id,
           name: proj.name,
           configurationNumber: proj.configurationNumber,
+          ownerName: proj.createdBy?.name ?? null,
+          ownerEmail: proj.createdBy?.email ?? null,
           products: await Promise.all(
             (proj.products || []).map(async (item) => {
               const p = item.product;
               const instanceId = item.instanceId;
-              const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
-              if (instanceEdits) {
-                const normalized = normalizeProduct(p, instanceEdits);
-                const el = instanceEdits.elements;
-                const configuratorImageUrl = normalized?.configuratorImageUrl || normalized?.baseImageUrl || "";
-                const baseImageUrl = normalized?.baseImageUrl || normalized?.configuratorImageUrl || "";
-                return {
-                  ...(typeof p === "object" ? normalized : {}),
-                  id: p?._id ?? p?.id ?? p,
-                  instanceId,
-                  edits: {
-                    elements: Array.isArray(el) ? el : (el?.elements || []),
-                    configuration: instanceEdits.configuration || {},
-                  },
-                  editedImage: instanceEdits.editedImage || null,
-                  configuratorImageUrl,
-                  baseImageUrl,
-                };
-              }
+              const entryId = (item._id != null ? String(item._id) : null);
               const normalized = normalizeProduct(p, item.edits || {});
-              let canvasEdits = item.edits || {};
-              let editedImage = null;
-              if (!canvasEdits.elements) {
-                try {
-                  if (instanceId) {
-                    try {
-                      const instanceRes = await apiService.canvas.getByInstance(instanceId);
-                      const instanceEdit = instanceRes?.edit || instanceRes?.instanceEdit || null;
-                      if (instanceEdit?.canvasData || instanceEdit?.editedImage) {
-                        const raw = instanceEdit.canvasData;
-                        canvasEdits = {
-                          elements: Array.isArray(raw) ? raw : (raw?.elements || []),
-                          configuration: instanceEdit.layoutConfig || {},
-                        };
-                        editedImage = instanceEdit.editedImage || null;
-                      }
-                    } catch {
-                      // Keep instance edits isolated from product-level edits.
-                      canvasEdits = item.edits || {};
-                    }
-                  } else if (!canvasEdits.elements) {
-                    const editRes = await apiService.canvas.getByProduct(
-                      p?._id || p?.id,
-                    );
-                    if (editRes?.edit?.canvasData) {
-                      const raw = editRes.edit.canvasData;
-                      canvasEdits = {
-                        elements: Array.isArray(raw) ? raw : (raw?.elements || []),
-                        configuration: editRes.edit.layoutConfig || {},
-                      };
-                      editedImage = editRes.edit.editedImage || null;
-                    }
-                  }
-                } catch (e) {
-                  console.error(
-                    `Failed to fetch canvas edits for product ${p?._id || p?.id}:`,
-                    e,
-                  );
-                }
-              }
               const safeEdits = {
-                elements: Array.isArray(canvasEdits?.elements) ? canvasEdits.elements : [],
-                configuration: canvasEdits?.configuration || {},
+                elements: Array.isArray(item.edits?.elements) ? item.edits.elements : [],
+                configuration: item.edits?.configuration && typeof item.edits.configuration === "object" ? item.edits.configuration : {},
               };
               // Ensure configurator image is always set so project shows the same base as configurator/edited view
               const configuratorImageUrl = normalized?.configuratorImageUrl || normalized?.baseImageUrl || "";
@@ -447,8 +402,9 @@ const useStore = create((set, get) => ({
                 ...(typeof p === "object" ? normalized : {}),
                 id: p?._id ?? p?.id ?? p,
                 instanceId,
+                _id: entryId,
                 edits: safeEdits,
-                editedImage: editedImage || null,
+                editedImage: item.editedImage || null,
                 configuratorImageUrl,
                 baseImageUrl,
               };
@@ -458,48 +414,9 @@ const useStore = create((set, get) => ({
         })),
       );
 
-      // Build updates: only add/update entries for instances that have edits (never remove any key).
-      const currentEditsProjects = get().editsByInstanceId;
-      const nextEditsByInstanceIdProjects = { ...currentEditsProjects };
-      projects.forEach((project) => {
-        (project?.products || []).forEach((product) => {
-          const instanceId = product?.instanceId;
-          if (!instanceId) return;
-          const hasElements =
-            Array.isArray(product?.edits?.elements) &&
-            product.edits.elements.length > 0;
-          const hasEditedImage = !!product?.editedImage;
-          const hasConfiguration =
-            product?.edits?.configuration &&
-            typeof product.edits.configuration === "object" &&
-            Object.keys(product.edits.configuration).length > 0;
-          const hasAnyEdits = hasElements || hasEditedImage || hasConfiguration;
-          if (!hasAnyEdits) return;
-          nextEditsByInstanceIdProjects[instanceId] = {
-            elements: product?.edits?.elements || [],
-            configuration: product?.edits?.configuration || {},
-            editedImage: product?.editedImage || null,
-            lastSaved: new Date().toISOString(),
-          };
-        });
-      });
-
-      // Never replace editsByInstanceId: merge with latest so every product keeps its edits (never remove editing from other products).
-      const latestEdits = get().editsByInstanceId;
-      const allInstanceIdsProjects = new Set([
-        ...Object.keys(latestEdits),
-        ...Object.keys(nextEditsByInstanceIdProjects),
-      ]);
-      const mergedProjectsEdits = {};
-      allInstanceIdsProjects.forEach((id) => {
-        mergedProjectsEdits[id] =
-          nextEditsByInstanceIdProjects[id] !== undefined
-            ? nextEditsByInstanceIdProjects[id]
-            : latestEdits[id];
-      });
+      // Do not merge project products' edits into editsByInstanceId so that collection edits stay independent.
       set({
         projects,
-        editsByInstanceId: mergedProjectsEdits,
         projectsLoading: false,
         projectsError: null,
       });
@@ -811,7 +728,7 @@ const useStore = create((set, get) => ({
   updateProjectName: async (projectId, newName) => {
     try {
       await apiService.projects.updateName(projectId, newName);
-      await get().fetchProjects();
+      await get().fetchProjects(get().lastFetchProjectsScope === true ? { mine: true } : undefined);
     } catch (e) {
       set({
         toast: {
@@ -823,14 +740,14 @@ const useStore = create((set, get) => ({
       });
     }
   },
-  removeProductFromProject: async (projectId, instanceId) => {
-    if (!projectId || !instanceId) {
+  removeProductFromProject: async (projectId, instanceIdOrEntryId) => {
+    if (!projectId || !instanceIdOrEntryId) {
       get().showToast("Could not remove product: missing project/product reference.");
       return false;
     }
     try {
-      await apiService.projects.removeProduct({ projectId, instanceId });
-      await get().fetchProjects();
+      await apiService.projects.removeProduct({ projectId, instanceId: instanceIdOrEntryId });
+      await get().fetchProjects(get().lastFetchProjectsScope === true ? { mine: true } : undefined);
       set({
         toast: {
           open: true,
@@ -861,7 +778,7 @@ const useStore = create((set, get) => ({
           (e) => e.projectId !== projectId,
         ),
       }));
-      await get().fetchProjects();
+      await get().fetchProjects(get().lastFetchProjectsScope === true ? { mine: true } : undefined);
       set({
         toast: {
           open: true,
@@ -1280,16 +1197,25 @@ const useStore = create((set, get) => ({
       },
     })),
   updateConfiguratorConfiguration: (updates) =>
-    set((state) => ({
-      configurator: {
-        ...state.configurator,
-        configuration: {
-          ...state.configurator.configuration,
-          ...(updates || {}),
-          lastModified: new Date().toISOString(),
+    set((state) => {
+      const nextConfig = {
+        ...state.configurator.configuration,
+        ...(updates || {}),
+        lastModified: new Date().toISOString(),
+      };
+      // Keep top-level backgroundImage in sync so save/load and "Clear background" persist correctly.
+      const backgroundImage =
+        typeof (updates || {}).backgroundImage !== 'undefined'
+          ? (updates.backgroundImage || null)
+          : state.configurator.backgroundImage;
+      return {
+        configurator: {
+          ...state.configurator,
+          backgroundImage,
+          configuration: nextConfig,
         },
-      },
-    })),
+      };
+    }),
   setBackgroundImage: (backgroundImage) =>
     set((state) => ({
       configurator: {
@@ -1776,13 +1702,15 @@ const useStore = create((set, get) => ({
     const eligible = list
       .filter((product) => isConfigurableProduct(product))
       .map((product) => {
-        // Resolve edits from instance store only – never fall back to productEdits[product.id]
-        // because that map is shared across all instances of the same base product.
+        // Prefer product's own snapshot (e.g. from project) so project products stay independent of collection.
+        const hasSnapshot = product.edits && ((Array.isArray(product.edits.elements) && product.edits.elements.length > 0) || (product.edits.configuration && Object.keys(product.edits.configuration).length > 0));
         const instanceId = product.instanceId;
         const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
-        const edits = instanceEdits
-          ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
-          : product.edits || null;
+        const edits = hasSnapshot
+          ? { elements: product.edits.elements || [], configuration: product.edits.configuration || {} }
+          : (instanceEdits
+            ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
+            : product.edits || null);
         return normalizeProduct(product, edits);
       });
     if (eligible.length === 0) {
@@ -1852,17 +1780,37 @@ const useStore = create((set, get) => ({
 
   addProductsToProject: async (products, projectId, projectName = null) => {
     // Only use actual instanceIds – falling back to product.id would corrupt cross-instance identity.
+    // Deduplicate so each project entry stays independent (backend also deduplicates by instanceId).
+    const seen = new Set();
     const instanceIds = (products || [])
       .map((p) => p.instanceId)
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((id) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
     if (instanceIds.length === 0) return false;
+    const state = get();
+    const editsSnapshot = {};
+    instanceIds.forEach((id) => {
+      const e = state.editsByInstanceId[id];
+      if (e) {
+        editsSnapshot[id] = {
+          elements: Array.isArray(e.elements) ? e.elements : [],
+          configuration: e.configuration && typeof e.configuration === "object" ? e.configuration : {},
+        };
+      }
+    });
     try {
       await apiService.projects.addFromCollection({
         projectId: projectId || undefined,
         projectName: projectName || undefined,
         instanceIds,
+        editsSnapshot: Object.keys(editsSnapshot).length ? editsSnapshot : undefined,
       });
-      await get().fetchProjects();
+      const scope = get().lastFetchProjectsScope;
+      await get().fetchProjects(scope === true ? { mine: true } : undefined);
       set({
         toast: {
           open: true,

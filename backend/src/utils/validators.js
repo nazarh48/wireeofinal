@@ -24,6 +24,10 @@ export const authValidators = {
     body("password").isLength({ min: 6 }).withMessage("Password min 6 characters"),
   ],
   verifyEmail: [body("token").trim().notEmpty().withMessage("Verification token required")],
+  verifySignUpOtp: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
+    body("code").trim().notEmpty().withMessage("Verification code required"),
+  ],
   verify2FA: [
     body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
     body("code").trim().notEmpty().withMessage("Verification code required"),
