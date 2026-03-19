@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useStore from '../../store/useStore';
 import KonvaCanvasEditor from './KonvaCanvasEditor';
 import ConfiguratorToolRail from './ConfiguratorToolRail';
@@ -53,6 +53,21 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [canvasInfo, setCanvasInfo] = useState(null);
+  const handleCanvasInfo = useCallback((info) => {
+    if (!info || typeof info !== 'object') return;
+    setCanvasInfo((prev) => {
+      if (
+        prev &&
+        prev.canvasWidth === info.canvasWidth &&
+        prev.canvasHeight === info.canvasHeight &&
+        prev.baseImageWidth === info.baseImageWidth &&
+        prev.baseImageHeight === info.baseImageHeight
+      ) {
+        return prev;
+      }
+      return info;
+    });
+  }, []);
   const stageRef = useRef();
 
   const isFromSelection = window.location.search.includes('from=selection');
@@ -138,6 +153,10 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
     setSaveStatus('Saving...');
 
     if (currentProductId) {
+      // Visual fit only (no geometry mutation) before saving.
+      stageRef.current?.fitToScreen?.();
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+
       const ok = await saveProductEdits(currentProductId, editingInstanceId || undefined);
       if (!ok) {
         setSaveStatus('Save failed');
@@ -197,7 +216,7 @@ const Configurator = ({ navigate, isFromProjects, instanceId }) => {
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <KonvaCanvasEditor
               ref={stageRef}
-              onCanvasInfo={(info) => setCanvasInfo(info)}
+              onCanvasInfo={handleCanvasInfo}
             />
           </div>
           <ConfiguratorActionBar

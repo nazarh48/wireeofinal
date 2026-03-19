@@ -272,12 +272,36 @@ const renderEditedProduct = async (
       originalImageUrl ? loadImage(originalImageUrl) : Promise.resolve(null),
       backgroundImageDataUrl ? loadImage(backgroundImageDataUrl) : Promise.resolve(null),
     ]);
-    // Scale from editor coordinate space (canvasWidth x canvasHeight)
-    // into the requested output size, preserving relative positions.
-    const scaleX = w / editorCanvasWidth;
-    const scaleY = h / editorCanvasHeight;
+    // Base product uses intrinsic dimensions in editor and is centered on canvas.
+    // Build a source bounds rect around the product area so PDF thumbnails do not
+    // include extra canvas margins.
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceW = editorCanvasWidth;
+    let sourceH = editorCanvasHeight;
+
+    if (baseImg) {
+      const iw = baseImg.naturalWidth || baseImg.width || editorCanvasWidth;
+      const ih = baseImg.naturalHeight || baseImg.height || editorCanvasHeight;
+      const drawW = iw;
+      const drawH = ih;
+      const bx = (editorCanvasWidth - drawW) / 2;
+      const by = (editorCanvasHeight - drawH) / 2;
+      sourceX = bx;
+      sourceY = by;
+      sourceW = drawW;
+      sourceH = drawH;
+    }
+
+    // "Contain" mapping from source product bounds -> output thumbnail:
+    // match Projects tab behaviour (show full product, no clipping, no distortion).
+    const mapScale = Math.min(w / Math.max(1, sourceW), h / Math.max(1, sourceH));
+    const mapOffsetX = (w - sourceW * mapScale) / 2 - sourceX * mapScale;
+    const mapOffsetY = (h - sourceH * mapScale) / 2 - sourceY * mapScale;
+
     ctx.save();
-    ctx.scale(scaleX, scaleY);
+    ctx.translate(mapOffsetX, mapOffsetY);
+    ctx.scale(mapScale, mapScale);
 
     // Draw custom background using the same position/sizing as the editor.
     if (bgImg) {
@@ -288,14 +312,12 @@ const renderEditedProduct = async (
       }
     }
 
-    // Draw base image fitted in editor canvas space (editorCanvasWidth x editorCanvasHeight)
-    // to avoid distortion, matching KonvaCanvasEditor / EditedProductPreview.
+    // Draw base image in editor space (intrinsic size centered on canvas).
     if (baseImg) {
       const iw = baseImg.naturalWidth || baseImg.width || editorCanvasWidth;
       const ih = baseImg.naturalHeight || baseImg.height || editorCanvasHeight;
-      const fitScale = Math.min(editorCanvasWidth / iw, editorCanvasHeight / ih);
-      const drawW = iw * fitScale;
-      const drawH = ih * fitScale;
+      const drawW = iw;
+      const drawH = ih;
       const bx = (editorCanvasWidth - drawW) / 2;
       const by = (editorCanvasHeight - drawH) / 2;
       ctx.drawImage(baseImg, 0, 0, iw, ih, bx, by, drawW, drawH);
@@ -1040,7 +1062,6 @@ export const generateProductPDF = async (products, options = {}) => {
           `Room: ${cfg.room || "—"}`,
           `Processing: ${cfg.processingType || "Print"}`,
           "1x incl. Processing fee",
-          `Filename: ${product?.sku || product?.id || "—"}`,
           "1x",
           "Item",
           String(globalIndex + 1).padStart(2, "0"),
@@ -1083,7 +1104,7 @@ export const generateProductPDF = async (products, options = {}) => {
 
       const thead = document.createElement("thead");
       const headerRow = document.createElement("tr");
-      ["Item No.", "Item", "Type", "Quantity", "Single Quantity", "File"].forEach((thText) => {
+      ["Item No.", "Item", "Type", "Quantity", "Single Quantity"].forEach((thText) => {
         const th = document.createElement("th");
         th.textContent = thText;
         th.style.textAlign = "left";
@@ -1112,7 +1133,6 @@ export const generateProductPDF = async (products, options = {}) => {
           product?.category || product?.productType || "—",
           `${cfg.quantity || 1}x`,
           "1x",
-          product?.sku || product?.id || "—",
         ];
 
         cells.forEach((cellText) => {

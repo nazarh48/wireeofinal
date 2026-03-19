@@ -70,6 +70,7 @@ const mapProduct = (p) => {
     configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
     baseDeviceImageUrl: p?.baseDeviceImageUrl ? toAbsoluteImageUrl(p.baseDeviceImageUrl) : "",
     engravingMaskImageUrl: p?.engravingMaskImageUrl ? toAbsoluteImageUrl(p.engravingMaskImageUrl) : "",
+    printAreaBackgroundImageUrl: p?.printAreaBackgroundImageUrl ? toAbsoluteImageUrl(p.printAreaBackgroundImageUrl) : "",
     images,
     imagePaths,
     imageAlt,
@@ -78,6 +79,18 @@ const mapProduct = (p) => {
     printingEnabled: p?.printingEnabled !== undefined ? !!p.printingEnabled : true,
     laserEnabled: p?.laserEnabled !== undefined ? !!p.laserEnabled : true,
     backgroundCustomizable: p?.backgroundCustomizable !== undefined ? !!p.backgroundCustomizable : true,
+    // Printing-only admin toggles (optional; undefined = legacy/backward compatible).
+    backgroundEnabled: p?.backgroundEnabled !== undefined ? !!p.backgroundEnabled : undefined,
+    iconsTextEnabled: p?.iconsTextEnabled !== undefined ? !!p.iconsTextEnabled : undefined,
+    photoCroppingEnabled: p?.photoCroppingEnabled !== undefined ? !!p.photoCroppingEnabled : undefined,
+    photoCroppingHeightPx:
+      p?.photoCroppingHeightPx !== undefined && p?.photoCroppingHeightPx !== null
+        ? (Number.isFinite(Number(p.photoCroppingHeightPx)) ? Number(p.photoCroppingHeightPx) : undefined)
+        : undefined,
+    photoCroppingWidthPx:
+      p?.photoCroppingWidthPx !== undefined && p?.photoCroppingWidthPx !== null
+        ? (Number.isFinite(Number(p.photoCroppingWidthPx)) ? Number(p.photoCroppingWidthPx) : undefined)
+        : undefined,
     status: p?.status || "active",
     featured: p?.featured === true,
     downloadableFiles,
@@ -215,6 +228,13 @@ export const useCatalogStore = create((set, get) => ({
       printingEnabled,
       laserEnabled,
       backgroundCustomizable,
+      backgroundEnabled,
+      iconsTextEnabled,
+      photoCroppingEnabled,
+      photoCroppingHeightPx,
+      photoCroppingWidthPx,
+      printAreaBackgroundImageFile,
+      printAreaBackgroundImageUrl,
       ...rest
     } = payload;
     const range = rangeId ?? payload.range;
@@ -226,7 +246,12 @@ export const useCatalogStore = create((set, get) => ({
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
     const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
-    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles || hasBaseDevice || hasEngravingMask;
+    const hasPrintAreaBackgroundImage =
+      printAreaBackgroundImageFile &&
+      (printAreaBackgroundImageFile instanceof File ||
+        (printAreaBackgroundImageFile instanceof Blob &&
+          printAreaBackgroundImageFile.name));
+    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles || hasBaseDevice || hasEngravingMask || hasPrintAreaBackgroundImage;
     const body = hasFiles
       ? new FormData()
       : {
@@ -238,6 +263,15 @@ export const useCatalogStore = create((set, get) => ({
           printingEnabled: printingEnabled !== undefined ? !!printingEnabled : undefined,
           laserEnabled: laserEnabled !== undefined ? !!laserEnabled : undefined,
           backgroundCustomizable: backgroundCustomizable !== undefined ? !!backgroundCustomizable : undefined,
+          backgroundEnabled: backgroundEnabled !== undefined ? !!backgroundEnabled : undefined,
+          iconsTextEnabled: iconsTextEnabled !== undefined ? !!iconsTextEnabled : undefined,
+          photoCroppingEnabled: photoCroppingEnabled !== undefined ? !!photoCroppingEnabled : undefined,
+          photoCroppingHeightPx: photoCroppingHeightPx !== undefined ? photoCroppingHeightPx : undefined,
+          photoCroppingWidthPx: photoCroppingWidthPx !== undefined ? photoCroppingWidthPx : undefined,
+          printAreaBackgroundImageUrl:
+            printAreaBackgroundImageUrl !== undefined
+              ? printAreaBackgroundImageUrl
+              : undefined,
         };
 
     if (hasFiles) {
@@ -252,6 +286,12 @@ export const useCatalogStore = create((set, get) => ({
       if (printingEnabled !== undefined) body.append("printingEnabled", String(!!printingEnabled));
       if (laserEnabled !== undefined) body.append("laserEnabled", String(!!laserEnabled));
       if (backgroundCustomizable !== undefined) body.append("backgroundCustomizable", String(!!backgroundCustomizable));
+      if (backgroundEnabled !== undefined) body.append("backgroundEnabled", String(!!backgroundEnabled));
+      if (iconsTextEnabled !== undefined) body.append("iconsTextEnabled", String(!!iconsTextEnabled));
+      if (photoCroppingEnabled !== undefined) body.append("photoCroppingEnabled", String(!!photoCroppingEnabled));
+      if (photoCroppingHeightPx !== undefined) body.append("photoCroppingHeightPx", String(photoCroppingHeightPx));
+      if (photoCroppingWidthPx !== undefined) body.append("photoCroppingWidthPx", String(photoCroppingWidthPx));
+      if (printAreaBackgroundImageUrl !== undefined) body.append("printAreaBackgroundImageUrl", String(printAreaBackgroundImageUrl || ""));
       if (hasImages) {
         const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
         files.forEach((f) => body.append("images", f));
@@ -259,6 +299,7 @@ export const useCatalogStore = create((set, get) => ({
       if (hasConfiguratorImage) body.append("configuratorImage", configuratorImageFile);
       if (hasBaseDevice) body.append("baseDeviceImage", baseDeviceImageFile);
       if (hasEngravingMask) body.append("engravingMaskImage", engravingMaskImageFile);
+      if (hasPrintAreaBackgroundImage) body.append("printAreaBackgroundImage", printAreaBackgroundImageFile);
       if (hasDownloadFiles) {
         downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
         const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
@@ -288,6 +329,13 @@ export const useCatalogStore = create((set, get) => ({
       printingEnabled,
       laserEnabled,
       backgroundCustomizable,
+      backgroundEnabled,
+      iconsTextEnabled,
+      photoCroppingEnabled,
+      photoCroppingHeightPx,
+      photoCroppingWidthPx,
+      printAreaBackgroundImageFile,
+      printAreaBackgroundImageUrl,
       ...rest
     } = payload;
     const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
@@ -295,11 +343,32 @@ export const useCatalogStore = create((set, get) => ({
     const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
     const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
+    const hasPrintAreaBackgroundImage =
+      printAreaBackgroundImageFile &&
+      (printAreaBackgroundImageFile instanceof File ||
+        (printAreaBackgroundImageFile instanceof Blob &&
+          printAreaBackgroundImageFile.name));
     const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
     // Always use FormData when there are new image files; also use it when existingImages
     // list has changed so we can send the kept URLs to the backend for merging.
     const existingImagesChanged = Array.isArray(existingImages);
-    const useFormData = hasImageFiles || hasConfiguratorImage || hasDownloadFiles || existingImagesChanged || hasBaseDevice || hasEngravingMask || printingEnabled !== undefined || laserEnabled !== undefined || backgroundCustomizable !== undefined;
+    const useFormData =
+      hasImageFiles ||
+      hasConfiguratorImage ||
+      hasDownloadFiles ||
+      existingImagesChanged ||
+      hasBaseDevice ||
+      hasEngravingMask ||
+      printingEnabled !== undefined ||
+      laserEnabled !== undefined ||
+      backgroundCustomizable !== undefined ||
+      backgroundEnabled !== undefined ||
+      iconsTextEnabled !== undefined ||
+      photoCroppingEnabled !== undefined ||
+      photoCroppingHeightPx !== undefined ||
+      photoCroppingWidthPx !== undefined ||
+      hasPrintAreaBackgroundImage ||
+      printAreaBackgroundImageUrl !== undefined;
 
     let body;
     let config;
@@ -327,12 +396,19 @@ export const useCatalogStore = create((set, get) => ({
       if (printingEnabled !== undefined) body.append("printingEnabled", String(!!printingEnabled));
       if (laserEnabled !== undefined) body.append("laserEnabled", String(!!laserEnabled));
       if (backgroundCustomizable !== undefined) body.append("backgroundCustomizable", String(!!backgroundCustomizable));
+      if (backgroundEnabled !== undefined) body.append("backgroundEnabled", String(!!backgroundEnabled));
+      if (iconsTextEnabled !== undefined) body.append("iconsTextEnabled", String(!!iconsTextEnabled));
+      if (photoCroppingEnabled !== undefined) body.append("photoCroppingEnabled", String(!!photoCroppingEnabled));
+      if (photoCroppingHeightPx !== undefined) body.append("photoCroppingHeightPx", String(photoCroppingHeightPx));
+      if (photoCroppingWidthPx !== undefined) body.append("photoCroppingWidthPx", String(photoCroppingWidthPx));
+      if (printAreaBackgroundImageUrl !== undefined) body.append("printAreaBackgroundImageUrl", String(printAreaBackgroundImageUrl || ""));
       body.append("downloadableFiles", JSON.stringify(existingDownloadableFiles));
       if (hasDownloadFiles) {
         const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
         downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
         body.append("fileLabels", JSON.stringify(labels));
       }
+      if (hasPrintAreaBackgroundImage) body.append("printAreaBackgroundImage", printAreaBackgroundImageFile);
       config = {};
     } else {
       body = { ...rest };
@@ -342,6 +418,12 @@ export const useCatalogStore = create((set, get) => ({
       if (printingEnabled !== undefined) body.printingEnabled = !!printingEnabled;
       if (laserEnabled !== undefined) body.laserEnabled = !!laserEnabled;
       if (backgroundCustomizable !== undefined) body.backgroundCustomizable = !!backgroundCustomizable;
+      if (backgroundEnabled !== undefined) body.backgroundEnabled = !!backgroundEnabled;
+      if (iconsTextEnabled !== undefined) body.iconsTextEnabled = !!iconsTextEnabled;
+      if (photoCroppingEnabled !== undefined) body.photoCroppingEnabled = !!photoCroppingEnabled;
+      if (photoCroppingHeightPx !== undefined) body.photoCroppingHeightPx = photoCroppingHeightPx;
+      if (photoCroppingWidthPx !== undefined) body.photoCroppingWidthPx = photoCroppingWidthPx;
+      if (printAreaBackgroundImageUrl !== undefined) body.printAreaBackgroundImageUrl = printAreaBackgroundImageUrl;
       if (existingDownloadableFiles.length > 0) body.downloadableFiles = existingDownloadableFiles;
       config = undefined;
     }

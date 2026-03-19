@@ -24,9 +24,39 @@ const productSchema = new mongoose.Schema(
     // Configurator device layering (admin-driven)
     baseDeviceImageUrl: { type: String, default: "", trim: true }, // Layer 1
     engravingMaskImageUrl: { type: String, default: "", trim: true }, // Layer 3 (zone mask/overlay)
+    // Printing layer (Layer 2): default "print area background" uploaded in admin.
+    // Used as the initial background in the configurator when background is enabled.
+    printAreaBackgroundImageUrl: { type: String, default: "", trim: true },
     printingEnabled: { type: Boolean, default: true },
     laserEnabled: { type: Boolean, default: true },
     backgroundCustomizable: { type: Boolean, default: true },
+    // Printing-only customization options (admin-configurable).
+    // When these are undefined (older products), frontend falls back to legacy behaviour
+    // to preserve backward compatibility.
+    backgroundEnabled: { type: Boolean },
+    iconsTextEnabled: { type: Boolean },
+    photoCroppingEnabled: { type: Boolean },
+    // Cropping dimensions in pixels (required when photoCroppingEnabled is true)
+    photoCroppingHeightPx: {
+      type: Number,
+      validate: {
+        validator: function (v) {
+          if (!this.photoCroppingEnabled) return true;
+          return Number.isInteger(v) && v > 0;
+        },
+        message: "photoCroppingHeightPx must be a positive integer when photoCroppingEnabled is true",
+      },
+    },
+    photoCroppingWidthPx: {
+      type: Number,
+      validate: {
+        validator: function (v) {
+          if (!this.photoCroppingEnabled) return true;
+          return Number.isInteger(v) && v > 0;
+        },
+        message: "photoCroppingWidthPx must be a positive integer when photoCroppingEnabled is true",
+      },
+    },
     images: [
       {
         url: { type: String, required: true },

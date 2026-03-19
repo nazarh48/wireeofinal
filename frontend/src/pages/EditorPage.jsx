@@ -19,6 +19,7 @@ const EditorPage = () => {
   const navigate = useNavigate();
   const { getConfigurableProductById, getRangeById, loadPublicCatalog, loading, loaded } = useCatalog();
   const setProduct = useStore((s) => s.setProduct);
+  const fetchCollection = useStore((s) => s.fetchCollection);
   const configurator = useStore((s) => s.configurator);
 
   const instanceId = searchParams.get('instanceId') || null;
@@ -33,10 +34,25 @@ const EditorPage = () => {
   const isFromProjects = window.location.search.includes('from=projects');
 
   useEffect(() => {
-    if (product) {
+    let cancelled = false;
+    const hydrateAndSet = async () => {
+      if (!product) return;
+      // Ensure instance edits are available before opening editor from collection.
+      if (instanceId && window.location.search.includes('from=collection')) {
+        try {
+          await fetchCollection();
+        } catch {
+          // Continue with available local state; setProduct has fallback hydration.
+        }
+      }
+      if (cancelled) return;
       setProduct(product, instanceId);
-    }
-  }, [product, setProduct, productId, instanceId]);
+    };
+    hydrateAndSet();
+    return () => {
+      cancelled = true;
+    };
+  }, [product, setProduct, productId, instanceId, fetchCollection]);
 
   if (loading && !loaded) {
     return <div className="min-h-screen flex items-center justify-center">Loading…</div>;
@@ -48,6 +64,9 @@ const EditorPage = () => {
 
   const backgroundCustomizable =
     product?.backgroundCustomizable === true || product?.backgroundCustomizable === 'true';
+  const asBool = (v) => v === true || v === "true" || v === 1 || v === "1";
+  const backgroundEnabled =
+    product?.backgroundEnabled !== undefined ? asBool(product?.backgroundEnabled) : backgroundCustomizable;
   const laserEnabled =
     product?.laserEnabled === true || product?.laserEnabled === 'true';
   const printingEnabled =
@@ -132,7 +151,7 @@ const EditorPage = () => {
                     {processingLabel}
                   </span>
                   <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">
-                    {backgroundCustomizable
+                    {backgroundEnabled
                       ? 'Background customizable'
                       : 'This product is not available for background customization.'}
                   </span>

@@ -20,6 +20,17 @@ function resolveModes(printingEnabledRaw, laserEnabledRaw) {
   return { printingEnabled, laserEnabled, backgroundCustomizable };
 }
 
+function toBoolLoose(v, fallback = false) {
+  if (v === undefined) return fallback;
+  return v === true || v === "true" || v === "1" || v === 1;
+}
+
+function toOptionalNumber(v) {
+  if (v === undefined || v === null || v === "" || v === "null") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function buildProductFilter(query) {
   const filter = {};
   if (query.range) filter.range = query.range;
@@ -51,12 +62,18 @@ export async function create(req, res, next) {
       configuratorImageUrl,
       baseDeviceImageUrl,
       engravingMaskImageUrl,
+      printAreaBackgroundImageUrl,
       isConfigurable,
       status,
       featured,
       printingEnabled,
       laserEnabled,
       backgroundCustomizable,
+      backgroundEnabled,
+      iconsTextEnabled,
+      photoCroppingEnabled,
+      photoCroppingHeightPx,
+      photoCroppingWidthPx,
     } = req.body;
     const r = await Range.findById(range);
     if (!r) return res.status(400).json({ success: false, message: "Range not found" });
@@ -78,11 +95,15 @@ export async function create(req, res, next) {
     const engravingMaskFile = Array.isArray(req.files?.engravingMaskImage) && req.files.engravingMaskImage[0]
       ? req.files.engravingMaskImage[0]
       : null;
+    const printAreaBackgroundFile = Array.isArray(req.files?.printAreaBackgroundImage) && req.files.printAreaBackgroundImage[0]
+      ? req.files.printAreaBackgroundImage[0]
+      : null;
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];
     const images = imageFiles.map((f) => toProductFile(f, "products"));
     const configuratorUrl = configuratorFile ? toProductFile(configuratorFile, "products").url : (configuratorImageUrl || "");
     const baseDeviceUrl = baseDeviceFile ? toProductFile(baseDeviceFile, "products").url : (baseDeviceImageUrl || configuratorUrl || "");
     const engravingMaskUrl = engravingMaskFile ? toProductFile(engravingMaskFile, "products").url : (engravingMaskImageUrl || "");
+    const printAreaBackgroundUrl = printAreaBackgroundFile ? toProductFile(printAreaBackgroundFile, "products").url : (printAreaBackgroundImageUrl || "");
     const primaryUrl = images[0]?.url || baseImageUrl || configuratorUrl || baseDeviceUrl || "";
     let fileLabels = [];
     if (typeof req.body.fileLabels === "string" && req.body.fileLabels.trim()) {
@@ -105,12 +126,23 @@ export async function create(req, res, next) {
       configuratorImageUrl: configuratorUrl,
       baseDeviceImageUrl: baseDeviceUrl,
       engravingMaskImageUrl: engravingMaskUrl,
+      printAreaBackgroundImageUrl: printAreaBackgroundUrl,
       images,
       isConfigurable: !!boolConfigurable,
       productType,
       status: status || "active",
       featured: featured === true || featured === "true" || featured === "1",
       ...resolveModes(printingEnabled, laserEnabled),
+      backgroundEnabled:
+        backgroundEnabled !== undefined ? toBoolLoose(backgroundEnabled, false) : undefined,
+      iconsTextEnabled:
+        iconsTextEnabled !== undefined ? toBoolLoose(iconsTextEnabled, false) : undefined,
+      photoCroppingEnabled:
+        photoCroppingEnabled !== undefined ? toBoolLoose(photoCroppingEnabled, false) : undefined,
+      photoCroppingHeightPx:
+        photoCroppingHeightPx !== undefined ? toOptionalNumber(photoCroppingHeightPx) : undefined,
+      photoCroppingWidthPx:
+        photoCroppingWidthPx !== undefined ? toOptionalNumber(photoCroppingWidthPx) : undefined,
       downloadableFiles: downloadableFiles.length ? downloadableFiles : undefined,
     });
     await product.populate("range", "name description status");
@@ -120,6 +152,7 @@ export async function create(req, res, next) {
       configuratorUrl,
       baseDeviceUrl,
       engravingMaskUrl,
+      printAreaBackgroundUrl,
     ].filter(Boolean);
     Promise.all(urlsToOptimize.map((u) => optimizeImageAtUrl(u))).catch(() => {});
     return res.status(201).json({ success: true, product });
@@ -282,8 +315,14 @@ export async function update(req, res, next) {
       downloadableFiles: bodyFilesRaw,
       baseDeviceImageUrl,
       engravingMaskImageUrl,
+      printAreaBackgroundImageUrl,
       printingEnabled,
       laserEnabled,
+      backgroundEnabled,
+      iconsTextEnabled,
+      photoCroppingEnabled,
+      photoCroppingHeightPx,
+      photoCroppingWidthPx,
     } = req.body;
     const bodyFiles = parseBodyFiles(bodyFilesRaw);
     if (range !== undefined) {
@@ -299,6 +338,9 @@ export async function update(req, res, next) {
     const engravingMaskFile = Array.isArray(req.files?.engravingMaskImage) && req.files.engravingMaskImage[0]
       ? req.files.engravingMaskImage[0]
       : null;
+    const printAreaBackgroundFile = Array.isArray(req.files?.printAreaBackgroundImage) && req.files.printAreaBackgroundImage[0]
+      ? req.files.printAreaBackgroundImage[0]
+      : null;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (productCode !== undefined) updates.productCode = productCode;
@@ -312,6 +354,9 @@ export async function update(req, res, next) {
     else if (baseDeviceImageUrl !== undefined) updates.baseDeviceImageUrl = baseDeviceImageUrl;
     if (engravingMaskFile) updates.engravingMaskImageUrl = toProductFile(engravingMaskFile, "products").url;
     else if (engravingMaskImageUrl !== undefined) updates.engravingMaskImageUrl = engravingMaskImageUrl;
+
+    if (printAreaBackgroundFile) updates.printAreaBackgroundImageUrl = toProductFile(printAreaBackgroundFile, "products").url;
+    else if (printAreaBackgroundImageUrl !== undefined) updates.printAreaBackgroundImageUrl = printAreaBackgroundImageUrl;
     if (isConfigurable !== undefined) {
       const boolConfigurable =
         isConfigurable === true ||
@@ -329,6 +374,12 @@ export async function update(req, res, next) {
       updates.laserEnabled = resolved.laserEnabled;
       updates.backgroundCustomizable = resolved.backgroundCustomizable;
     }
+
+    if (backgroundEnabled !== undefined) updates.backgroundEnabled = toBoolLoose(backgroundEnabled, false);
+    if (iconsTextEnabled !== undefined) updates.iconsTextEnabled = toBoolLoose(iconsTextEnabled, false);
+    if (photoCroppingEnabled !== undefined) updates.photoCroppingEnabled = toBoolLoose(photoCroppingEnabled, false);
+    if (photoCroppingHeightPx !== undefined) updates.photoCroppingHeightPx = toOptionalNumber(photoCroppingHeightPx);
+    if (photoCroppingWidthPx !== undefined) updates.photoCroppingWidthPx = toOptionalNumber(photoCroppingWidthPx);
 
     const imageFiles = Array.isArray(req.files?.images) ? req.files.images : Array.isArray(req.files) ? req.files : [];
     const fileFiles = Array.isArray(req.files?.files) ? req.files.files : [];

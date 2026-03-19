@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import useStore from '../../store/useStore';
 
 const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
@@ -13,6 +14,8 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
     updateConfiguratorConfiguration,
   } = useStore();
 
+  const [isCroppingBackground, setIsCroppingBackground] = useState(false);
+
   const selectedIds = configurator.selectedElementIds || [];
   const history = configurator.history || [];
   const historyIndex = configurator.historyIndex ?? -1;
@@ -21,10 +24,172 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
   const hasSelection = selectedIds.length > 0;
 
   const product = configurator.product || null;
-  const backgroundCustomizable =
-    product?.backgroundCustomizable === true ||
-    product?.backgroundCustomizable === 'true';
+  const asBool = (v) => v === true || v === 'true' || v === 1 || v === '1';
+  const isPrintingProduct = product?.printingEnabled === true || product?.printingEnabled === 'true';
+
+  // Printing-only background controls.
+  const backgroundEnabled = isPrintingProduct
+    ? (product?.backgroundEnabled !== undefined
+      ? asBool(product?.backgroundEnabled)
+      : asBool(product?.backgroundCustomizable))
+    : false;
   const hasBackground = Boolean(configurator.configuration?.backgroundImage);
+
+  // Photo cropping is also printing-only.
+  const photoCroppingEnabledExplicit = product?.photoCroppingEnabled !== undefined;
+  const photoCroppingEnabled = isPrintingProduct
+    ? (photoCroppingEnabledExplicit ? asBool(product?.photoCroppingEnabled) : true)
+    : false;
+
+  const cropHeightPx = product?.photoCroppingHeightPx;
+  const cropWidthPx = product?.photoCroppingWidthPx;
+  const parsedCropHeight = cropHeightPx !== undefined && cropHeightPx !== null ? Number(cropHeightPx) : NaN;
+  const parsedCropWidth = cropWidthPx !== undefined && cropWidthPx !== null ? Number(cropWidthPx) : NaN;
+  const hasValidCropDims =
+    Number.isInteger(parsedCropHeight) && parsedCropHeight > 0 &&
+    Number.isInteger(parsedCropWidth) && parsedCropWidth > 0;
+
+  // Backward compatibility:
+  // - If photoCroppingEnabled field is missing (legacy product), don't require dims.
+  // - Once admin explicitly enables cropping, enforce positive integer dims.
+  const requireCropDims = photoCroppingEnabledExplicit && photoCroppingEnabled === true;
+  const canCropBackground = backgroundEnabled && photoCroppingEnabled && (!requireCropDims || hasValidCropDims);
+
+  const canvasW = canvasInfo?.canvasWidth ?? configurator.configuration?.canvasWidth ?? 800;
+  const canvasH = canvasInfo?.canvasHeight ?? configurator.configuration?.canvasHeight ?? 600;
+
+  const getBackgroundDims = () => {
+    const bgW = Number.isFinite(Number(configurator.configuration?.backgroundWidth))
+      ? Number(configurator.configuration?.backgroundWidth)
+      : canvasW;
+    const bgH = Number.isFinite(Number(configurator.configuration?.backgroundHeight))
+      ? Number(configurator.configuration?.backgroundHeight)
+      : canvasH;
+    return { bgW, bgH };
+  };
+
+  const getBackgroundPosition = () => {
+    const { bgW, bgH } = getBackgroundDims();
+    const bgX = Number.isFinite(Number(configurator.configuration?.backgroundX))
+      ? Number(configurator.configuration?.backgroundX)
+      : (canvasW - bgW) / 2;
+    const bgY = Number.isFinite(Number(configurator.configuration?.backgroundY))
+      ? Number(configurator.configuration?.backgroundY)
+      : (canvasH - bgH) / 2;
+    return { bgX, bgY };
+  };
+
+  const alignBackgroundCenters = () => {
+    if (!hasBackground) return;
+    const { bgW, bgH } = getBackgroundDims();
+    updateConfiguratorConfiguration({
+      backgroundX: (canvasW - bgW) / 2,
+      backgroundY: (canvasH - bgH) / 2,
+    });
+  };
+
+  const fitCanvasToScreen = () => {
+    stageRef?.current?.fitToScreen?.();
+  };
+
+  const autoCropBackgroundToConfiguredDims = async () => {
+    if (!hasBackground) return;
+    if (!hasValidCropDims) {
+      // Legacy fallback: open the old modal when dims aren't available.
+      onOpenCrop?.();
+      return;
+    }
+
+    const source = configurator.configuration?.backgroundImage;
+    const targetW = parsedCropWidth;
+    const targetH = parsedCropHeight;
+
+    if (!source || !targetW || !targetH) {
+      onOpenCrop?.();
+      return;
+    }
+
+    const fittedCanvasW = canvasW;
+    const fittedCanvasH = canvasH;
+
+    setIsCroppingBackground(true);
+    try {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      const croppedDataUrl = await new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            const imgW = img.naturalWidth || img.width;
+            const imgH = img.naturalHeight || img.height;
+            if (!imgW || !imgH) return reject(new Error('Invalid source image dimensions'));
+
+            // Preserve current zoom + placement:
+            // draw using current background transform into target crop canvas.
+            const { bgW, bgH } = getBackgroundDims();
+            const { bgX, bgY } = getBackgroundPosition();
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('No canvas context'));
+
+            // Apply rounded corners to cropped background so it visually matches device corners.
+            const radius = Math.max(8, Math.min(36, Math.round(Math.min(targetW, targetH) * 0.06)));
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(targetW - radius, 0);
+            ctx.quadraticCurveTo(targetW, 0, targetW, radius);
+            ctx.lineTo(targetW, targetH - radius);
+            ctx.quadraticCurveTo(targetW, targetH, targetW - radius, targetH);
+            ctx.lineTo(radius, targetH);
+            ctx.quadraticCurveTo(0, targetH, 0, targetH - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(img, bgX, bgY, bgW, bgH);
+            ctx.restore();
+            const dataUrl = canvas.toDataURL('image/png');
+            resolve(dataUrl);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load background image'));
+        img.src = source;
+      });
+
+      const prevFileName = configurator.configuration?.backgroundFileName || '';
+      const baseName = prevFileName
+        ? String(prevFileName).replace(/\.[^/.]+$/, '')
+        : 'background';
+      const nextFileName = `${baseName}_cropped_${targetW}x${targetH}.png`;
+
+      // After crop, align to product (base image) center.
+      const baseW = canvasInfo?.baseImageWidth || canvasW;
+      const baseH = canvasInfo?.baseImageHeight || canvasH;
+      const baseX = (canvasW - baseW) / 2;
+      const baseY = (canvasH - baseH) / 2;
+      const nextBgX = baseX + (baseW - targetW) / 2;
+      const nextBgY = baseY + (baseH - targetH) / 2;
+
+      updateConfiguratorConfiguration({
+        backgroundImage: croppedDataUrl,
+        backgroundFileName: nextFileName,
+        backgroundX: nextBgX,
+        backgroundY: nextBgY,
+        backgroundWidth: targetW,
+        backgroundHeight: targetH,
+      });
+    } catch (err) {
+      // If auto-crop fails (e.g. CORS/tainted canvas), fall back to modal.
+      onOpenCrop?.();
+    } finally {
+      setIsCroppingBackground(false);
+    }
+  };
 
   const duplicateSelection = () => {
     if (!hasSelection) return;
@@ -90,35 +255,78 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
 
           <span className="mx-1 h-5 w-px bg-slate-200" />
 
-          {backgroundCustomizable ? (
+          {backgroundEnabled ? (
             <>
+              {onOpenCrop && photoCroppingEnabled && (
+                <button
+                  type="button"
+                  onClick={autoCropBackgroundToConfiguredDims}
+                  disabled={!hasBackground || !canCropBackground || isCroppingBackground}
+                  className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title={!canCropBackground ? "Cropping requires valid Height/Width (px) settings." : undefined}
+                >
+                  {isCroppingBackground ? 'Cropping…' : 'Crop background'}
+                </button>
+              )}
+
+              {hasBackground && (
+                <button
+                  type="button"
+                  onClick={alignBackgroundCenters}
+                  disabled={!hasBackground}
+                  className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Align background to the base device image center."
+                >
+                  Align centers
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => onOpenCrop?.()}
-                disabled={!hasBackground}
+                onClick={fitCanvasToScreen}
+                disabled={isCroppingBackground}
                 className="h-7 rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Fit edited product to screen."
               >
-                Crop background
+                Fit to screen
               </button>
-              <label className="flex h-7 cursor-pointer items-center rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50">
+
+              <label
+                className={`flex h-7 cursor-pointer items-center rounded-lg border border-teal-200 bg-white px-3 text-[11px] text-teal-800 transition-colors hover:bg-teal-50 ${
+                  !backgroundEnabled ? "opacity-40 pointer-events-none" : ""
+                }`}
+              >
                 <span>Upload background</span>
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
+                  disabled={!backgroundEnabled}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
+                    if (!backgroundEnabled) return;
                     const reader = new FileReader();
                     reader.onload = () => {
                       const result = typeof reader.result === 'string' ? reader.result : null;
                       if (result) {
-                        updateConfiguratorConfiguration({
-                          backgroundImage: result,
-                          backgroundFileName: file.name,
-                          backgroundX: 0,
-                          backgroundY: 0,
-                        });
+                        // Keep uploaded background fully loaded at its intrinsic dimensions.
+                        const img = new window.Image();
+                        img.onload = () => {
+                          const nextBgW = img.naturalWidth || img.width || canvasW;
+                          const nextBgH = img.naturalHeight || img.height || canvasH;
+                          const nextBgX = (canvasW - nextBgW) / 2;
+                          const nextBgY = (canvasH - nextBgH) / 2;
+                          updateConfiguratorConfiguration({
+                            backgroundImage: result,
+                            backgroundFileName: file.name,
+                            backgroundWidth: nextBgW,
+                            backgroundHeight: nextBgH,
+                            backgroundX: nextBgX,
+                            backgroundY: nextBgY,
+                          });
+                        };
+                        img.src = result;
                       }
                     };
                     reader.readAsDataURL(file);
@@ -137,8 +345,8 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
                   updateConfiguratorConfiguration({
                     backgroundImage: null,
                     backgroundFileName: '',
-                    backgroundX: 0,
-                    backgroundY: 0,
+                    backgroundX: (canvasW - canvasW) / 2,
+                    backgroundY: (canvasH - canvasH) / 2,
                   });
                 }}
                 disabled={!hasBackground}

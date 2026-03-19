@@ -35,6 +35,9 @@ const normalizeProduct = (product, edits = null) => {
       product.configuratorImageUrl || baseImageUrlRaw,
     ),
     images: normalizedImages,
+    printAreaBackgroundImageUrl: normalizeImageUrl(
+      product.printAreaBackgroundImageUrl || ""
+    ),
     configurable: isConfigurableProduct(product),
   };
   if (edits) {
@@ -271,7 +274,7 @@ const useStore = create((set, get) => ({
               try {
                 const instanceRes = await apiService.canvas.getByInstance(instanceId);
                 const instanceEdit = instanceRes?.edit || instanceRes?.instanceEdit || null;
-                if (instanceEdit?.canvasData || instanceEdit?.editedImage) {
+                if (instanceEdit?.canvasData || instanceEdit?.editedImage || instanceEdit?.layoutConfig) {
                   return {
                     ...product,
                     edits: {
@@ -288,7 +291,7 @@ const useStore = create((set, get) => ({
               }
             }
             const editRes = await apiService.canvas.getByProduct(product.id);
-            if (editRes?.edit?.canvasData) {
+            if (editRes?.edit?.canvasData || editRes?.edit?.layoutConfig || editRes?.edit?.editedImage) {
               return {
                 ...product,
                 edits: {
@@ -897,6 +900,27 @@ const useStore = create((set, get) => ({
       let existingEdits = null;
       if (instanceId) {
         existingEdits = state.editsByInstanceId[instanceId] || state.pendingEdits[instanceId] || null;
+        // Fallback: if instance edits are stored only in collection snapshot (fresh reopen),
+        // hydrate from there so saved crop/background settings are preserved.
+        if (!existingEdits) {
+          const fromCollection = (state.collection || []).find((item) => item?.instanceId === instanceId);
+          const hasCollectionEdits =
+            fromCollection?.edits &&
+            (Array.isArray(fromCollection.edits.elements) ||
+              (fromCollection.edits.configuration &&
+                typeof fromCollection.edits.configuration === "object"));
+          if (hasCollectionEdits) {
+            existingEdits = {
+              elements: Array.isArray(fromCollection.edits.elements) ? fromCollection.edits.elements : [],
+              configuration:
+                fromCollection.edits.configuration &&
+                typeof fromCollection.edits.configuration === "object"
+                  ? fromCollection.edits.configuration
+                  : {},
+              editedImage: fromCollection.editedImage || null,
+            };
+          }
+        }
       }
       // For instance editing, never fall back to product-level edits.
       // This keeps duplicated instances fully isolated.
@@ -906,6 +930,19 @@ const useStore = create((set, get) => ({
       const rawElements = existingEdits?.elements || [];
       const elements = normalizeElements(rawElements);
       const existingCfg = existingEdits?.configuration || {};
+
+      const asBool = (v) => v === true || v === "true" || v === 1 || v === "1";
+      const isPrintingProduct =
+        product?.printingEnabled === true || product?.printingEnabled === "true";
+      const backgroundEnabledResolved = isPrintingProduct
+        ? (product?.backgroundEnabled !== undefined ? asBool(product.backgroundEnabled) : asBool(product.backgroundCustomizable))
+        : false;
+      // Do not auto-inject admin "print area background" image into editor.
+      // It is stored for admin/reference only; editor should start without it
+      // unless there are persisted instance/product edits.
+      const seedBackground = null;
+      const seedBackgroundFileName = "";
+
       const nextConfig = {
         id:
           existingCfg.id ||
@@ -918,7 +955,23 @@ const useStore = create((set, get) => ({
         individualLabeling: existingCfg.individualLabeling || "",
         room: existingCfg.room || "",
         floor: String(existingCfg.floor ?? "1"),
-        backgroundImage: existingCfg.backgroundImage || null,
+        canvasWidth:
+          existingCfg.canvasWidth !== undefined ? existingCfg.canvasWidth : undefined,
+        canvasHeight:
+          existingCfg.canvasHeight !== undefined ? existingCfg.canvasHeight : undefined,
+        backgroundImage:
+          existingCfg.backgroundImage !== undefined
+            ? existingCfg.backgroundImage || null
+            : seedBackground,
+        backgroundFileName: existingCfg.backgroundFileName !== undefined
+          ? existingCfg.backgroundFileName || ""
+          : seedBackgroundFileName,
+        backgroundX: existingCfg.backgroundX !== undefined ? existingCfg.backgroundX : 0,
+        backgroundY: existingCfg.backgroundY !== undefined ? existingCfg.backgroundY : 0,
+        backgroundWidth:
+          existingCfg.backgroundWidth !== undefined ? existingCfg.backgroundWidth : undefined,
+        backgroundHeight:
+          existingCfg.backgroundHeight !== undefined ? existingCfg.backgroundHeight : undefined,
       };
       return {
         configurator: {
@@ -934,7 +987,10 @@ const useStore = create((set, get) => ({
           // Do not carry previous product configuration into a newly opened product.
           configuration: nextConfig,
           validationErrors: [],
-          backgroundImage: existingCfg.backgroundImage || null,
+          backgroundImage:
+            existingCfg.backgroundImage !== undefined
+              ? existingCfg.backgroundImage || null
+              : seedBackground,
         },
       };
     }),

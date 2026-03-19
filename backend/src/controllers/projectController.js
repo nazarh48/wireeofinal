@@ -22,7 +22,7 @@ export async function create(req, res, next) {
       products: mapProducts(productsInput || []),
       createdBy: req.user._id,
     });
-    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx");
     return res.status(201).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -38,7 +38,7 @@ export async function list(req, res, next) {
     const mineOnly = req.query.mine === "1" || req.query.mine === "true";
     const filter = mineOnly || !isAdmin ? { createdBy: req.user._id } : {};
     const projects = await Project.find(filter)
-      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx")
       .populate("createdBy", "name email role")
       .sort({ createdAt: -1 })
       .lean();
@@ -55,7 +55,7 @@ export async function getById(req, res, next) {
       ? { _id: req.params.id }
       : { _id: req.params.id, createdBy: req.user._id };
     const project = await Project.findOne(filter)
-      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType range productCode sku printingEnabled laserEnabled")
+      .populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType range productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx")
       .populate("createdBy", "name email role")
       .lean();
     if (!project) {
@@ -80,7 +80,7 @@ export async function addProducts(req, res, next) {
     const toAdd = mapProducts(productsInput || []);
     project.products.push(...toAdd);
     await project.save();
-    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx");
     return res.status(200).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -138,7 +138,7 @@ export async function addFromCollection(req, res, next) {
     });
     project.products.push(...mapped);
     await project.save();
-    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx");
     return res.status(200).json({ success: true, project });
   } catch (err) {
     if (err.message?.startsWith("Only configurable")) {
@@ -219,7 +219,7 @@ export async function removeProduct(req, res, next) {
 
     // Idempotent response: already removed/not found should not break frontend flow.
     if (nextProducts.length === before) {
-      await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
+      await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx");
       return res.status(200).json({
         success: true,
         project,
@@ -230,7 +230,7 @@ export async function removeProduct(req, res, next) {
 
     project.products = nextProducts;
     await project.save();
-    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled");
+    await project.populate("products.product", "name description baseImageUrl configuratorImageUrl baseDeviceImageUrl printAreaBackgroundImageUrl isConfigurable productType productCode sku printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx");
     return res.status(200).json({ success: true, project, removed: true });
   } catch (err) {
     next(err);

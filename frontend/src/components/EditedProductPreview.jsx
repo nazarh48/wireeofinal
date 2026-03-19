@@ -372,19 +372,23 @@ const EditedProductPreview = ({ product, edits, width = 300, height = 200, stage
     );
   }
 
-  // Same coordinate space as editor (canvasWidth x canvasHeight) so element positions match;
-  // base image fitted to avoid distortion.
-  const scale = Math.min(viewWidth / canvasWidth, viewHeight / canvasHeight);
-  const offsetX = (viewWidth - canvasWidth * scale) / 2;
-  const offsetY = (viewHeight - canvasHeight * scale) / 2;
-
   const iw = baseImageSize.width || baseImage?.width || canvasWidth;
   const ih = baseImageSize.height || baseImage?.height || canvasHeight;
-  const fitScale = Math.min(canvasWidth / iw, canvasHeight / ih);
-  const drawW = iw * fitScale;
-  const drawH = ih * fitScale;
+  // Match editor: base product image is rendered at intrinsic size and centered on canvas.
+  const drawW = iw;
+  const drawH = ih;
   const baseX = (canvasWidth - drawW) / 2;
   const baseY = (canvasHeight - drawH) / 2;
+
+  // Thumbnail should prioritize showing the full product area (base device) without
+  // extra canvas margins. So we scale/position from the base bounds, not full canvas.
+  const sourceX = baseImage ? baseX : 0;
+  const sourceY = baseImage ? baseY : 0;
+  const sourceW = baseImage ? drawW : canvasWidth;
+  const sourceH = baseImage ? drawH : canvasHeight;
+  const scale = Math.min(viewWidth / Math.max(1, sourceW), viewHeight / Math.max(1, sourceH));
+  const offsetX = (viewWidth - sourceW * scale) / 2 - sourceX * scale;
+  const offsetY = (viewHeight - sourceH * scale) / 2 - sourceY * scale;
 
   return (
     <div

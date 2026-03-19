@@ -84,7 +84,7 @@ export async function getMyCollection(req, res, next) {
       _id: { $in: uniqueIds },
     })
       .select(
-        "name productCode description technicalDetails range baseImageUrl configuratorImageUrl baseDeviceImageUrl engravingMaskImageUrl printingEnabled laserEnabled backgroundCustomizable images isConfigurable productType status featured downloadableFiles createdAt updatedAt",
+        "name productCode description technicalDetails range baseImageUrl configuratorImageUrl baseDeviceImageUrl engravingMaskImageUrl printAreaBackgroundImageUrl printingEnabled laserEnabled backgroundCustomizable backgroundEnabled iconsTextEnabled photoCroppingEnabled photoCroppingHeightPx photoCroppingWidthPx images isConfigurable productType status featured downloadableFiles createdAt updatedAt",
       )
       .lean();
 

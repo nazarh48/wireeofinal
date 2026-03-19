@@ -21,6 +21,8 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [configurable, setConfigurable] = useState(!!initial?.configurable);
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [error, setError] = useState("");
+  const [cropFieldErrorHeight, setCropFieldErrorHeight] = useState("");
+  const [cropFieldErrorWidth, setCropFieldErrorWidth] = useState("");
   const [imagesFiles, setImagesFiles] = useState([]);
   const [newImagePreviews, setNewImagePreviews] = useState([]);
   const [existingImages, setExistingImages] = useState(() => {
@@ -39,10 +41,42 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   const [baseDevicePreview, setBaseDevicePreview] = useState(initial?.baseDeviceImageUrl ?? "");
   const [engravingMaskImageFile, setEngravingMaskImageFile] = useState(null);
   const [engravingMaskPreview, setEngravingMaskPreview] = useState(initial?.engravingMaskImageUrl ?? "");
+  const [printAreaBackgroundImageFile, setPrintAreaBackgroundImageFile] = useState(null);
+  const [printAreaBackgroundPreview, setPrintAreaBackgroundPreview] = useState(initial?.printAreaBackgroundImageUrl ?? "");
+  const [printAreaBackgroundImageUrl, setPrintAreaBackgroundImageUrl] = useState(initial?.printAreaBackgroundImageUrl ?? "");
   // Mutually exclusive: either 'printing' or 'laser'
   const [mode, setMode] = useState(
     initial?.laserEnabled === true && initial?.printingEnabled === false ? 'laser' : 'printing'
   );
+
+  const [enableBackground, setEnableBackground] = useState(() => {
+    if (!initial) return false; // new products: default unchecked
+    if (initial.backgroundEnabled !== undefined) return !!initial.backgroundEnabled;
+    return initial.backgroundCustomizable === true || initial.backgroundCustomizable === "true";
+  });
+
+  const [enableIconsAndText, setEnableIconsAndText] = useState(() => {
+    if (!initial) return false; // new products: default unchecked
+    if (initial.iconsTextEnabled !== undefined) return !!initial.iconsTextEnabled;
+    // Legacy behaviour: printing products always had icons/text enabled.
+    return true;
+  });
+
+  const [enablePhotoCropping, setEnablePhotoCropping] = useState(() => {
+    if (!initial) return false; // new products: default unchecked
+    if (initial.photoCroppingEnabled !== undefined) return !!initial.photoCroppingEnabled;
+    return initial.backgroundCustomizable === true || initial.backgroundCustomizable === "true";
+  });
+
+  const [photoCroppingHeightPx, setPhotoCroppingHeightPx] = useState(() => {
+    if (!initial?.photoCroppingHeightPx) return "";
+    return String(initial.photoCroppingHeightPx);
+  });
+
+  const [photoCroppingWidthPx, setPhotoCroppingWidthPx] = useState(() => {
+    if (!initial?.photoCroppingWidthPx) return "";
+    return String(initial.photoCroppingWidthPx);
+  });
 
   useEffect(() => {
     return () => {
@@ -56,9 +90,19 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (typeof printAreaBackgroundPreview === "string" && printAreaBackgroundPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(printAreaBackgroundPreview);
+      }
+    };
+  }, [printAreaBackgroundPreview]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setError("");
+    setCropFieldErrorHeight("");
+    setCropFieldErrorWidth("");
     const t = name.trim();
     if (!t) {
       setError("Name is required.");
@@ -74,6 +118,25 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       setError("Please upload at least one gallery image or configurator image.");
       return;
     }
+
+    const heightStr = String(photoCroppingHeightPx ?? "").trim();
+    const widthStr = String(photoCroppingWidthPx ?? "").trim();
+    const heightOk = /^[1-9]\d*$/.test(heightStr);
+    const widthOk = /^[1-9]\d*$/.test(widthStr);
+
+    if (mode === "printing" && enablePhotoCropping) {
+      if (!heightOk) {
+        setCropFieldErrorHeight(heightStr ? "Height must be a positive integer." : "Height is required.");
+        setError("Please fix the photo cropping fields.");
+        return;
+      }
+      if (!widthOk) {
+        setCropFieldErrorWidth(widthStr ? "Width must be a positive integer." : "Width is required.");
+        setError("Please fix the photo cropping fields.");
+        return;
+      }
+    }
+
     const keptAttachments = existingAttachments.filter((_, i) => !removedAttachmentIndices.has(i));
     const downloadFiles = newAttachmentFiles.map(({ file, label }) => ({ file, label: label || file?.name || "Download" }));
     onSubmit({
@@ -94,6 +157,20 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       printingEnabled: mode === 'printing',
       laserEnabled: mode === 'laser',
       backgroundCustomizable: mode === 'printing',
+      // Printing customization options (admin configurable). Only persisted for printing products.
+      ...(mode === "printing"
+        ? {
+            backgroundEnabled: enableBackground,
+            iconsTextEnabled: enableIconsAndText,
+            photoCroppingEnabled: enablePhotoCropping,
+            photoCroppingHeightPx: heightOk ? Number(heightStr) : undefined,
+            photoCroppingWidthPx: widthOk ? Number(widthStr) : undefined,
+            ...(enableBackground ? {
+              printAreaBackgroundImageFile: printAreaBackgroundImageFile || undefined,
+              printAreaBackgroundImageUrl: printAreaBackgroundImageUrl || "",
+            } : {}),
+          }
+        : {}),
     });
   };
 
@@ -298,6 +375,211 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           </div>
         </label>
       </div>
+
+      {mode === "printing" && (
+        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+          <div className="text-sm font-semibold text-slate-800">Print Customization Options</div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="enable-background"
+              checked={enableBackground}
+              onChange={(e) => setEnableBackground(e.target.checked)}
+              className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 mt-1"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <label htmlFor="enable-background" className="text-sm font-medium text-slate-800">
+                  Enable Background
+                </label>
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-[10px] text-slate-700 font-semibold"
+                  title="When enabled, users can upload and preview a custom background image in the configurator."
+                >
+                  i
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Control background upload/preview for printing products.
+              </p>
+            </div>
+          </div>
+
+          {enableBackground && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-slate-800 flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-[10px] text-slate-700 font-semibold" title="Upload a default print area background used in the editor. Crop button will auto-crop to configured dimensions.">
+                  i
+                </span>
+                Print Area Background (used in editor)
+              </div>
+              <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
+                <span className="text-sm text-slate-500">Click to upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (printAreaBackgroundPreview && printAreaBackgroundPreview.startsWith("blob:")) {
+                      URL.revokeObjectURL(printAreaBackgroundPreview);
+                    }
+                    const objectUrl = URL.createObjectURL(file);
+                    setPrintAreaBackgroundImageFile(file);
+                    setPrintAreaBackgroundPreview(objectUrl);
+                    setPrintAreaBackgroundImageUrl(printAreaBackgroundImageUrl || "");
+
+                    // Auto-fill crop dimensions from the uploaded image.
+                    const img = new window.Image();
+                    img.onload = () => {
+                      const naturalW = img.naturalWidth;
+                      const naturalH = img.naturalHeight;
+                      if (naturalW && naturalH) {
+                        setPhotoCroppingWidthPx(String(naturalW));
+                        setPhotoCroppingHeightPx(String(naturalH));
+                        setCropFieldErrorHeight("");
+                        setCropFieldErrorWidth("");
+                        // Enable cropping so the auto-filled dimensions are visible/usable.
+                        setEnablePhotoCropping(true);
+                      }
+                    };
+                    img.src = objectUrl;
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              {(printAreaBackgroundPreview || printAreaBackgroundImageFile) && (
+                <div className="mt-3 flex items-start gap-2">
+                  <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0">
+                    <img src={printAreaBackgroundPreview} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (printAreaBackgroundPreview && printAreaBackgroundPreview.startsWith("blob:")) URL.revokeObjectURL(printAreaBackgroundPreview);
+                      setPrintAreaBackgroundImageFile(null);
+                      setPrintAreaBackgroundPreview("");
+                      setPrintAreaBackgroundImageUrl("");
+                    }}
+                    className="mt-1 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-slate-500">
+                Uploading here seeds the full background in the configurator. Clicking “Crop background” will auto-crop (no pop-up) to the configured Height/Width (px).
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="enable-icons-text"
+              checked={enableIconsAndText}
+              onChange={(e) => setEnableIconsAndText(e.target.checked)}
+              className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 mt-1"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <label htmlFor="enable-icons-text" className="text-sm font-medium text-slate-800">
+                  Enable Icons and Text
+                </label>
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-[10px] text-slate-700 font-semibold"
+                  title="When enabled, users can add icons/symbols and edit text (including alignment and formatting) in the configurator."
+                >
+                  i
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Control icons/text tools for printing products.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="enable-photo-cropping"
+              checked={enablePhotoCropping}
+              onChange={(e) => {
+                setEnablePhotoCropping(e.target.checked);
+                setCropFieldErrorHeight("");
+                setCropFieldErrorWidth("");
+              }}
+              className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500 mt-1"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <label htmlFor="enable-photo-cropping" className="text-sm font-medium text-slate-800">
+                  Enable Photo Cropping
+                </label>
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 text-[10px] text-slate-700 font-semibold"
+                  title="When enabled, users can crop the uploaded background photo. Height and Width (px) are required."
+                >
+                  i
+                </span>
+              </div>
+
+              {enablePhotoCropping ? (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Height (px)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      step={1}
+                      value={photoCroppingHeightPx}
+                      onChange={(e) => setPhotoCroppingHeightPx(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
+                        cropFieldErrorHeight ? "border-red-300 bg-red-50/30" : "border-slate-300 bg-white"
+                      }`}
+                      placeholder="e.g. 600"
+                    />
+                    {cropFieldErrorHeight && (
+                      <p className="mt-1 text-xs text-red-700">{cropFieldErrorHeight}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Width (px)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      step={1}
+                      value={photoCroppingWidthPx}
+                      onChange={(e) => setPhotoCroppingWidthPx(e.target.value)}
+                      className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
+                        cropFieldErrorWidth ? "border-red-300 bg-red-50/30" : "border-slate-300 bg-white"
+                      }`}
+                      placeholder="e.g. 800"
+                    />
+                    {cropFieldErrorWidth && (
+                      <p className="mt-1 text-xs text-red-700">{cropFieldErrorWidth}</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 mt-1">
+                  Crop tools are disabled until enabled.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Base device image (Layer 1)</label>
         <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">

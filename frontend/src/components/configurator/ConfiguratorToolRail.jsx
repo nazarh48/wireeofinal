@@ -116,9 +116,25 @@ const ConfiguratorToolRail = () => {
     configurator.product?.laserEnabled === true &&
     configurator.product?.printingEnabled === false;
 
+  const asBool = (v) => v === true || v === 'true' || v === 1 || v === '1';
+  const isPrintingProduct = configurator.product?.printingEnabled === true || configurator.product?.printingEnabled === 'true';
+
+  // Icons/Text are controlled only for printing-enabled products.
+  // For legacy products (iconsTextEnabled missing), default to enabled for printing.
+  const iconsTextEnabled = isPrintingProduct
+    ? (configurator.product?.iconsTextEnabled !== undefined
+      ? asBool(configurator.product?.iconsTextEnabled)
+      : true)
+    : true;
+
   const quickActions = useMemo(
-    () => ALL_QUICK_ACTIONS.filter((a) => !(a.printingOnly && isLaserOnly)),
-    [isLaserOnly]
+    () =>
+      ALL_QUICK_ACTIONS.filter((a) => {
+        if (a.printingOnly && isLaserOnly) return false;
+        if ((a.id === 'icons' || a.id === 'text') && !iconsTextEnabled) return false;
+        return true;
+      }),
+    [isLaserOnly, iconsTextEnabled]
   );
 
   useEffect(() => {
@@ -130,10 +146,10 @@ const ConfiguratorToolRail = () => {
   useEffect(() => {
     const cfg = configurator.configuration || {};
     setTextValue('');
-    // Reset to icons if current action is not available for this product mode
     setActiveAction((prev) => {
-      if (prev === 'image' && isLaserOnly) return 'icons';
-      return 'icons';
+      const isAllowed = quickActions.some((a) => a.id === prev);
+      if (isAllowed) return prev;
+      return quickActions[0]?.id || 'icons';
     });
     const nextProcessing =
       (cfg.processingType && processingOptions.includes(cfg.processingType))
@@ -151,6 +167,7 @@ const ConfiguratorToolRail = () => {
     configurator.configuration?.room,
     configurator.configuration?.floor,
     processingOptions,
+    quickActions,
   ]);
 
   const persistConfig = (changes) => {
@@ -158,6 +175,7 @@ const ConfiguratorToolRail = () => {
   };
 
   const addTextElement = () => {
+    if (!iconsTextEnabled) return;
     const value = textValue.trim();
     if (!value) return;
     addElement({
@@ -193,6 +211,7 @@ const ConfiguratorToolRail = () => {
   };
 
   const addBackendIcon = async (icon) => {
+    if (!iconsTextEnabled) return;
     if (!icon) return;
     const originalSrc = getImageUrl(icon.file_path);
     const isSvgIcon = isSvgAssetUrl(originalSrc);

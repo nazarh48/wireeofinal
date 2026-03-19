@@ -23,6 +23,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
     end: '1',
     quantity: '1',
   });
+  const [isCroppingBackground, setIsCroppingBackground] = useState(false);
 
   const selectedIds = configurator.selectedElementIds || [];
   const selectedElement = selectedIds.length > 0
@@ -30,6 +31,132 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
     : null;
 
   const backgroundSelected = configurator.backgroundSelected;
+  const product = configurator.product || {};
+  const asBool = (v) => v === true || v === 'true' || v === 1 || v === '1';
+  const isPrintingProduct = product?.printingEnabled === true || product?.printingEnabled === 'true';
+
+  // Background + cropping are controlled only for printing-enabled products.
+  const backgroundEnabled = isPrintingProduct
+    ? (product?.backgroundEnabled !== undefined
+      ? asBool(product?.backgroundEnabled)
+      : asBool(product?.backgroundCustomizable))
+    : false;
+
+  const photoCroppingEnabledExplicit = product?.photoCroppingEnabled !== undefined;
+  const photoCroppingEnabled = isPrintingProduct
+    ? (photoCroppingEnabledExplicit ? asBool(product?.photoCroppingEnabled) : true)
+    : false;
+
+  const cropHeightPx = product?.photoCroppingHeightPx;
+  const cropWidthPx = product?.photoCroppingWidthPx;
+  const parsedCropHeight = cropHeightPx !== undefined && cropHeightPx !== null ? Number(cropHeightPx) : NaN;
+  const parsedCropWidth = cropWidthPx !== undefined && cropWidthPx !== null ? Number(cropWidthPx) : NaN;
+  const hasValidCropDims =
+    Number.isInteger(parsedCropHeight) && parsedCropHeight > 0 &&
+    Number.isInteger(parsedCropWidth) && parsedCropWidth > 0;
+
+  const requireCropDims = photoCroppingEnabledExplicit && photoCroppingEnabled === true;
+  const canCropBackground = backgroundEnabled && photoCroppingEnabled && (!requireCropDims || hasValidCropDims);
+
+  const autoCropBackgroundToConfiguredDims = async () => {
+    const source = configurator.configuration?.backgroundImage;
+    if (!source) return;
+    if (!hasValidCropDims) {
+      // Legacy fallback: open the old modal when dims aren't available.
+      onOpenCrop?.();
+      return;
+    }
+
+    const targetW = parsedCropWidth;
+    const targetH = parsedCropHeight;
+    if (!targetW || !targetH) {
+      onOpenCrop?.();
+      return;
+    }
+
+    setIsCroppingBackground(true);
+    try {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      const croppedDataUrl = await new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            const imgW = img.naturalWidth || img.width;
+            const imgH = img.naturalHeight || img.height;
+            if (!imgW || !imgH) return reject(new Error('Invalid source image dimensions'));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('No canvas context'));
+
+            // Apply rounded corners to cropped background so it visually matches device corners.
+            const radius = Math.max(8, Math.min(36, Math.round(Math.min(targetW, targetH) * 0.06)));
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(targetW - radius, 0);
+            ctx.quadraticCurveTo(targetW, 0, targetW, radius);
+            ctx.lineTo(targetW, targetH - radius);
+            ctx.quadraticCurveTo(targetW, targetH, targetW - radius, targetH);
+            ctx.lineTo(radius, targetH);
+            ctx.quadraticCurveTo(0, targetH, 0, targetH - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.clip();
+            // Preserve current zoom + placement.
+            ctx.drawImage(img, backgroundX, backgroundY, backgroundWidth, backgroundHeight);
+            ctx.restore();
+            resolve(canvas.toDataURL('image/png'));
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load background image'));
+        img.src = source;
+      });
+
+      const prevFileName = configurator.configuration?.backgroundFileName || '';
+      const baseName = prevFileName
+        ? String(prevFileName).replace(/\.[^/.]+$/, '')
+        : 'background';
+      const nextFileName = `${baseName}_cropped_${targetW}x${targetH}.png`;
+
+      // Align cropped background to product (base image) center.
+      const baseW = canvasInfo?.baseImageWidth || effectiveCanvasWidth;
+      const baseH = canvasInfo?.baseImageHeight || effectiveCanvasHeight;
+      const baseX = (effectiveCanvasWidth - baseW) / 2;
+      const baseY = (effectiveCanvasHeight - baseH) / 2;
+      const nextBgX = baseX + (baseW - targetW) / 2;
+      const nextBgY = baseY + (baseH - targetH) / 2;
+
+      updateConfiguratorConfiguration({
+        backgroundImage: croppedDataUrl,
+        backgroundFileName: nextFileName,
+        backgroundX: nextBgX,
+        backgroundY: nextBgY,
+        backgroundWidth: targetW,
+        backgroundHeight: targetH,
+      });
+    } catch (err) {
+      onOpenCrop?.();
+    } finally {
+      setIsCroppingBackground(false);
+    }
+  };
+
+  const iconsTextEnabled = isPrintingProduct
+    ? (product?.iconsTextEnabled !== undefined ? asBool(product?.iconsTextEnabled) : true)
+    : true;
+  const selectedIsText = selectedElement?.type === 'text';
+  const selectedIsIconLike =
+    selectedElement?.type === 'mdiIcon' ||
+    selectedElement?.type === 'icon' ||
+    ((selectedElement?.type === 'image' || selectedElement?.type === 'sticker') && selectedElement?.iconId);
+  const lockIconsTextEditing = isPrintingProduct && !iconsTextEnabled && (selectedIsText || selectedIsIconLike);
+
   const effectiveCanvasWidth = configurator.configuration?.canvasWidth || CANVAS_WIDTH;
   const effectiveCanvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
   const backgroundWidth = configurator.configuration?.backgroundWidth || effectiveCanvasWidth;
@@ -166,69 +293,79 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
 
         {backgroundSelected && !selectedElement && (
           <div className="space-y-3 rounded-md border border-[#cfd3d9] bg-white p-3">
-            <div className="text-xs font-semibold text-[#4b5563]">Background image</div>
-            <div className="text-[11px] text-[#6b7280] mb-1">
-              Adjust the size and position of the uploaded background. Drag on the canvas to move it.
-            </div>
-            {onOpenCrop && (
-              <button
-                type="button"
-                onClick={() => onOpenCrop()}
-                className="w-full h-8 rounded border border-teal-200 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100"
-              >
-                Crop background
-              </button>
+            {backgroundEnabled ? (
+              <>
+                <div className="text-xs font-semibold text-[#4b5563]">Background image</div>
+                <div className="text-[11px] text-[#6b7280] mb-1">
+                  Adjust the size and position of the uploaded background. Drag on the canvas to move it.
+                </div>
+                {onOpenCrop && photoCroppingEnabled && (
+                  <button
+                    type="button"
+                    onClick={autoCropBackgroundToConfiguredDims}
+                    disabled={!canCropBackground || isCroppingBackground}
+                    className="w-full h-8 rounded border border-teal-200 bg-teal-50 text-teal-800 text-xs font-medium hover:bg-teal-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!canCropBackground ? "Cropping is enabled, but required dimensions are missing." : undefined}
+                  >
+                    {isCroppingBackground ? 'Cropping…' : 'Crop background'}
+                  </button>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs text-[#77808a]">
+                    Position X
+                    <input
+                      type="number"
+                      value={Math.round(backgroundX)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        updateConfiguratorConfiguration({ backgroundX: v });
+                      }}
+                      className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    />
+                  </label>
+                  <label className="text-xs text-[#77808a]">
+                    Position Y
+                    <input
+                      type="number"
+                      value={Math.round(backgroundY)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        updateConfiguratorConfiguration({ backgroundY: v });
+                      }}
+                      className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs text-[#77808a]">
+                    Width
+                    <input
+                      type="number"
+                      value={Math.round(backgroundWidth)}
+                      onChange={(e) => handleCanvasDimensionChange('backgroundWidth', e.target.value)}
+                      className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                      min={10}
+                    />
+                  </label>
+                  <label className="text-xs text-[#77808a]">
+                    Height
+                    <input
+                      type="number"
+                      value={Math.round(backgroundHeight)}
+                      onChange={(e) => handleCanvasDimensionChange('backgroundHeight', e.target.value)}
+                      className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                      min={10}
+                    />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-[#8b9199]">
+                Background customization is disabled for this product.
+              </div>
             )}
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-[#77808a]">
-                Position X
-                <input
-                  type="number"
-                  value={Math.round(backgroundX)}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (!Number.isFinite(v)) return;
-                    updateConfiguratorConfiguration({ backgroundX: v });
-                  }}
-                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
-                />
-              </label>
-              <label className="text-xs text-[#77808a]">
-                Position Y
-                <input
-                  type="number"
-                  value={Math.round(backgroundY)}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (!Number.isFinite(v)) return;
-                    updateConfiguratorConfiguration({ backgroundY: v });
-                  }}
-                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
-                />
-              </label>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-[#77808a]">
-                Width
-                <input
-                  type="number"
-                  value={Math.round(backgroundWidth)}
-                  onChange={(e) => handleCanvasDimensionChange('backgroundWidth', e.target.value)}
-                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
-                  min={10}
-                />
-              </label>
-              <label className="text-xs text-[#77808a]">
-                Height
-                <input
-                  type="number"
-                  value={Math.round(backgroundHeight)}
-                  onChange={(e) => handleCanvasDimensionChange('backgroundHeight', e.target.value)}
-                  className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
-                  min={10}
-                />
-              </label>
-            </div>
           </div>
         )}
 
@@ -241,6 +378,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   type="number"
                   value={Math.round(selectedElement.x || 0)}
                   onChange={(e) => applyToSelected({ x: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                 />
               </label>
@@ -250,6 +388,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   type="number"
                   value={Math.round(selectedElement.y || 0)}
                   onChange={(e) => applyToSelected({ y: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                 />
               </label>
@@ -262,6 +401,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   type="number"
                   value={Math.round(selectedElement.width || 120)}
                   onChange={(e) => applyToSelected({ width: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                 />
               </label>
@@ -271,6 +411,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   type="number"
                   value={Math.round(selectedElement.height || 50)}
                   onChange={(e) => applyToSelected({ height: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                 />
               </label>
@@ -285,12 +426,14 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   max="360"
                   value={selectedElement.rotation || 0}
                   onChange={(e) => applyToSelected({ rotation: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="flex-1"
                 />
                 <input
                   type="number"
                   value={Math.round(selectedElement.rotation || 0)}
                   onChange={(e) => applyToSelected({ rotation: Number(e.target.value) })}
+                  disabled={lockIconsTextEditing}
                   className="w-16 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                 />
               </div>
@@ -304,6 +447,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                     type="text"
                     value={selectedElement.text || ''}
                     onChange={(e) => applyToSelected({ text: e.target.value })}
+                    disabled={lockIconsTextEditing}
                     className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                   />
                 </label>
@@ -313,6 +457,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                     <select
                       value={selectedElement.fontFamily || 'Arial'}
                       onChange={(e) => applyToSelected({ fontFamily: e.target.value })}
+                      disabled={lockIconsTextEditing}
                       className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                     >
                       {fontFamilies.map((font) => (
@@ -326,6 +471,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                       type="number"
                       value={selectedElement.fontSize || 24}
                       onChange={(e) => applyToSelected({ fontSize: Number(e.target.value) })}
+                      disabled={lockIconsTextEditing}
                       className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
                     />
                   </label>
@@ -333,21 +479,41 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                 <div className="flex gap-2">
                   <button
                     onClick={() => applyToSelected({ fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold' })}
-                    className={`h-8 w-8 border text-sm ${selectedElement.fontWeight === 'bold' ? 'bg-[#dde8f3] border-[#9db6cd]' : 'bg-white border-[#cfd3d9]'}`}
+                    disabled={lockIconsTextEditing}
+                    className={`h-8 w-8 border text-sm disabled:opacity-50 disabled:cursor-not-allowed ${selectedElement.fontWeight === 'bold' ? 'bg-[#dde8f3] border-[#9db6cd]' : 'bg-white border-[#cfd3d9]'}`}
                     title="Bold"
                   >
                     B
                   </button>
                   <button
                     onClick={() => applyToSelected({ fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic' })}
-                    className={`h-8 w-8 border text-sm italic ${selectedElement.fontStyle === 'italic' ? 'bg-[#dde8f3] border-[#9db6cd]' : 'bg-white border-[#cfd3d9]'}`}
+                    disabled={lockIconsTextEditing}
+                    className={`h-8 w-8 border text-sm italic disabled:opacity-50 disabled:cursor-not-allowed ${selectedElement.fontStyle === 'italic' ? 'bg-[#dde8f3] border-[#9db6cd]' : 'bg-white border-[#cfd3d9]'}`}
                     title="Italic"
                   >
                     I
                   </button>
-                  <button onClick={() => applyToSelected({ align: 'left' })} className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs">L</button>
-                  <button onClick={() => applyToSelected({ align: 'center' })} className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs">C</button>
-                  <button onClick={() => applyToSelected({ align: 'right' })} className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs">R</button>
+                  <button
+                    onClick={() => applyToSelected({ align: 'left' })}
+                    disabled={lockIconsTextEditing}
+                    className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    L
+                  </button>
+                  <button
+                    onClick={() => applyToSelected({ align: 'center' })}
+                    disabled={lockIconsTextEditing}
+                    className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    C
+                  </button>
+                  <button
+                    onClick={() => applyToSelected({ align: 'right' })}
+                    disabled={lockIconsTextEditing}
+                    className="h-8 px-2 border border-[#cfd3d9] bg-white text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    R
+                  </button>
                 </div>
               </>
             )}
@@ -365,6 +531,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                     applyToSelected({ width: size, height: size });
                   }}
                   className="w-full mt-2"
+                  disabled={lockIconsTextEditing}
                 />
               </label>
             )}
@@ -377,6 +544,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                     type="color"
                     value={selectedElement.fill || selectedElement.color || '#000000'}
                     onChange={(e) => {
+                      if (lockIconsTextEditing) return;
                       const nextColor = e.target.value;
 
                       if (selectedElement.type === 'text' || selectedElement.type === 'icon' || selectedElement.type === 'sticker') {
@@ -392,6 +560,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                       applyToSelected({ fill: nextColor });
                     }}
                     className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
+                    disabled={lockIconsTextEditing}
                   />
                 </label>
                 <label className="text-xs text-[#77808a]">
@@ -400,6 +569,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                     type="color"
                     value={selectedElement.stroke || '#000000'}
                     onChange={(e) => {
+                      if (lockIconsTextEditing) return;
                       const nextStroke = e.target.value;
 
                       if (canColorizeSelectedImage) {
@@ -410,6 +580,7 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                       applyToSelected({ stroke: nextStroke });
                     }}
                     className="w-full mt-1 h-8 border border-[#cfd3d9] bg-white"
+                    disabled={lockIconsTextEditing}
                   />
                 </label>
               </div>
@@ -418,12 +589,12 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
             <div>
               <div className="text-xs text-[#77808a] mb-2">Alignment</div>
               <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => align('left')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Left</button>
-                <button onClick={() => align('center')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Center</button>
-                <button onClick={() => align('right')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Right</button>
-                <button onClick={() => align('top')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Top</button>
-                <button onClick={() => align('middle')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Middle</button>
-                <button onClick={() => align('bottom')} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd]">Bottom</button>
+                <button onClick={() => align('left')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Left</button>
+                <button onClick={() => align('center')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Center</button>
+                <button onClick={() => align('right')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Right</button>
+                <button onClick={() => align('top')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Top</button>
+                <button onClick={() => align('middle')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Middle</button>
+                <button onClick={() => align('bottom')} disabled={lockIconsTextEditing} className="h-8 border border-[#cfd3d9] bg-white text-xs hover:bg-[#f9fbfd] disabled:opacity-50 disabled:cursor-not-allowed">Bottom</button>
               </div>
             </div>
 
@@ -485,7 +656,8 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   counterEnd: Number(counterSettings.end) || 1,
                   quantity: Number(counterSettings.quantity) || 1,
                 })}
-                className="h-8 px-3 border border-[#cfd3d9] bg-white hover:bg-[#f8fafc] text-xs text-[#5f6772]"
+                disabled={lockIconsTextEditing}
+                className="h-8 px-3 border border-[#cfd3d9] bg-white hover:bg-[#f8fafc] text-xs text-[#5f6772] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Apply numbering options
               </button>

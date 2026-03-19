@@ -136,7 +136,8 @@ const productMixedStorageMulter = multer.diskStorage({
       file.fieldname === "images" ||
       file.fieldname === "configuratorImage" ||
       file.fieldname === "baseDeviceImage" ||
-      file.fieldname === "engravingMaskImage";
+      file.fieldname === "engravingMaskImage" ||
+      file.fieldname === "printAreaBackgroundImage";
     const dir = isProductImageField ? PRODUCT_UPLOAD_DIR : PRODUCT_FILES_DIR;
     cb(null, dir);
   },
@@ -147,7 +148,8 @@ const productMixedStorageMulter = multer.diskStorage({
       file.fieldname === "images" ||
       file.fieldname === "configuratorImage" ||
       file.fieldname === "baseDeviceImage" ||
-      file.fieldname === "engravingMaskImage";
+      file.fieldname === "engravingMaskImage" ||
+      file.fieldname === "printAreaBackgroundImage";
     const prefix = isProductImageField ? "prod" : "file";
     const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}${safeExt}`;
     cb(null, name);
@@ -170,6 +172,7 @@ export function uploadProductImagesAndFiles(req, res, next) {
       configuratorImage: list.filter((f) => f.fieldname === "configuratorImage"),
       baseDeviceImage: list.filter((f) => f.fieldname === "baseDeviceImage"),
       engravingMaskImage: list.filter((f) => f.fieldname === "engravingMaskImage"),
+      printAreaBackgroundImage: list.filter((f) => f.fieldname === "printAreaBackgroundImage"),
       files: list.filter((f) => f.fieldname === "files"),
     };
     next();
