@@ -10,6 +10,15 @@ const downloadableFileSchema = new mongoose.Schema(
   { _id: false }
 );
 
+function isPhotoCroppingEnabledValue(v) {
+  if (v === true || v === 1) return true;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "true" || s === "1" || s === "yes" || s === "on";
+  }
+  return false;
+}
+
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -41,7 +50,7 @@ const productSchema = new mongoose.Schema(
       type: Number,
       validate: {
         validator: function (v) {
-          if (!this.photoCroppingEnabled) return true;
+          if (!isPhotoCroppingEnabledValue(this.photoCroppingEnabled)) return true;
           return Number.isInteger(v) && v > 0;
         },
         message: "photoCroppingHeightPx must be a positive integer when photoCroppingEnabled is true",
@@ -51,7 +60,7 @@ const productSchema = new mongoose.Schema(
       type: Number,
       validate: {
         validator: function (v) {
-          if (!this.photoCroppingEnabled) return true;
+          if (!isPhotoCroppingEnabledValue(this.photoCroppingEnabled)) return true;
           return Number.isInteger(v) && v > 0;
         },
         message: "photoCroppingWidthPx must be a positive integer when photoCroppingEnabled is true",

@@ -159,8 +159,23 @@ const productMixedStorageMulter = multer.diskStorage({
 const productAnyUpload = multer({
   storage: productMixedStorageMulter,
   fileFilter: anyFileFilter,
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: {
+    fileSize: 20 * 1024 * 1024,
+    // Large JSON blobs (e.g. downloadableFiles, existingImages); avoid busboy rejecting long fields
+    fieldSize: 12 * 1024 * 1024,
+    fields: 200,
+    parts: 250,
+  },
 }).any();
+
+/** Duplicate field names in multipart can become string[]; validators and older code expect a scalar. */
+function flattenMultipartBodyScalars(req) {
+  if (!req.body || typeof req.body !== "object") return;
+  for (const k of Object.keys(req.body)) {
+    const v = req.body[k];
+    if (Array.isArray(v) && v.length > 0) req.body[k] = v[v.length - 1];
+  }
+}
 
 export function uploadProductImagesAndFiles(req, res, next) {
   productAnyUpload(req, res, (err) => {
@@ -175,6 +190,7 @@ export function uploadProductImagesAndFiles(req, res, next) {
       printAreaBackgroundImage: list.filter((f) => f.fieldname === "printAreaBackgroundImage"),
       files: list.filter((f) => f.fieldname === "files"),
     };
+    flattenMultipartBodyScalars(req);
     next();
   });
 }

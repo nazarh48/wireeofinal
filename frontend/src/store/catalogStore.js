@@ -309,7 +309,7 @@ export const useCatalogStore = create((set, get) => ({
 
     const res = await apiService.products.create(
       body,
-      hasFiles ? {} : undefined
+      hasFiles ? { timeout: 120000 } : undefined
     );
     await get().loadAdminCatalog();
     await get().loadPublicCatalog();
@@ -409,7 +409,7 @@ export const useCatalogStore = create((set, get) => ({
         body.append("fileLabels", JSON.stringify(labels));
       }
       if (hasPrintAreaBackgroundImage) body.append("printAreaBackgroundImage", printAreaBackgroundImageFile);
-      config = {};
+      config = { timeout: 120000 };
     } else {
       body = { ...rest };
       if (rangeId !== undefined) body.range = rangeId;
