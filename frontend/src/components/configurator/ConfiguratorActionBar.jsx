@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import useStore from '../../store/useStore';
+import {
+  cropBackgroundToFrame,
+  getCenteredBackgroundCropPlacement,
+} from './utils/backgroundCropUtils';
 
 const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
   const {
@@ -109,56 +113,28 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
       return;
     }
 
-    const fittedCanvasW = canvasW;
-    const fittedCanvasH = canvasH;
-
     setIsCroppingBackground(true);
     try {
-      const img = new window.Image();
-      img.crossOrigin = 'anonymous';
-      const croppedDataUrl = await new Promise((resolve, reject) => {
-        img.onload = () => {
-          try {
-            const imgW = img.naturalWidth || img.width;
-            const imgH = img.naturalHeight || img.height;
-            if (!imgW || !imgH) return reject(new Error('Invalid source image dimensions'));
-
-            // Preserve current zoom + placement:
-            // draw using current background transform into target crop canvas.
-            const { bgW, bgH } = getBackgroundDims();
-            const { bgX, bgY } = getBackgroundPosition();
-
-            const canvas = document.createElement('canvas');
-            canvas.width = targetW;
-            canvas.height = targetH;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return reject(new Error('No canvas context'));
-
-            // Apply rounded corners to cropped background so it visually matches device corners.
-            const radius = Math.max(8, Math.min(36, Math.round(Math.min(targetW, targetH) * 0.06)));
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(targetW - radius, 0);
-            ctx.quadraticCurveTo(targetW, 0, targetW, radius);
-            ctx.lineTo(targetW, targetH - radius);
-            ctx.quadraticCurveTo(targetW, targetH, targetW - radius, targetH);
-            ctx.lineTo(radius, targetH);
-            ctx.quadraticCurveTo(0, targetH, 0, targetH - radius);
-            ctx.lineTo(0, radius);
-            ctx.quadraticCurveTo(0, 0, radius, 0);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(img, bgX, bgY, bgW, bgH);
-            ctx.restore();
-            const dataUrl = canvas.toDataURL('image/png');
-            resolve(dataUrl);
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('Failed to load background image'));
-        img.src = source;
+      const { bgW, bgH } = getBackgroundDims();
+      const { bgX, bgY } = getBackgroundPosition();
+      const { x: nextBgX, y: nextBgY } = getCenteredBackgroundCropPlacement({
+        canvasWidth: canvasW,
+        canvasHeight: canvasH,
+        baseImageWidth: canvasInfo?.baseImageWidth,
+        baseImageHeight: canvasInfo?.baseImageHeight,
+        targetWidth: targetW,
+        targetHeight: targetH,
+      });
+      const croppedDataUrl = await cropBackgroundToFrame({
+        imageSrc: source,
+        backgroundX: bgX,
+        backgroundY: bgY,
+        backgroundWidth: bgW,
+        backgroundHeight: bgH,
+        cropX: nextBgX,
+        cropY: nextBgY,
+        targetWidth: targetW,
+        targetHeight: targetH,
       });
 
       const prevFileName = configurator.configuration?.backgroundFileName || '';
@@ -166,14 +142,6 @@ const ConfiguratorActionBar = ({ stageRef, canvasInfo, onOpenCrop }) => {
         ? String(prevFileName).replace(/\.[^/.]+$/, '')
         : 'background';
       const nextFileName = `${baseName}_cropped_${targetW}x${targetH}.png`;
-
-      // After crop, align to product (base image) center.
-      const baseW = canvasInfo?.baseImageWidth || canvasW;
-      const baseH = canvasInfo?.baseImageHeight || canvasH;
-      const baseX = (canvasW - baseW) / 2;
-      const baseY = (canvasH - baseH) / 2;
-      const nextBgX = baseX + (baseW - targetW) / 2;
-      const nextBgY = baseY + (baseH - targetH) / 2;
 
       updateConfiguratorConfiguration({
         backgroundImage: croppedDataUrl,

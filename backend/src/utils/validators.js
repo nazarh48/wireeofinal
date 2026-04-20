@@ -41,6 +41,10 @@ export const rangeValidators = {
     body("name").trim().notEmpty().withMessage("Name required"),
     body("description").optional().trim(),
     body("image").optional().trim(),
+    body("order")
+      .optional({ values: "null" })
+      .isInt({ min: 0 })
+      .withMessage("Order must be a non-negative integer"),
     body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status"),
   ],
   update: [
@@ -48,6 +52,10 @@ export const rangeValidators = {
     body("name").optional().trim().notEmpty().withMessage("Name required"),
     body("description").optional().trim(),
     body("image").optional().trim(),
+    body("order")
+      .optional({ values: "null" })
+      .isInt({ min: 0 })
+      .withMessage("Order must be a non-negative integer"),
     body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status"),
   ],
   id: [param("id").custom(objectId)],

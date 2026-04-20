@@ -12,6 +12,33 @@ const toAbsoluteImageUrl = (url) => {
   return `${base}${path}`;
 };
 
+const normalizeRangeOrder = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const compareRangesByDisplayOrder = (a, b) => {
+  const orderA = normalizeRangeOrder(a?.order);
+  const orderB = normalizeRangeOrder(b?.order);
+
+  if (orderA !== null && orderB !== null && orderA !== orderB) {
+    return orderA - orderB;
+  }
+  if (orderA !== null && orderB === null) return -1;
+  if (orderA === null && orderB !== null) return 1;
+
+  const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const createdAtB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+  if (createdAtA !== createdAtB) {
+    return createdAtB - createdAtA;
+  }
+
+  return String(a?.name || "").localeCompare(String(b?.name || ""));
+};
+
+const sortRanges = (ranges) => [...ranges].sort(compareRangesByDisplayOrder);
+
 const mapRange = (r) => {
   const rawImage = r?.image || "";
   const imagePath = typeof rawImage === "string" ? rawImage : "";
@@ -21,6 +48,7 @@ const mapRange = (r) => {
     description: r?.description || "",
     image: imagePath ? toAbsoluteImageUrl(imagePath) : "",
     imagePath,
+    order: normalizeRangeOrder(r?.order),
     status: r?.status || "active",
     createdAt: r?.createdAt || null,
     updatedAt: r?.updatedAt || null,
@@ -122,7 +150,7 @@ export const useCatalogStore = create((set, get) => ({
         apiService.products.listNormal({}),
         apiService.products.listConfigurable({}),
       ]);
-      const ranges = (rangesRes?.ranges || []).map(mapRange);
+      const ranges = sortRanges((rangesRes?.ranges || []).map(mapRange));
       const products = [
         ...(normalRes?.products || []),
         ...(configurableRes?.products || []),
@@ -151,7 +179,7 @@ export const useCatalogStore = create((set, get) => ({
         apiService.ranges.list(),
         apiService.products.list(),
       ]);
-      const ranges = (rangesRes?.ranges || []).map(mapRange);
+      const ranges = sortRanges((rangesRes?.ranges || []).map(mapRange));
       const products = (productsRes?.products || []).map(mapProduct);
       set({
         adminRanges: ranges,
@@ -176,6 +204,7 @@ export const useCatalogStore = create((set, get) => ({
       name: payload.name || "",
       description: payload.description != null ? payload.description : "",
       status: payload.status != null ? payload.status : "active",
+      ...(payload.order !== undefined && { order: payload.order }),
     };
     const res = await apiService.ranges.create(jsonBody);
     const range = res?.range;
@@ -194,6 +223,7 @@ export const useCatalogStore = create((set, get) => ({
       ...(payload.name != null && { name: payload.name }),
       ...(payload.description != null && { description: payload.description }),
       ...(payload.status != null && { status: payload.status }),
+      ...(payload.order !== undefined && { order: payload.order }),
     };
     if (Object.keys(jsonBody).length > 0) {
       await apiService.ranges.update(id, jsonBody);

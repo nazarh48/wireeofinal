@@ -3,6 +3,9 @@ import { apiService, USER_TOKEN_KEY, ADMIN_TOKEN_KEY, IMAGE_BASE_URL } from "../
 import { normalizeElements } from "../utils/editorMigration";
 import { generateInstanceId } from "../utils/instanceUtils";
 
+const EDITOR_CANVAS_WIDTH = 800;
+const EDITOR_CANVAS_HEIGHT = 600;
+
 const normalizeImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
@@ -955,10 +958,8 @@ const useStore = create((set, get) => ({
         individualLabeling: existingCfg.individualLabeling || "",
         room: existingCfg.room || "",
         floor: String(existingCfg.floor ?? "1"),
-        canvasWidth:
-          existingCfg.canvasWidth !== undefined ? existingCfg.canvasWidth : undefined,
-        canvasHeight:
-          existingCfg.canvasHeight !== undefined ? existingCfg.canvasHeight : undefined,
+        canvasWidth: EDITOR_CANVAS_WIDTH,
+        canvasHeight: EDITOR_CANVAS_HEIGHT,
         backgroundImage:
           existingCfg.backgroundImage !== undefined
             ? existingCfg.backgroundImage || null

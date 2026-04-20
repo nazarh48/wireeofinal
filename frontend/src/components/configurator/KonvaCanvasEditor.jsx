@@ -26,7 +26,6 @@ const CANVAS_HEIGHT = 600;
 const GRID_SIZE = 20;
 const MOVE_STEP = 1;
 const MOVE_STEP_SHIFT = 10;
-const MIN_CANVAS_PADDING = 80;
 
 const loadCanvasImage = (src, onLoad, onError) => {
   if (!src) {
@@ -100,8 +99,8 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
     configurator.product?.id,
   );
 
-  const canvasWidth = configurator.configuration?.canvasWidth || CANVAS_WIDTH;
-  const canvasHeight = configurator.configuration?.canvasHeight || CANVAS_HEIGHT;
+  const canvasWidth = CANVAS_WIDTH;
+  const canvasHeight = CANVAS_HEIGHT;
   const backgroundWidth = configurator.configuration?.backgroundWidth || canvasWidth;
   const backgroundHeight = configurator.configuration?.backgroundHeight || canvasHeight;
   const backgroundX = configurator.configuration?.backgroundX ?? 0;
@@ -319,21 +318,6 @@ const KonvaCanvasEditor = forwardRef(({ onCanvasInfo }, ref) => {
       baseImageHeight: baseImageSize.height,
     });
   }, [canvasWidth, canvasHeight, baseImageSize.width, baseImageSize.height, onCanvasInfo]);
-
-  // Keep canvas slightly larger than base device image so editing has breathing room.
-  // Also prevents canvas shrink from implicitly "resizing" perceived product area.
-  useEffect(() => {
-    const baseW = baseImageSize.width || 0;
-    const baseH = baseImageSize.height || 0;
-    if (!baseW || !baseH) return;
-    const minW = baseW + MIN_CANVAS_PADDING;
-    const minH = baseH + MIN_CANVAS_PADDING;
-    if (canvasWidth >= minW && canvasHeight >= minH) return;
-    updateConfiguratorConfiguration({
-      canvasWidth: Math.max(canvasWidth, minW),
-      canvasHeight: Math.max(canvasHeight, minH),
-    });
-  }, [baseImageSize.width, baseImageSize.height, canvasWidth, canvasHeight, updateConfiguratorConfiguration]);
 
   // Allowed zone for dragging/resizing:
   // For this editor we want users to be able to place elements anywhere

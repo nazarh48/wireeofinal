@@ -19,6 +19,31 @@ function parseNumber(value, fallback = null) {
   return isNaN(n) ? fallback : n;
 }
 
+function buildProductListFilter(req, enforcedFilter = {}) {
+  const filter = {};
+
+  if (req.query.range) filter.range = req.query.range;
+  if (req.query.status) filter.status = req.query.status;
+  if (req.query.productType) filter.productType = req.query.productType;
+  if (req.query.featured !== undefined) filter.featured = parseBool(req.query.featured);
+
+  return { ...filter, ...enforcedFilter };
+}
+
+async function sendProductList(req, res, next, enforcedFilter = {}) {
+  try {
+    const filter = buildProductListFilter(req, enforcedFilter);
+    const products = await Product.find(filter)
+      .populate("range", "name description status")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({ success: true, products });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ------------------------
 // Resolve mutually exclusive modes
 // ------------------------
@@ -167,18 +192,28 @@ export async function update(req, res, next) {
 // LIST PRODUCTS
 // ------------------------
 export async function list(req, res, next) {
-  try {
-    const filter = {};
-    if (req.query.range) filter.range = req.query.range;
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.productType) filter.productType = req.query.productType;
-    if (req.query.featured !== undefined) filter.featured = parseBool(req.query.featured);
+  return sendProductList(req, res, next);
+}
 
-    const products = await Product.find(filter).populate("range", "name description status").sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, products });
-  } catch (err) {
-    next(err);
-  }
+export async function listConfigurable(req, res, next) {
+  return sendProductList(req, res, next, {
+    productType: "configurable",
+    status: "active",
+  });
+}
+
+export async function listNormal(req, res, next) {
+  return sendProductList(req, res, next, {
+    productType: "normal",
+    status: "active",
+  });
+}
+
+export async function listFeatured(req, res, next) {
+  return sendProductList(req, res, next, {
+    featured: true,
+    status: "active",
+  });
 }
 
 // ------------------------

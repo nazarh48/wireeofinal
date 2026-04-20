@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import useStore from '../../store/useStore';
 import { buildColoredSvgDataUrl, isSvgAssetUrl } from '../../utils/svgIconColor';
+import {
+  cropBackgroundToFrame,
+  getCenteredBackgroundCropPlacement,
+} from './utils/backgroundCropUtils';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -76,46 +80,24 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
 
     setIsCroppingBackground(true);
     try {
-      const img = new window.Image();
-      img.crossOrigin = 'anonymous';
-      const croppedDataUrl = await new Promise((resolve, reject) => {
-        img.onload = () => {
-          try {
-            const imgW = img.naturalWidth || img.width;
-            const imgH = img.naturalHeight || img.height;
-            if (!imgW || !imgH) return reject(new Error('Invalid source image dimensions'));
-
-            const canvas = document.createElement('canvas');
-            canvas.width = targetW;
-            canvas.height = targetH;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return reject(new Error('No canvas context'));
-
-            // Apply rounded corners to cropped background so it visually matches device corners.
-            const radius = Math.max(8, Math.min(36, Math.round(Math.min(targetW, targetH) * 0.06)));
-            ctx.save();
-            ctx.beginPath();
-            ctx.moveTo(radius, 0);
-            ctx.lineTo(targetW - radius, 0);
-            ctx.quadraticCurveTo(targetW, 0, targetW, radius);
-            ctx.lineTo(targetW, targetH - radius);
-            ctx.quadraticCurveTo(targetW, targetH, targetW - radius, targetH);
-            ctx.lineTo(radius, targetH);
-            ctx.quadraticCurveTo(0, targetH, 0, targetH - radius);
-            ctx.lineTo(0, radius);
-            ctx.quadraticCurveTo(0, 0, radius, 0);
-            ctx.closePath();
-            ctx.clip();
-            // Preserve current zoom + placement.
-            ctx.drawImage(img, backgroundX, backgroundY, backgroundWidth, backgroundHeight);
-            ctx.restore();
-            resolve(canvas.toDataURL('image/png'));
-          } catch (err) {
-            reject(err);
-          }
-        };
-        img.onerror = () => reject(new Error('Failed to load background image'));
-        img.src = source;
+      const { x: nextBgX, y: nextBgY } = getCenteredBackgroundCropPlacement({
+        canvasWidth: effectiveCanvasWidth,
+        canvasHeight: effectiveCanvasHeight,
+        baseImageWidth: canvasInfo?.baseImageWidth,
+        baseImageHeight: canvasInfo?.baseImageHeight,
+        targetWidth: targetW,
+        targetHeight: targetH,
+      });
+      const croppedDataUrl = await cropBackgroundToFrame({
+        imageSrc: source,
+        backgroundX,
+        backgroundY,
+        backgroundWidth,
+        backgroundHeight,
+        cropX: nextBgX,
+        cropY: nextBgY,
+        targetWidth: targetW,
+        targetHeight: targetH,
       });
 
       const prevFileName = configurator.configuration?.backgroundFileName || '';
@@ -123,14 +105,6 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
         ? String(prevFileName).replace(/\.[^/.]+$/, '')
         : 'background';
       const nextFileName = `${baseName}_cropped_${targetW}x${targetH}.png`;
-
-      // Align cropped background to product (base image) center.
-      const baseW = canvasInfo?.baseImageWidth || effectiveCanvasWidth;
-      const baseH = canvasInfo?.baseImageHeight || effectiveCanvasHeight;
-      const baseX = (effectiveCanvasWidth - baseW) / 2;
-      const baseY = (effectiveCanvasHeight - baseH) / 2;
-      const nextBgX = baseX + (baseW - targetW) / 2;
-      const nextBgY = baseY + (baseH - targetH) / 2;
 
       updateConfiguratorConfiguration({
         backgroundImage: croppedDataUrl,
@@ -250,16 +224,16 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
             <div className="mt-4 space-y-3 rounded-md border border-[#cfd3d9] bg-white p-3">
               <div className="text-xs font-semibold text-[#4b5563]">Canvas</div>
               <div className="text-[11px] text-[#6b7280] mb-1">
-                Editor art board size (in pixels).
+                Editor art board size is locked at 800 x 600 pixels.
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-xs text-[#77808a]">
                   Width
                   <input
                     type="number"
-                    value={Math.round(effectiveCanvasWidth)}
-                    onChange={(e) => handleCanvasDimensionChange('canvasWidth', e.target.value)}
-                    className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    value={CANVAS_WIDTH}
+                    readOnly
+                    className="w-full mt-1 h-8 cursor-not-allowed border border-[#cfd3d9] bg-[#f8fafc] px-2 text-sm text-[#6b7280]"
                     min={50}
                   />
                 </label>
@@ -267,9 +241,9 @@ const ConfiguratorPropertiesPanel = ({ canvasInfo, onOpenCrop }) => {
                   Height
                   <input
                     type="number"
-                    value={Math.round(effectiveCanvasHeight)}
-                    onChange={(e) => handleCanvasDimensionChange('canvasHeight', e.target.value)}
-                    className="w-full mt-1 h-8 px-2 border border-[#cfd3d9] bg-white text-sm"
+                    value={CANVAS_HEIGHT}
+                    readOnly
+                    className="w-full mt-1 h-8 cursor-not-allowed border border-[#cfd3d9] bg-[#f8fafc] px-2 text-sm text-[#6b7280]"
                     min={50}
                   />
                 </label>

@@ -52,13 +52,18 @@ A complete, production-ready frontend application for Wireeo corporate website w
    npm install
    ```
 
-2. Start development server:
+2. Start the backend API on `http://localhost:5000`.
+
+3. Start development server:
 
    ```bash
    npm run dev
    ```
 
-3. Build for production:
+   Local API requests go to `/api` and Vite proxies them to `http://localhost:5000` by default.
+   If your backend runs elsewhere, create `frontend/.env` and set `VITE_PROXY_TARGET`.
+
+4. Build for production:
    ```bash
    npm run build
    ```

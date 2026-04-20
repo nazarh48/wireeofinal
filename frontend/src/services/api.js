@@ -8,7 +8,8 @@ export const ADMIN_TOKEN_KEY = "wireeo_admin_token";
 /** Session expires after this many minutes of inactivity (must match backend). */
 export const SESSION_INACTIVITY_MINUTES = 1440;
 
-// Dev: "/api" uses Vite proxy to backend (localhost:5000). Prod: VITE_API_URL or production URL.
+// Dev defaults to "/api" through the Vite proxy. VITE_API_URL is mainly for
+// direct/staging/production API usage.
 export const API_BASE_URL = import.meta.env.VITE_API_URL
   || (import.meta.env.PROD ? "https://wireeo.com/api" : "/api");
 
