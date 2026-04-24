@@ -266,6 +266,17 @@ export const apiService = {
     remove: async (id) => unwrap(await adminApi.delete(`/pdf-materials/${id}`)),
   },
 
+  resources: {
+    list: async (params) =>
+      unwrap(await publicApi.get("/resources", { params })),
+    getById: async (id) => unwrap(await publicApi.get(`/resources/${id}`)),
+    create: async (payload, config) =>
+      unwrap(await adminApi.post("/resources", payload, config)),
+    update: async (id, payload, config) =>
+      unwrap(await adminApi.patch(`/resources/${id}`, payload, config)),
+    remove: async (id) => unwrap(await adminApi.delete(`/resources/${id}`)),
+  },
+
   iconCategories: {
     list: async (params) =>
       unwrap(await publicApi.get("/icon-categories", params ? { params } : undefined)),

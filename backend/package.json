@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node src/utils/seed.js",
+    "migrate:catalog-resources": "node src/scripts/migrateProductCatalogResources.js",
     "perf:api:products": "artillery run loadtest/products.yml",
     "perf:api:ranges": "artillery run loadtest/ranges.yml",
     "perf:api:smoke": "npm run perf:api:products && npm run perf:api:ranges",

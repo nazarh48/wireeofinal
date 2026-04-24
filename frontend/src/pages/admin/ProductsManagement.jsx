@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { FixedSizeList as List } from "react-window";
 import { useCatalogStore } from "../../store/catalogStore";
 import { useAdminStore } from "../../store/adminStore";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
 import DashboardHeader from "../../components/admin/DashboardHeader";
+import { apiService } from "../../services/api";
 
 const statusOptions = [
   { value: "active", label: "Active" },
@@ -12,7 +13,7 @@ const statusOptions = [
   { value: "draft", label: "Draft" },
 ];
 
-function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
+function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [productCode, setProductCode] = useState(initial?.productCode ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -32,11 +33,16 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
   });
   const [configuratorImageFile, setConfiguratorImageFile] = useState(null);
   const [configuratorPreview, setConfiguratorPreview] = useState(initial?.configuratorImageUrl ?? "");
-  const [existingAttachments, setExistingAttachments] = useState(() =>
-    Array.isArray(initial?.downloadableFiles) ? initial.downloadableFiles : []
-  );
-  const [removedAttachmentIndices, setRemovedAttachmentIndices] = useState(new Set());
-  const [newAttachmentFiles, setNewAttachmentFiles] = useState([]);
+  const [selectedResourceIds, setSelectedResourceIds] = useState(() => {
+    if (Array.isArray(initial?.resourceIds) && initial.resourceIds.length > 0) {
+      return initial.resourceIds;
+    }
+    if (Array.isArray(initial?.resources) && initial.resources.length > 0) {
+      return initial.resources.map((resource) => resource.id).filter(Boolean);
+    }
+    return [];
+  });
+  const [resourceToAdd, setResourceToAdd] = useState("");
   const [baseDeviceImageFile, setBaseDeviceImageFile] = useState(null);
   const [baseDevicePreview, setBaseDevicePreview] = useState(initial?.baseDeviceImageUrl ?? "");
   const [engravingMaskImageFile, setEngravingMaskImageFile] = useState(null);
@@ -77,6 +83,35 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
     if (!initial?.photoCroppingWidthPx) return "";
     return String(initial.photoCroppingWidthPx);
   });
+
+  const resourceOptions = useMemo(() => {
+    const merged = new Map();
+    [...(resources || []), ...(initial?.resources || [])].forEach((resource) => {
+      if (resource?.id) {
+        merged.set(resource.id, resource);
+      }
+    });
+    return Array.from(merged.values());
+  }, [initial?.resources, resources]);
+
+  const selectedResources = useMemo(
+    () =>
+      selectedResourceIds
+        .map((resourceId) => resourceOptions.find((resource) => resource.id === resourceId))
+        .filter(Boolean),
+    [resourceOptions, selectedResourceIds],
+  );
+
+  const availableResources = useMemo(
+    () =>
+      resourceOptions.filter(
+        (resource) =>
+          resource?.id &&
+          !selectedResourceIds.includes(resource.id) &&
+          resource.status !== "inactive",
+      ),
+    [resourceOptions, selectedResourceIds],
+  );
 
   useEffect(() => {
     return () => {
@@ -137,8 +172,14 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       }
     }
 
-    const keptAttachments = existingAttachments.filter((_, i) => !removedAttachmentIndices.has(i));
-    const downloadFiles = newAttachmentFiles.map(({ file, label }) => ({ file, label: label || file?.name || "Download" }));
+    const hasBrokenResourceReference = selectedResourceIds.some(
+      (resourceId) => !resourceOptions.some((resource) => resource.id === resourceId),
+    );
+    if (hasBrokenResourceReference) {
+      setError("One or more selected resources are no longer available. Refresh and try again.");
+      return;
+    }
+
     onSubmit({
       name: t,
       productCode: productCode.trim(),
@@ -147,11 +188,10 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
       rangeId,
       configurable,
       status,
+      resourceIds: selectedResourceIds,
       imagesFiles,
       existingImages,
       configuratorImageFile: configuratorImageFile || undefined,
-      downloadableFiles: initial ? keptAttachments : undefined,
-      downloadFiles: downloadFiles.length ? downloadFiles : undefined,
       baseDeviceImageFile: baseDeviceImageFile || undefined,
       engravingMaskImageFile: mode === 'laser' ? (engravingMaskImageFile || undefined) : undefined,
       printingEnabled: mode === 'printing',
@@ -171,6 +211,25 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
             } : {}),
           }
         : {}),
+    });
+  };
+
+  const handleAddResource = () => {
+    if (!resourceToAdd) return;
+    setSelectedResourceIds((current) =>
+      current.includes(resourceToAdd) ? current : [...current, resourceToAdd],
+    );
+    setResourceToAdd("");
+  };
+
+  const moveResource = (index, direction) => {
+    setSelectedResourceIds((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
     });
   };
 
@@ -672,63 +731,94 @@ function ProductForm({ initial, ranges, onSubmit, onCancel, loading }) {
           ))}
         </select>
       </div>
-      <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Attachment files</label>
-        <p className="text-xs text-slate-500 mb-2">PDFs, datasheets, etc. Shown on the product page.</p>
-        {existingAttachments.filter((_, i) => !removedAttachmentIndices.has(i)).length > 0 && (
-          <ul className="mb-3 space-y-2">
-            {existingAttachments.map((att, i) => {
-              if (removedAttachmentIndices.has(i)) return null;
-              return (
-                <li key={i} className="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                  <span className="text-sm text-slate-700 truncate">{att.label || att.originalName || att.filename}</span>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700">
+              Documentation Resources
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              Upload files once in Resources / Documentation Attachments, then link them here.
+            </p>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
+            {selectedResourceIds.length} linked
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <select
+            value={resourceToAdd}
+            onChange={(e) => setResourceToAdd(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            <option value="">Add existing resource</option>
+            {availableResources.map((resource) => (
+              <option key={resource.id} value={resource.id}>
+                {resource.name} {resource.type ? `(${resource.type})` : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleAddResource}
+            disabled={!resourceToAdd}
+            className="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            Link resource
+          </button>
+        </div>
+
+        {selectedResources.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-sm text-slate-500">
+            No documentation linked yet.
+          </div>
+        ) : (
+          <ul className="mt-4 space-y-3">
+            {selectedResources.map((resource, index) => (
+              <li
+                key={resource.id}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">{resource.name}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {resource.type || "Documentation"} {resource.size ? `• ${resource.size}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setRemovedAttachmentIndices((s) => new Set([...s, i]))}
-                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                    onClick={() => moveResource(index, -1)}
+                    disabled={index === 0}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Remove
+                    Up
                   </button>
-                </li>
-              );
-            })}
+                  <button
+                    type="button"
+                    onClick={() => moveResource(index, 1)}
+                    disabled={index === selectedResources.length - 1}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Down
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedResourceIds((current) =>
+                        current.filter((resourceId) => resourceId !== resource.id),
+                      )
+                    }
+                    className="rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                  >
+                    Unlink
+                  </button>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
-        {newAttachmentFiles.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-2 mb-2">
-            <input
-              type="text"
-              placeholder="Label (optional)"
-              value={item.label}
-              onChange={(e) => {
-                const next = [...newAttachmentFiles];
-                next[idx] = { ...next[idx], label: e.target.value };
-                setNewAttachmentFiles(next);
-              }}
-              className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
-            />
-            <span className="text-sm text-slate-500 truncate max-w-[120px]">{item.file?.name}</span>
-            <button
-              type="button"
-              onClick={() => setNewAttachmentFiles((a) => a.filter((_, i) => i !== idx))}
-              className="text-red-600 hover:text-red-700 text-sm"
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
-          <span className="text-sm text-slate-500">Add attachment file</span>
-          <input
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) setNewAttachmentFiles((a) => [...a, { file, label: "" }]);
-              e.target.value = "";
-            }}
-          />
-        </label>
       </div>
       <div className="flex gap-3 pt-2 border-t border-slate-200">
         <button
@@ -765,10 +855,31 @@ export default function ProductsManagement() {
   const [deleting, setDeleting] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [resources, setResources] = useState([]);
+
+  const loadResources = useCallback(async () => {
+    try {
+      const response = await apiService.resources.list({});
+      const items = response?.resources || response?.materials || [];
+      setResources(
+        items.map((resource) => ({
+          ...resource,
+          id: resource._id || resource.id,
+          name: resource.name || "",
+          type: resource.type || "",
+          status: resource.status || "active",
+          size: resource.size || "",
+        })),
+      );
+    } catch (e) {
+      setError(e?.message || "Failed to load resources");
+    }
+  }, []);
 
   useEffect(() => {
     loadAdminCatalog();
-  }, [loadAdminCatalog]);
+    loadResources();
+  }, [loadAdminCatalog, loadResources]);
 
   const activeRanges = (ranges || []).filter((r) => r.status === "active");
 
@@ -777,6 +888,11 @@ export default function ProductsManagement() {
       products.map((p) => ({
         ...p,
         range: getAdminRangeById ? getAdminRangeById(p.rangeId) : null,
+        resourceCount: Array.isArray(p.resourceIds)
+          ? p.resourceIds.length
+          : Array.isArray(p.resources)
+            ? p.resources.length
+            : 0,
       })),
     [products, getAdminRangeById],
   );
@@ -800,10 +916,7 @@ export default function ProductsManagement() {
     setLoading(true);
     setError("");
     try {
-      await updateProduct(editing.id, {
-        ...payload,
-        downloadableFiles: payload.downloadableFiles ?? editing.downloadableFiles ?? [],
-      });
+      await updateProduct(editing.id, payload);
       logActivity({ type: "product_updated", label: `Product "${payload.name}" updated`, meta: { id: editing.id } });
       setEditing(null);
     } catch (e) {
@@ -831,7 +944,7 @@ export default function ProductsManagement() {
     <div className="p-6 md:p-8 min-h-full bg-slate-50">
       <DashboardHeader 
         title="Products" 
-        subtitle="Create, edit, and delete products. Assign range and type (configurable / normal)."
+        subtitle="Create, edit, and delete products. Assign ranges, product types, and reusable documentation resources."
         showHomeButton={true}
       />
       {error && !deleting && (
@@ -840,7 +953,7 @@ export default function ProductsManagement() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Products Management</h1>
-          <p className="text-slate-600 mt-1">Create, edit, and delete products. Assign range and type (configurable / normal).</p>
+          <p className="text-slate-600 mt-1">Create, edit, and delete products. Link shared documentation resources instead of uploading files per product.</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -904,6 +1017,9 @@ export default function ProductsManagement() {
                           )}
                           <span className="text-xs text-slate-400">
                             {p.range?.name ?? "—"}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {p.resourceCount} resources
                           </span>
                           <span
                             className={`text-xs px-2 py-0.5 rounded ${
@@ -988,6 +1104,9 @@ export default function ProductsManagement() {
                             <span className="text-xs text-slate-400">
                               {p.range?.name ?? "—"}
                             </span>
+                            <span className="text-xs text-slate-400">
+                              {p.resourceCount} resources
+                            </span>
                             <span
                               className={`text-xs px-2 py-0.5 rounded ${
                                 p.configurable
@@ -1041,6 +1160,7 @@ export default function ProductsManagement() {
         <p className="text-sm text-slate-500 mb-5">Add a new product to a range.</p>
         <ProductForm
           ranges={activeRanges}
+          resources={resources}
           onSubmit={handleCreate}
           onCancel={() => setShowCreate(false)}
           loading={loading}
@@ -1054,6 +1174,7 @@ export default function ProductsManagement() {
           <ProductForm
             initial={editing}
             ranges={ranges || []}
+            resources={resources}
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}
             loading={loading}

@@ -89,7 +89,7 @@ const Footer = () => {
                   </a>
                 </li>
                 <li>
-                  <Link to="/products/ranges" className="text-gray-300 hover:text-amber-400 transition-colors flex items-center gap-2 text-sm">
+                  <Link to="/products/ranges?tab=selection" className="text-gray-300 hover:text-amber-400 transition-colors flex items-center gap-2 text-sm">
                     <span className="w-1 h-1 rounded-full bg-amber-400/80" /> Graphic Product Configurator
                   </Link>
                 </li>

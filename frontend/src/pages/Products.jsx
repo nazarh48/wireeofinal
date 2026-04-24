@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCatalog } from '../hooks/useCatalog';
-import { useAuthStore } from '../store/authStore';
 import { getImageUrl } from '../services/api';
 import { buildResponsiveImageProps } from '../utils/imageVariants';
+import { getConfiguratorHubPath, getPublicProductPath } from '../utils/catalogPaths';
 
 const PRODUCT_RANGE_COLORS = [
   'from-emerald-500 to-teal-600',
@@ -17,7 +17,6 @@ const PRODUCT_RANGE_COLORS = [
 const Products = () => {
   const [selectedRangeId, setSelectedRangeId] = useState(null);
   const { loadPublicCatalog, loading: catalogLoading, loaded: catalogLoaded, ranges: publicRanges = [], normalProducts = [], configurableProducts = [] } = useCatalog();
-  const isUserLoggedIn = useAuthStore((s) => s.isUserAuthenticated());
 
   useEffect(() => {
     if (!catalogLoaded && !catalogLoading) loadPublicCatalog();
@@ -57,13 +56,13 @@ const Products = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
               <Link
-                to="/products/ranges"
+                to={getConfiguratorHubPath({ tab: 'selection' })}
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-lg"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                Products Pro
+                Graphic Configurator
               </Link>
               <Link
                 to="/products/browse"
@@ -230,7 +229,7 @@ const Products = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {displaySimpleProducts.slice(0, 12).map((product) => {
                 const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || '');
-                const detailUrl = `/products/detail/${product.id}`;
+                const detailUrl = getPublicProductPath(product);
                 return (
                   <div
                     key={product.id}
@@ -315,7 +314,7 @@ const Products = () => {
                 {selectedRangeId ? `Configurable products in ${selectedRange?.name || 'this range'}.` : 'Select from our configurable product ranges and define engraving, interface layout, and visual identity within controlled manufacturing parameters.'}
               </p>
               <Link
-                to="/products/ranges"
+                to={getConfiguratorHubPath({ tab: 'selection' })}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -327,7 +326,7 @@ const Products = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {displayFeaturedProducts.map((product) => {
                 const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || '');
-                const detailUrl = `/products/detail/${product.id}?pro=true`;
+                const detailUrl = getPublicProductPath(product);
                 return (
                   <div key={product.id} className="bg-white rounded-2xl border border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden group transform hover:-translate-y-2">
                     <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100">
@@ -375,7 +374,7 @@ const Products = () => {
             Our engineering team can design and manufacture custom electrical automation solutions tailored to your specific requirements.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
-            <Link to="/products/ranges" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all">
+            <Link to={getConfiguratorHubPath({ tab: 'selection' })} className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>

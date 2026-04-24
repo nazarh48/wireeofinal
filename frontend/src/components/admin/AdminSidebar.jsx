@@ -29,7 +29,7 @@ const nav = [
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
   { to: "/admin/icon-library", label: "Icon Library", icon: IconLibrary },
-  { to: "/admin/pdf-materials", label: "PDF Materials", icon: IconPdf },
+  { to: "/admin/resources", label: "Resources / Docs", icon: IconPdf },
   { to: "/admin/newsletter", label: "Newsletter / Email List", icon: IconMail },
   { to: "/admin/users", label: "Users Management", icon: IconUsers },
   { to: "/admin/projects", label: "Graphic Configurator", icon: IconProjects },

@@ -22,6 +22,7 @@ function isPhotoCroppingEnabledValue(v) {
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    slug: { type: String, trim: true, lowercase: true },
     productCode: { type: String, default: "", trim: true },
     description: { type: String, default: "", trim: true },
     technicalDetails: { type: String, default: "", trim: true },
@@ -77,12 +78,14 @@ const productSchema = new mongoose.Schema(
     productType: { type: String, enum: ["configurable", "normal"], required: true },
     status: { type: String, enum: ["active", "inactive", "draft"], default: "active" },
     featured: { type: Boolean, default: false },
+    resourceIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Resource" }],
     downloadableFiles: [downloadableFileSchema],
   },
   { timestamps: true }
 );
 
 productSchema.index({ range: 1 });
+productSchema.index({ slug: 1 }, { unique: true, sparse: true });
 productSchema.index({ productType: 1, status: 1 });
 productSchema.index({ featured: 1, status: 1 });
 

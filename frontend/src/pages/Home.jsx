@@ -23,7 +23,7 @@ const HERO_SLIDES = [
     title: 'ActivLine — Universal KNX Control for Premium Environments',
     subtitle: 'Engineered around a structured KNX architecture, ActivLine devices are suitable for both high-end residential projects and premium hospitality deployments, ensuring consistent behavior, integration flexibility, and long-term reliability.',
     primaryCta: { to: '/products', label: 'Explore ActivLine' },
-    secondaryCta: { to: '/products/ranges', label: 'Configure a Device' },
+    secondaryCta: { to: '/products/ranges?tab=selection', label: 'Configure a Device' },
     image: HERO_IMAGES.slide2,
     gradient: 'from-gray-900 via-gray-800 to-gray-900',
   },
@@ -31,7 +31,7 @@ const HERO_SLIDES = [
     title: 'ActivTouch — Refined Interaction Across Premium Spaces',
     subtitle: 'ActivTouch panels deliver intuitive KNX control through a clean, architectural interface. Designed and manufactured by Wireeo, the range is suitable for luxury residences and high-end hospitality projects where design integrity and technical reliability are equally essential. Behind the minimalist surface stands a disciplined engineering platform ensuring predictable performance and seamless KNX integration.',
     primaryCta: { to: '/products', label: 'Discover ActivTouch' },
-    secondaryCta: { to: '/products/ranges', label: 'Configure a Device' },
+    secondaryCta: { to: '/products/ranges?tab=selection', label: 'Configure a Device' },
     image: HERO_IMAGES.slide3,
     gradient: 'from-gray-900 via-gray-800 to-gray-900',
   },
@@ -790,7 +790,7 @@ const Home = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/products/ranges" className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-500 shadow-lg hover:shadow-2xl hover:scale-110 hover:-translate-y-1">
+            <Link to="/products/ranges?tab=selection" className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-500 shadow-lg hover:shadow-2xl hover:scale-110 hover:-translate-y-1">
               Configure a Product
             </Link>
             <Link to="/products" className="border-2 border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-500 hover:scale-110 hover:-translate-y-1">
@@ -880,7 +880,7 @@ const Home = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/products/ranges" className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-300 shadow-lg hover:shadow-xl">
+            <Link to="/products/ranges?tab=selection" className="bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-300 shadow-lg hover:shadow-xl">
               Configure a Product
             </Link>
             <Link to="/products" className="border-2 border-white text-white hover:bg-white hover:text-gray-900 px-10 py-4 rounded-xl font-bold text-lg text-center transition-all duration-300">

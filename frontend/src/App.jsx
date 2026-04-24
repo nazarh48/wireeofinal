@@ -13,6 +13,7 @@ const Solutions = lazy(() => import('./pages/Solutions'));
 const Products = lazy(() => import('./pages/Products'));
 const ProductsBrowse = lazy(() => import('./pages/ProductsBrowse'));
 const ProductsInRange = lazy(() => import('./pages/ProductsInRange'));
+const ProductsRangesRoute = lazy(() => import('./pages/ProductsRangesRoute'));
 const ProductDetail = lazy(() => import('./pages/products/ProductDetail'));
 const Projects = lazy(() => import('./pages/Projects'));
 const Resources = lazy(() => import('./pages/Resources'));
@@ -44,7 +45,6 @@ const SignUp = lazy(() => import('./pages/SignUp'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
-const ProductPage = lazy(() => import('./pages/ProductPage'));
 const EditorPage = lazy(() => import('./pages/EditorPage'));
 const ConfiguratorPage = lazy(() => import('./pages/ConfiguratorPage'));
 const ProductExperience = lazy(() => import('./pages/ProductExperience'));
@@ -97,15 +97,16 @@ function App() {
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/products" element={<Layout><Products /></Layout>} />
           <Route path="/products/browse" element={<Layout><ProductsBrowse /></Layout>} />
-          <Route path="/products/ranges" element={<Layout><RequireAuth><TabbedRanges /></RequireAuth></Layout>} />
+          <Route path="/products/ranges" element={<Layout><ProductsRangesRoute /></Layout>} />
+          <Route path="/products/ranges/:rangeSlug" element={<Layout><ProductsInRange /></Layout>} />
           <Route path="/products/range/:rangeId" element={<Layout><ProductsInRange /></Layout>} />
           <Route path="/products/detail/:id" element={<Layout><ProductDetail /></Layout>} />
+          <Route path="/products/:productSlug" element={<Layout><ProductDetail /></Layout>} />
           <Route path="/editor/:productId" element={<RequireAuth><EditorPage /></RequireAuth>} />
           <Route path="/configurator/:productId" element={<Layout><RequireAuth><ConfiguratorPage /></RequireAuth></Layout>} />
           <Route path="/ranges" element={<Layout><RequireAuth><Ranges /></RequireAuth></Layout>} />
           <Route path="/product-experience" element={<Layout><ProductExperience /></Layout>} />
           <Route path="/tabbed-ranges" element={<Layout><RequireAuth><TabbedRanges /></RequireAuth></Layout>} />
-          <Route path="/products/:rangeId" element={<Layout><ProductPage /></Layout>} />
           <Route path="/solutions" element={<Layout><Solutions /></Layout>} />
           <Route path="/solutions/:id" element={<Layout><SolutionDetail /></Layout>} />
           <Route path="/projects" element={<Layout><RequireAuth><Projects /></RequireAuth></Layout>} />
@@ -131,6 +132,7 @@ function App() {
             <Route path="solution-details" element={<SolutionDetailsManagement />} />
             <Route path="solution-why-choose" element={<SolutionWhyChooseManagement />} />
             <Route path="pdf-materials" element={<PdfMaterialsManagement />} />
+            <Route path="resources" element={<PdfMaterialsManagement />} />
             <Route path="newsletter" element={<NewsletterManagement />} />
             <Route path="projects" element={<AdminProjects />} />
             <Route path="cookies" element={<AdminCookies />} />

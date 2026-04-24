@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const rangeSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    slug: { type: String, trim: true, lowercase: true },
     description: { type: String, default: "", trim: true },
     image: { type: String, default: "", trim: true },
     order: { type: Number, default: null, min: 0 },
@@ -12,5 +13,6 @@ const rangeSchema = new mongoose.Schema(
 );
 
 rangeSchema.index({ status: 1, order: 1, createdAt: -1 });
+rangeSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 export const Range = mongoose.model("Range", rangeSchema);

@@ -8,6 +8,7 @@ import { rangeValidators } from "../utils/validators.js";
 const router = Router();
 
 router.get("/", ctrl.list);
+router.get("/slug/:slug", validate(rangeValidators.slug), ctrl.getBySlug);
 router.get("/:id", validate(rangeValidators.id), ctrl.getById);
 
 router.use(authenticateAdmin);

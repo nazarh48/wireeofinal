@@ -178,7 +178,7 @@ const Projects = () => {
               <h3 className="text-2xl font-bold text-gray-900 mb-2">No Configurations Yet</h3>
               <p className="text-gray-600 mb-8">Define the visual identity of your Wireeo devices. Personalize engraving, layout, and backgrounds to create your first configuration.</p>
               <Link
-                to="/products/ranges"
+                to="/products/ranges?tab=selection"
                 className="inline-flex items-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 Create New Configuration
@@ -345,7 +345,7 @@ const Projects = () => {
               Personalize additional Wireeo devices and generate structured configuration sheets for your project.
             </p>
             <Link
-              to="/products/ranges"
+              to="/products/ranges?tab=selection"
               className="inline-flex items-center bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
             >
               Create New Configuration

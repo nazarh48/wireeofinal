@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { apiService, getImageUrl } from "../services/api";
 import { useCatalog } from "../hooks/useCatalog";
+import { getPublicRangePath } from "../utils/catalogPaths";
 
 const RESOURCE_CATEGORIES = [
   {
@@ -45,9 +46,9 @@ const Resources = () => {
   useEffect(() => {
     const fetchResources = async () => {
       try {
-        const res = await apiService.pdfMaterials.list({ status: "active" });
-        if (res?.materials) {
-          setResources(res.materials);
+        const res = await apiService.resources.list({ status: "active" });
+        if (res?.resources || res?.materials) {
+          setResources(res.resources || res.materials);
         }
       } catch (err) {
         console.error("Failed to fetch resources:", err);
@@ -376,8 +377,7 @@ const Resources = () => {
               {shortcutRanges.map((range) => (
                 <Link
                   key={range.id}
-                  to="/products/ranges"
-                  state={{ rangeId: range.id }}
+                  to={getPublicRangePath(range)}
                   className="group bg-white rounded-2xl shadow-lg hover:shadow-xl p-6 border border-gray-100 transition-all duration-300 flex flex-col items-center text-center"
                 >
                   {range.image ? (

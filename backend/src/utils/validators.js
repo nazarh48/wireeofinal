@@ -58,6 +58,7 @@ export const rangeValidators = {
       .withMessage("Order must be a non-negative integer"),
     body("status").optional().isIn(["active", "inactive"]).withMessage("Invalid status"),
   ],
+  slug: [param("slug").trim().notEmpty().withMessage("Slug required")],
   id: [param("id").custom(objectId)],
 };
 
@@ -99,6 +100,7 @@ export const productValidators = {
       .custom((v) => v === true || v === false || v === "true" || v === "false" || v === "1" || v === "0")
       .withMessage("featured must be boolean"),
   ],
+  slug: [param("slug").trim().notEmpty().withMessage("Slug required")],
   id: [param("id").custom(objectId)],
   productId: [param("productId").custom(objectId)],
 };

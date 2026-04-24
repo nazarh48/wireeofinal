@@ -24,10 +24,14 @@ export function useCatalog() {
   );
 
   const getRangeById = useCatalogStore((s) => s.getPublicRangeById);
+  const getRangeBySlug = useCatalogStore((s) => s.getPublicRangeBySlug);
+  const getRangeByIdentifier = useCatalogStore((s) => s.getPublicRangeByIdentifier);
   const getNormalProductById = useCatalogStore((s) => s.getNormalProductById);
   const getConfigurableProductById = useCatalogStore((s) => s.getConfigurableProductById);
+  const getProductByIdentifier = useCatalogStore((s) => s.getProductByIdentifier);
   const getNormalProductsByRange = useCatalogStore((s) => s.getNormalProductsByRange);
   const getConfigurableProductsByRange = useCatalogStore((s) => s.getConfigurableProductsByRange);
+  const getProductsByRangeIdentifier = useCatalogStore((s) => s.getProductsByRangeIdentifier);
   const getFeaturedProducts = useCatalogStore((s) => s.getFeaturedProducts);
   const getNonFeaturedProducts = useCatalogStore((s) => s.getNonFeaturedProducts);
 
@@ -41,10 +45,14 @@ export function useCatalog() {
     featuredProducts,
     nonFeaturedProducts,
     getRangeById,
+    getRangeBySlug,
+    getRangeByIdentifier,
     getNormalProductById,
     getConfigurableProductById,
+    getProductByIdentifier,
     getNormalProductsByRange,
     getConfigurableProductsByRange,
+    getProductsByRangeIdentifier,
     getFeaturedProducts,
     getNonFeaturedProducts,
     loading: publicLoading,

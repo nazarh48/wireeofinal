@@ -2,6 +2,7 @@ import { Range } from "../models/Range.js";
 import { Product } from "../models/Product.js";
 import { optimizeImageAtUrl } from "../services/imageService.js";
 import { getFromCache, invalidatePrefix, setInCache } from "../utils/simpleCache.js";
+import { createUniqueSlug } from "../utils/slug.js";
 
 function toImageUrl(filename) {
   if (!filename) return "";
@@ -58,6 +59,9 @@ function invalidateRangeCaches() {
 export async function create(req, res, next) {
   try {
     const body = normalizeRangePayload(req.body);
+    body.slug = await createUniqueSlug(Range, body.name, {
+      fallback: "range",
+    });
     if (req.file && req.file.filename) body.image = toImageUrl(req.file.filename);
     const range = await Range.create(body);
     const normalized = normalizeRangeImage(range.toObject ? range.toObject() : range);
@@ -107,9 +111,28 @@ export async function getById(req, res, next) {
   }
 }
 
+export async function getBySlug(req, res, next) {
+  try {
+    const range = await Range.findOne({ slug: req.params.slug }).lean();
+    if (!range) {
+      return res.status(404).json({ success: false, message: "Range not found" });
+    }
+    const normalized = normalizeRangeImage(range);
+    return res.status(200).json({ success: true, range: normalized });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function update(req, res, next) {
   try {
     const updates = normalizeRangePayload(req.body);
+    if (updates.name !== undefined) {
+      updates.slug = await createUniqueSlug(Range, updates.name, {
+        excludeId: req.params.id,
+        fallback: "range",
+      });
+    }
     if (req.file && req.file.filename) updates.image = toImageUrl(req.file.filename);
     const range = await Range.findByIdAndUpdate(
       req.params.id,

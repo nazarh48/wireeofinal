@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useCatalog } from '../hooks/useCatalog';
 import { buildResponsiveImageProps } from '../utils/imageVariants';
+import { getPublicProductPath } from '../utils/catalogPaths';
 
 const ProductsBrowse = () => {
   const { ranges, normalProducts, getNormalProductsByRange, loadPublicCatalog, loading, loaded, error } = useCatalog();
@@ -108,7 +109,7 @@ const ProductsBrowse = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">ID: {product.id}</span>
                     <Link
-                      to={`/products/detail/${product.id}`}
+                      to={getPublicProductPath(product)}
                       className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
                       View Details →

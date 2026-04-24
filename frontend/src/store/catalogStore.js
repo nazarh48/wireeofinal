@@ -39,11 +39,45 @@ const compareRangesByDisplayOrder = (a, b) => {
 
 const sortRanges = (ranges) => [...ranges].sort(compareRangesByDisplayOrder);
 
+const mapResource = (resource) => {
+  const photoPath = typeof resource?.photo === "string" ? resource.photo : "";
+  const filePath =
+    typeof resource?.fileUrl === "string"
+      ? resource.fileUrl
+      : typeof resource?.url === "string"
+        ? resource.url
+        : "";
+
+  return {
+    id: resource?._id || resource?.id,
+    name: resource?.name || resource?.title || "",
+    title: resource?.name || resource?.title || "",
+    shortDescription: resource?.shortDescription || "",
+    type: resource?.type || "Guide",
+    photoPath,
+    photoUrl: photoPath ? toAbsoluteImageUrl(photoPath) : "",
+    filePath,
+    fileUrl: filePath ? toAbsoluteImageUrl(filePath) : "",
+    fileFilename: resource?.fileFilename || resource?.filename || "",
+    size: resource?.size || "",
+    status: resource?.status || "active",
+    linkedProductsCount:
+      Number.isFinite(Number(resource?.linkedProductsCount))
+        ? Number(resource.linkedProductsCount)
+        : 0,
+    canDelete:
+      resource?.canDelete !== undefined ? !!resource.canDelete : true,
+    createdAt: resource?.createdAt || null,
+    updatedAt: resource?.updatedAt || null,
+  };
+};
+
 const mapRange = (r) => {
   const rawImage = r?.image || "";
   const imagePath = typeof rawImage === "string" ? rawImage : "";
   return {
     id: r?._id || r?.id,
+    slug: r?.slug || "",
     name: r?.name || "",
     description: r?.description || "",
     image: imagePath ? toAbsoluteImageUrl(imagePath) : "",
@@ -76,17 +110,48 @@ const mapProduct = (p) => {
     ? `${productName} - ${rangeName} - High Quality Wire Products`
     : `${productName} - High Quality Wire Products`;
 
-  const downloadableFiles = Array.isArray(p?.downloadableFiles)
+  const resources = Array.isArray(p?.resources)
+    ? p.resources.map(mapResource)
+    : Array.isArray(p?.resourceIds)
+      ? p.resourceIds
+          .filter((resource) => resource && typeof resource === "object")
+          .map(mapResource)
+      : [];
+  const resourceIds = Array.isArray(p?.resourceIds)
+    ? p.resourceIds
+        .map((resource) =>
+          typeof resource === "object" ? resource?._id || resource?.id : resource,
+        )
+        .filter(Boolean)
+    : resources.map((resource) => resource.id);
+  const legacyDownloadableFiles = Array.isArray(p?.downloadableFiles)
     ? p.downloadableFiles.map((f) => ({
-      url: typeof f === "string" ? toAbsoluteImageUrl(f) : toAbsoluteImageUrl(f?.url),
-      filename: f?.filename || "",
-      originalName: f?.originalName || "",
-      label: f?.label || f?.originalName || "",
-    }))
+        url: typeof f === "string" ? toAbsoluteImageUrl(f) : toAbsoluteImageUrl(f?.url),
+        filename: f?.filename || "",
+        originalName: f?.originalName || "",
+        label: f?.label || f?.originalName || "",
+        type: f?.type || "",
+      }))
     : [];
+  const resourceDownloadables = resources
+    .filter((resource) => resource.fileUrl)
+    .map((resource) => ({
+      url: resource.fileUrl,
+      filename: resource.fileFilename || "",
+      originalName: resource.name || resource.fileFilename || "",
+      label: resource.name || resource.fileFilename || "",
+      type: resource.type || "",
+    }));
+  const downloadableFiles = [...resourceDownloadables];
+  legacyDownloadableFiles.forEach((file) => {
+    if (!downloadableFiles.some((existing) => existing.url === file.url && existing.label === file.label)) {
+      downloadableFiles.push(file);
+    }
+  });
 
   return {
     id: p?._id || p?.id,
+    slug: p?.slug || "",
     name: productName,
     productCode: p?.productCode ?? "",
     description: p?.description || "",
@@ -121,6 +186,8 @@ const mapProduct = (p) => {
         : undefined,
     status: p?.status || "active",
     featured: p?.featured === true,
+    resources,
+    resourceIds,
     downloadableFiles,
     createdAt: p?.createdAt || null,
     updatedAt: p?.updatedAt || null,
@@ -250,9 +317,9 @@ export const useCatalogStore = create((set, get) => ({
       rangeId,
       configurable,
       featured,
+      resourceIds,
       imagesFiles,
       configuratorImageFile,
-      downloadFiles,
       baseDeviceImageFile,
       engravingMaskImageFile,
       printingEnabled,
@@ -273,7 +340,6 @@ export const useCatalogStore = create((set, get) => ({
 
     const hasImages = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
-    const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
     const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
     const hasPrintAreaBackgroundImage =
@@ -281,7 +347,7 @@ export const useCatalogStore = create((set, get) => ({
       (printAreaBackgroundImageFile instanceof File ||
         (printAreaBackgroundImageFile instanceof Blob &&
           printAreaBackgroundImageFile.name));
-    const hasFiles = hasImages || hasConfiguratorImage || hasDownloadFiles || hasBaseDevice || hasEngravingMask || hasPrintAreaBackgroundImage;
+    const hasFiles = hasImages || hasConfiguratorImage || hasBaseDevice || hasEngravingMask || hasPrintAreaBackgroundImage;
     const body = hasFiles
       ? new FormData()
       : {
@@ -298,6 +364,7 @@ export const useCatalogStore = create((set, get) => ({
           photoCroppingEnabled: photoCroppingEnabled !== undefined ? !!photoCroppingEnabled : undefined,
           photoCroppingHeightPx: photoCroppingHeightPx !== undefined ? photoCroppingHeightPx : undefined,
           photoCroppingWidthPx: photoCroppingWidthPx !== undefined ? photoCroppingWidthPx : undefined,
+          resourceIds: Array.isArray(resourceIds) ? resourceIds : [],
           printAreaBackgroundImageUrl:
             printAreaBackgroundImageUrl !== undefined
               ? printAreaBackgroundImageUrl
@@ -321,6 +388,7 @@ export const useCatalogStore = create((set, get) => ({
       if (photoCroppingEnabled !== undefined) body.append("photoCroppingEnabled", String(!!photoCroppingEnabled));
       if (photoCroppingHeightPx !== undefined) body.append("photoCroppingHeightPx", String(photoCroppingHeightPx));
       if (photoCroppingWidthPx !== undefined) body.append("photoCroppingWidthPx", String(photoCroppingWidthPx));
+      body.append("resourceIds", JSON.stringify(Array.isArray(resourceIds) ? resourceIds : []));
       if (printAreaBackgroundImageUrl !== undefined) body.append("printAreaBackgroundImageUrl", String(printAreaBackgroundImageUrl || ""));
       if (hasImages) {
         const files = Array.isArray(imagesFiles) ? imagesFiles : Array.from(imagesFiles || []);
@@ -330,11 +398,6 @@ export const useCatalogStore = create((set, get) => ({
       if (hasBaseDevice) body.append("baseDeviceImage", baseDeviceImageFile);
       if (hasEngravingMask) body.append("engravingMaskImage", engravingMaskImageFile);
       if (hasPrintAreaBackgroundImage) body.append("printAreaBackgroundImage", printAreaBackgroundImageFile);
-      if (hasDownloadFiles) {
-        downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
-        const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
-        body.append("fileLabels", JSON.stringify(labels));
-      }
     }
 
     const res = await apiService.products.create(
@@ -350,10 +413,10 @@ export const useCatalogStore = create((set, get) => ({
       rangeId,
       configurable,
       featured,
+      resourceIds,
       imagesFiles,
       existingImages,
       configuratorImageFile,
-      downloadFiles,
       baseDeviceImageFile,
       engravingMaskImageFile,
       printingEnabled,
@@ -370,7 +433,6 @@ export const useCatalogStore = create((set, get) => ({
     } = payload;
     const hasImageFiles = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
-    const hasDownloadFiles = Array.isArray(downloadFiles) && downloadFiles.length > 0;
     const hasBaseDevice = baseDeviceImageFile && (baseDeviceImageFile instanceof File || (baseDeviceImageFile instanceof Blob && baseDeviceImageFile.name));
     const hasEngravingMask = engravingMaskImageFile && (engravingMaskImageFile instanceof File || (engravingMaskImageFile instanceof Blob && engravingMaskImageFile.name));
     const hasPrintAreaBackgroundImage =
@@ -378,14 +440,12 @@ export const useCatalogStore = create((set, get) => ({
       (printAreaBackgroundImageFile instanceof File ||
         (printAreaBackgroundImageFile instanceof Blob &&
           printAreaBackgroundImageFile.name));
-    const existingDownloadableFiles = Array.isArray(rest.downloadableFiles) ? rest.downloadableFiles : [];
     // Always use FormData when there are new image files; also use it when existingImages
     // list has changed so we can send the kept URLs to the backend for merging.
     const existingImagesChanged = Array.isArray(existingImages);
     const useFormData =
       hasImageFiles ||
       hasConfiguratorImage ||
-      hasDownloadFiles ||
       existingImagesChanged ||
       hasBaseDevice ||
       hasEngravingMask ||
@@ -412,6 +472,7 @@ export const useCatalogStore = create((set, get) => ({
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
       if (featured !== undefined) body.append("featured", String(!!featured));
       if (rest.status !== undefined) body.append("status", rest.status);
+      body.append("resourceIds", JSON.stringify(Array.isArray(resourceIds) ? resourceIds : []));
       // Send the kept existing image URLs so backend can merge them with newly uploaded ones
       if (existingImagesChanged) {
         body.append("existingImages", JSON.stringify(existingImages));
@@ -432,12 +493,6 @@ export const useCatalogStore = create((set, get) => ({
       if (photoCroppingHeightPx !== undefined) body.append("photoCroppingHeightPx", String(photoCroppingHeightPx));
       if (photoCroppingWidthPx !== undefined) body.append("photoCroppingWidthPx", String(photoCroppingWidthPx));
       if (printAreaBackgroundImageUrl !== undefined) body.append("printAreaBackgroundImageUrl", String(printAreaBackgroundImageUrl || ""));
-      body.append("downloadableFiles", JSON.stringify(existingDownloadableFiles));
-      if (hasDownloadFiles) {
-        const labels = downloadFiles.map((d) => (d && d.label) || (d && d.file && d.file.name) || "Download");
-        downloadFiles.forEach((d) => d && d.file && body.append("files", d.file));
-        body.append("fileLabels", JSON.stringify(labels));
-      }
       if (hasPrintAreaBackgroundImage) body.append("printAreaBackgroundImage", printAreaBackgroundImageFile);
       config = { timeout: 120000 };
     } else {
@@ -445,6 +500,7 @@ export const useCatalogStore = create((set, get) => ({
       if (rangeId !== undefined) body.range = rangeId;
       if (configurable !== undefined) body.isConfigurable = configurable;
       if (featured !== undefined) body.featured = featured;
+      body.resourceIds = Array.isArray(resourceIds) ? resourceIds : [];
       if (printingEnabled !== undefined) body.printingEnabled = !!printingEnabled;
       if (laserEnabled !== undefined) body.laserEnabled = !!laserEnabled;
       if (backgroundCustomizable !== undefined) body.backgroundCustomizable = !!backgroundCustomizable;
@@ -454,7 +510,6 @@ export const useCatalogStore = create((set, get) => ({
       if (photoCroppingHeightPx !== undefined) body.photoCroppingHeightPx = photoCroppingHeightPx;
       if (photoCroppingWidthPx !== undefined) body.photoCroppingWidthPx = photoCroppingWidthPx;
       if (printAreaBackgroundImageUrl !== undefined) body.printAreaBackgroundImageUrl = printAreaBackgroundImageUrl;
-      if (existingDownloadableFiles.length > 0) body.downloadableFiles = existingDownloadableFiles;
       config = undefined;
     }
 
@@ -472,7 +527,13 @@ export const useCatalogStore = create((set, get) => ({
 
   // Public getters (in-memory)
   getPublicRangeById: (id) => get().publicRanges.find((r) => r.id === id),
+  getPublicRangeBySlug: (slug) => get().publicRanges.find((r) => r.slug === slug),
+  getPublicRangeByIdentifier: (identifier) =>
+    get().publicRanges.find((r) => r.id === identifier || r.slug === identifier),
   getPublicProductById: (id) => get().publicProducts.find((p) => p.id === id),
+  getPublicProductBySlug: (slug) => get().publicProducts.find((p) => p.slug === slug),
+  getPublicProductByIdentifier: (identifier) =>
+    get().publicProducts.find((p) => p.id === identifier || p.slug === identifier),
 
   // Admin getters (use adminRanges / adminProducts)
   getAdminRangeById: (id) => get().adminRanges.find((r) => r.id === id),
@@ -484,6 +545,8 @@ export const useCatalogStore = create((set, get) => ({
     get().publicProducts.filter((p) => !p.configurable && p.rangeId === rangeId),
   getConfigurableProductsByRange: (rangeId) =>
     get().publicProducts.filter((p) => p.configurable && p.rangeId === rangeId),
+  getProductsByRangeIdentifier: (identifier) =>
+    get().publicProducts.filter((p) => p.rangeId === (get().getPublicRangeByIdentifier(identifier)?.id || identifier)),
   getNormalProductById: (id) => {
     const p = get().getPublicProductById(id);
     return p && !p.configurable ? p : null;
@@ -492,6 +555,7 @@ export const useCatalogStore = create((set, get) => ({
     const p = get().getPublicProductById(id);
     return p && p.configurable ? p : null;
   },
+  getProductByIdentifier: (identifier) => get().getPublicProductByIdentifier(identifier),
   getFeaturedProducts: () => get().publicProducts.filter((p) => p.featured),
   getNonFeaturedProducts: () => get().publicProducts.filter((p) => !p.featured),
 }));

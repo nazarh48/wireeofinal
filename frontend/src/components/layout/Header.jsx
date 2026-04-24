@@ -123,7 +123,7 @@ const Header = () => {
                       </Link>
                     )}
                     <Link
-                      to="/products/ranges"
+                      to="/products/ranges?tab=selection"
                       className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
                       onClick={closeDropdownAndMenu}
                     >

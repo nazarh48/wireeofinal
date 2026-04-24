@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Modal from "../../components/Modal";
 import { IconPlus, IconPencil, IconTrash } from "../../components/admin/AdminIcons";
 import { apiService, getImageUrl } from "../../services/api";
@@ -32,6 +32,10 @@ function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
       setError("Name is required.");
       return;
     }
+    if (!initial?.fileUrl && !fileFile) {
+      setError("Attachment file is required.");
+      return;
+    }
     onSubmit(
       { name: t, shortDescription: shortDescription.trim(), type, order: Number(order) || 0, status },
       photoFile,
@@ -45,13 +49,13 @@ function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
         <div className="rounded-lg bg-red-50 text-red-700 px-4 py-2 text-sm">{error}</div>
       )}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-          placeholder="PDF material name"
+          placeholder="Documentation title"
         />
       </div>
       <div>
@@ -88,7 +92,7 @@ function PdfMaterialForm({ initial, onSubmit, onCancel, loading }) {
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">PDF / File</label>
+        <label className="block text-sm font-medium text-slate-700 mb-1">Attachment file</label>
         <input
           type="file"
           onChange={(e) => setFileFile(e.target.files?.[0] || null)}
@@ -144,21 +148,21 @@ export default function PdfMaterialsManagement() {
   const [deleting, setDeleting] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
 
-  const fetchMaterials = async () => {
+  const fetchMaterials = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiService.pdfMaterials.list({});
-      setMaterials(res?.materials || []);
+      const res = await apiService.resources.list({});
+      setMaterials(res?.resources || res?.materials || []);
     } catch (e) {
-      setError(e?.message || "Failed to load PDF materials");
+      setError(e?.message || "Failed to load resources");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMaterials();
-  }, []);
+  }, [fetchMaterials]);
 
   const buildFormData = (payload, photoFile, fileFile) => {
     const fd = new FormData();
@@ -177,11 +181,11 @@ export default function PdfMaterialsManagement() {
     setError("");
     try {
       const fd = buildFormData(payload, photoFile, fileFile);
-      await apiService.pdfMaterials.create(fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await apiService.resources.create(fd, { headers: { "Content-Type": "multipart/form-data" } });
       await fetchMaterials();
       setShowCreate(false);
     } catch (e) {
-      setError(e?.message || "Failed to create PDF material");
+      setError(e?.message || "Failed to create resource");
     } finally {
       setSubmitLoading(false);
     }
@@ -193,26 +197,25 @@ export default function PdfMaterialsManagement() {
     setError("");
     try {
       const fd = buildFormData(payload, photoFile, fileFile);
-      await apiService.pdfMaterials.update(editing._id, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      await apiService.resources.update(editing._id, fd, { headers: { "Content-Type": "multipart/form-data" } });
       await fetchMaterials();
       setEditing(null);
     } catch (e) {
-      setError(e?.message || "Failed to update PDF material");
+      setError(e?.message || "Failed to update resource");
     } finally {
       setSubmitLoading(false);
     }
   };
 
   const handleDelete = async (m) => {
-    if (!window.confirm(`Delete "${m.name}"?`)) return;
     setSubmitLoading(true);
     setError("");
     try {
-      await apiService.pdfMaterials.remove(m._id);
+      await apiService.resources.remove(m._id);
       await fetchMaterials();
       setDeleting(null);
     } catch (e) {
-      setError(e?.message || "Failed to delete PDF material");
+      setError(e?.response?.data?.message || e?.message || "Failed to delete resource");
     } finally {
       setSubmitLoading(false);
     }
@@ -225,15 +228,15 @@ export default function PdfMaterialsManagement() {
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">PDF Materials</h1>
-          <p className="text-slate-600 mt-1">Add PDF materials with photo, name, and short description</p>
+          <h1 className="text-2xl font-bold text-slate-900">Resources / Documentation Attachments</h1>
+          <p className="text-slate-600 mt-1">Upload documentation once, then reuse it across multiple products.</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"
         >
           <IconPlus className="w-5 h-5" />
-          Add PDF material
+          Add resource
         </button>
       </div>
 
@@ -242,9 +245,9 @@ export default function PdfMaterialsManagement() {
           <div className="p-12 text-center text-slate-500">Loading…</div>
         ) : materials.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
-            <p className="mb-4">No PDF materials yet.</p>
+            <p className="mb-4">No resources yet.</p>
             <button onClick={() => setShowCreate(true)} className="text-emerald-600 hover:text-emerald-700 font-medium">
-              Add your first PDF material
+              Add your first resource
             </button>
           </div>
         ) : (
@@ -264,9 +267,14 @@ export default function PdfMaterialsManagement() {
                     <p className="text-sm text-slate-500 line-clamp-1">
                       <span className="font-semibold text-emerald-600">[{m.type || "Guide"}]</span> {m.shortDescription || "—"}
                     </p>
-                    <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${m.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
-                      {m.status}
-                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded inline-block ${m.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                        {m.status}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded inline-block bg-slate-100 text-slate-600">
+                        {m.linkedProductsCount || 0} linked products
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -284,17 +292,17 @@ export default function PdfMaterialsManagement() {
       </div>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)}>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Add PDF material</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Add resource</h2>
         <PdfMaterialForm onSubmit={handleCreate} onCancel={() => setShowCreate(false)} loading={submitLoading} />
       </Modal>
       <Modal open={!!editing} onClose={() => setEditing(null)}>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit PDF material</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Edit resource</h2>
         <PdfMaterialForm initial={editing ?? undefined} onSubmit={handleUpdate} onCancel={() => setEditing(null)} loading={submitLoading} />
       </Modal>
       <Modal open={!!deleting} onClose={() => setDeleting(null)}>
         {deleting && (
           <>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Delete PDF material</h2>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Delete resource</h2>
             <p className="text-slate-700 mb-4">Delete &quot;{deleting.name}&quot;?</p>
             <div className="flex gap-3">
               <button onClick={() => handleDelete(deleting)} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">Delete</button>

@@ -11,6 +11,7 @@ router.get("/configurable", ctrl.listConfigurable);
 router.get("/normal", ctrl.listNormal);
 router.get("/featured", ctrl.listFeatured);
 router.get("/", ctrl.list);
+router.get("/slug/:slug", validate(productValidators.slug), ctrl.getBySlug);
 router.get("/:id", validate(productValidators.id), ctrl.getById);
 
 router.use(authenticateAdmin);
