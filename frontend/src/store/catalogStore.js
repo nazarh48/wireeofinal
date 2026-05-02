@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { apiService, IMAGE_BASE_URL } from "../services/api";
+import { slugifyValue } from "../utils/slugify";
 
 /** Resolve relative image paths (e.g. /uploads/products/xxx) to absolute URL. Uses IMAGE_BASE_URL so deployed images work under /api/uploads when proxy only forwards /api. */
 const toAbsoluteImageUrl = (url) => {
@@ -16,6 +17,19 @@ const normalizeRangeOrder = (value) => {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const normalizeProductSortOrder = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const normalizeProductType = (value, fallbackConfigurable = false) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "configurable" || raw === "pro") return "configurable";
+  if (raw === "standard" || raw === "normal") return "standard";
+  return fallbackConfigurable ? "configurable" : "standard";
 };
 
 const compareRangesByDisplayOrder = (a, b) => {
@@ -38,6 +52,53 @@ const compareRangesByDisplayOrder = (a, b) => {
 };
 
 const sortRanges = (ranges) => [...ranges].sort(compareRangesByDisplayOrder);
+
+const upsertSortedRangeList = (ranges, nextRange) =>
+  sortRanges([...(ranges || []).filter((range) => range.id !== nextRange.id), nextRange]);
+
+const compareProductsByDisplayOrder = (a, b) => {
+  const orderA = normalizeProductSortOrder(a?.sortOrder);
+  const orderB = normalizeProductSortOrder(b?.sortOrder);
+
+  if (orderA !== null && orderB !== null && orderA !== orderB) {
+    return orderA - orderB;
+  }
+  if (orderA !== null && orderB === null) return -1;
+  if (orderA === null && orderB !== null) return 1;
+
+  const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const createdAtB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+  if (createdAtA !== createdAtB) {
+    return createdAtB - createdAtA;
+  }
+
+  return String(a?.name || "").localeCompare(String(b?.name || ""));
+};
+
+const sortProducts = (products) => [...products].sort(compareProductsByDisplayOrder);
+
+const upsertSortedProductList = (products, nextProduct) =>
+  sortProducts([...(products || []).filter((product) => product.id !== nextProduct.id), nextProduct]);
+
+const decodeCatalogIdentifier = (identifier) => {
+  try {
+    return decodeURIComponent(String(identifier));
+  } catch {
+    return String(identifier);
+  }
+};
+
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
+
+const matchesCatalogIdentifier = (item, identifier) => {
+  if (!identifier) return false;
+  const decodedIdentifier = decodeCatalogIdentifier(identifier);
+  return (
+    item?.id === decodedIdentifier ||
+    item?.slug === decodedIdentifier ||
+    slugifyValue(item?.name, item?.id || "") === decodedIdentifier
+  );
+};
 
 const mapResource = (resource) => {
   const photoPath = typeof resource?.photo === "string" ? resource.photo : "";
@@ -92,6 +153,10 @@ const mapRange = (r) => {
 const mapProduct = (p) => {
   const rangeId =
     (p?.range && (p.range._id || p.range.id)) || p?.rangeId || p?.range || null;
+  const productType = normalizeProductType(
+    p?.productType,
+    p?.isConfigurable === true,
+  );
   const rawImages = Array.isArray(p?.images) ? p.images : [];
   const imagePaths = rawImages
     .map((img) => (typeof img === "string" ? img : img?.url))
@@ -156,8 +221,10 @@ const mapProduct = (p) => {
     productCode: p?.productCode ?? "",
     description: p?.description || "",
     technicalDetails: p?.technicalDetails ?? "",
+    productType,
     rangeId,
     range: p?.range && typeof p.range === "object" ? mapRange(p.range) : null,
+    sortOrder: normalizeProductSortOrder(p?.sortOrder),
     baseImageUrl,
     baseImagePath,
     configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
@@ -167,8 +234,7 @@ const mapProduct = (p) => {
     images,
     imagePaths,
     imageAlt,
-    configurable:
-      p?.productType === "configurable" || p?.isConfigurable === true,
+    configurable: productType === "configurable",
     printingEnabled: p?.printingEnabled !== undefined ? !!p.printingEnabled : true,
     laserEnabled: p?.laserEnabled !== undefined ? !!p.laserEnabled : true,
     backgroundCustomizable: p?.backgroundCustomizable !== undefined ? !!p.backgroundCustomizable : true,
@@ -212,16 +278,12 @@ export const useCatalogStore = create((set, get) => ({
   loadPublicCatalog: async () => {
     set({ publicLoading: true, publicError: null });
     try {
-      const [rangesRes, normalRes, configurableRes] = await Promise.all([
+      const [rangesRes, productsRes] = await Promise.all([
         apiService.ranges.list({ status: "active" }),
-        apiService.products.listNormal({}),
-        apiService.products.listConfigurable({}),
+        apiService.products.list({ status: "active" }),
       ]);
       const ranges = sortRanges((rangesRes?.ranges || []).map(mapRange));
-      const products = [
-        ...(normalRes?.products || []),
-        ...(configurableRes?.products || []),
-      ].map(mapProduct);
+      const products = sortProducts((productsRes?.products || []).map(mapProduct));
       set({
         publicRanges: ranges,
         publicProducts: products,
@@ -247,7 +309,7 @@ export const useCatalogStore = create((set, get) => ({
         apiService.products.list(),
       ]);
       const ranges = sortRanges((rangesRes?.ranges || []).map(mapRange));
-      const products = (productsRes?.products || []).map(mapProduct);
+      const products = sortProducts((productsRes?.products || []).map(mapProduct));
       set({
         adminRanges: ranges,
         adminProducts: products,
@@ -316,6 +378,8 @@ export const useCatalogStore = create((set, get) => ({
     const {
       rangeId,
       configurable,
+      productType,
+      sortOrder,
       featured,
       resourceIds,
       imagesFiles,
@@ -335,8 +399,12 @@ export const useCatalogStore = create((set, get) => ({
       ...rest
     } = payload;
     const range = rangeId ?? payload.range;
-    // Always resolve so non-configurable products are saved as productType "normal" and show on Products page
+    // Always resolve so non-configurable products are saved with an explicit productType.
     const isConfigurable = configurable ?? payload.isConfigurable ?? false;
+    const resolvedProductType = normalizeProductType(
+      productType,
+      isConfigurable,
+    );
 
     const hasImages = Array.isArray(imagesFiles) ? imagesFiles.length > 0 : !!imagesFiles;
     const hasConfiguratorImage = configuratorImageFile && (configuratorImageFile instanceof File || (configuratorImageFile instanceof Blob && configuratorImageFile.name));
@@ -353,8 +421,10 @@ export const useCatalogStore = create((set, get) => ({
       : {
           ...rest,
           range,
+          productType: resolvedProductType,
           isConfigurable: !!isConfigurable,
           featured: !!featured,
+          ...(sortOrder !== undefined && { sortOrder }),
           status: rest.status || "active",
           printingEnabled: printingEnabled !== undefined ? !!printingEnabled : undefined,
           laserEnabled: laserEnabled !== undefined ? !!laserEnabled : undefined,
@@ -377,8 +447,10 @@ export const useCatalogStore = create((set, get) => ({
       body.append("description", rest.description ?? "");
       body.append("technicalDetails", rest.technicalDetails ?? "");
       body.append("range", range);
+      body.append("productType", resolvedProductType);
       body.append("isConfigurable", String(!!isConfigurable));
       body.append("featured", String(!!featured));
+      if (sortOrder !== undefined) body.append("sortOrder", sortOrder === null ? "" : String(sortOrder));
       body.append("status", rest.status || "active");
       if (printingEnabled !== undefined) body.append("printingEnabled", String(!!printingEnabled));
       if (laserEnabled !== undefined) body.append("laserEnabled", String(!!laserEnabled));
@@ -404,14 +476,41 @@ export const useCatalogStore = create((set, get) => ({
       body,
       hasFiles ? { timeout: 120000 } : undefined
     );
-    await get().loadAdminCatalog();
-    await get().loadPublicCatalog();
-    return res?.product;
+    const createdProduct = res?.product ? mapProduct(res.product) : null;
+
+    if (createdProduct) {
+      set((state) => {
+        const nextState = {};
+
+        if (state.adminLoaded) {
+          nextState.adminProducts = upsertSortedProductList(
+            state.adminProducts,
+            createdProduct,
+          );
+        }
+
+        if (state.publicLoaded) {
+          const publicProductsWithoutCreated = (state.publicProducts || []).filter(
+            (product) => product.id !== createdProduct.id,
+          );
+          nextState.publicProducts =
+            createdProduct.status === "active"
+              ? upsertSortedProductList(publicProductsWithoutCreated, createdProduct)
+              : publicProductsWithoutCreated;
+        }
+
+        return nextState;
+      });
+    }
+
+    return createdProduct || res?.product;
   },
   updateProduct: async (id, payload) => {
     const {
       rangeId,
       configurable,
+      productType,
+      sortOrder,
       featured,
       resourceIds,
       imagesFiles,
@@ -457,6 +556,8 @@ export const useCatalogStore = create((set, get) => ({
       photoCroppingEnabled !== undefined ||
       photoCroppingHeightPx !== undefined ||
       photoCroppingWidthPx !== undefined ||
+      productType !== undefined ||
+      sortOrder !== undefined ||
       hasPrintAreaBackgroundImage ||
       printAreaBackgroundImageUrl !== undefined;
 
@@ -469,8 +570,10 @@ export const useCatalogStore = create((set, get) => ({
       if (rest.description !== undefined) body.append("description", rest.description);
       if (rest.technicalDetails !== undefined) body.append("technicalDetails", rest.technicalDetails);
       if (rangeId !== undefined) body.append("range", rangeId);
+      if (productType !== undefined) body.append("productType", productType);
       if (configurable !== undefined) body.append("isConfigurable", String(!!configurable));
       if (featured !== undefined) body.append("featured", String(!!featured));
+      if (sortOrder !== undefined) body.append("sortOrder", sortOrder === null ? "" : String(sortOrder));
       if (rest.status !== undefined) body.append("status", rest.status);
       body.append("resourceIds", JSON.stringify(Array.isArray(resourceIds) ? resourceIds : []));
       // Send the kept existing image URLs so backend can merge them with newly uploaded ones
@@ -498,8 +601,10 @@ export const useCatalogStore = create((set, get) => ({
     } else {
       body = { ...rest };
       if (rangeId !== undefined) body.range = rangeId;
+      if (productType !== undefined) body.productType = productType;
       if (configurable !== undefined) body.isConfigurable = configurable;
       if (featured !== undefined) body.featured = featured;
+      if (sortOrder !== undefined) body.sortOrder = sortOrder;
       body.resourceIds = Array.isArray(resourceIds) ? resourceIds : [];
       if (printingEnabled !== undefined) body.printingEnabled = !!printingEnabled;
       if (laserEnabled !== undefined) body.laserEnabled = !!laserEnabled;
@@ -529,35 +634,85 @@ export const useCatalogStore = create((set, get) => ({
   getPublicRangeById: (id) => get().publicRanges.find((r) => r.id === id),
   getPublicRangeBySlug: (slug) => get().publicRanges.find((r) => r.slug === slug),
   getPublicRangeByIdentifier: (identifier) =>
-    get().publicRanges.find((r) => r.id === identifier || r.slug === identifier),
+    get().publicRanges.find((r) => matchesCatalogIdentifier(r, identifier)),
+  fetchRangeByIdentifier: async (identifier) => {
+    const decodedIdentifier = decodeCatalogIdentifier(identifier);
+    const existing = get().getPublicRangeByIdentifier(decodedIdentifier);
+    if (existing) return existing;
+
+    try {
+      const res = isObjectIdLike(decodedIdentifier)
+        ? await apiService.ranges.getById(decodedIdentifier)
+        : await apiService.ranges.getBySlug(decodedIdentifier);
+      const range = res?.range ? mapRange(res.range) : null;
+
+      if (range) {
+        set((state) => ({
+          publicRanges: upsertSortedRangeList(state.publicRanges, range),
+        }));
+      }
+
+      return range;
+    } catch (error) {
+      if (error?.response?.status === 404) return null;
+      throw error;
+    }
+  },
   getPublicProductById: (id) => get().publicProducts.find((p) => p.id === id),
   getPublicProductBySlug: (slug) => get().publicProducts.find((p) => p.slug === slug),
   getPublicProductByIdentifier: (identifier) =>
-    get().publicProducts.find((p) => p.id === identifier || p.slug === identifier),
+    get().publicProducts.find((p) => matchesCatalogIdentifier(p, identifier)),
 
   // Admin getters (use adminRanges / adminProducts)
   getAdminRangeById: (id) => get().adminRanges.find((r) => r.id === id),
 
   // Helpers for UI separation
-  getNormalProducts: () => get().publicProducts.filter((p) => !p.configurable),
+  getStandardProducts: () => get().publicProducts.filter((p) => p.productType === "standard"),
   getConfigurableProducts: () => get().publicProducts.filter((p) => p.configurable),
-  getNormalProductsByRange: (rangeId) =>
-    get().publicProducts.filter((p) => !p.configurable && p.rangeId === rangeId),
+  getStandardProductsByRange: (rangeId) =>
+    get().publicProducts.filter((p) => p.productType === "standard" && p.rangeId === rangeId),
   getConfigurableProductsByRange: (rangeId) =>
     get().publicProducts.filter((p) => p.configurable && p.rangeId === rangeId),
   getProductsByRangeIdentifier: (identifier) =>
     get().publicProducts.filter((p) => p.rangeId === (get().getPublicRangeByIdentifier(identifier)?.id || identifier)),
-  getNormalProductById: (id) => {
+  getStandardProductById: (id) => {
     const p = get().getPublicProductById(id);
-    return p && !p.configurable ? p : null;
+    return p && p.productType === "standard" ? p : null;
   },
   getConfigurableProductById: (id) => {
     const p = get().getPublicProductById(id);
     return p && p.configurable ? p : null;
   },
   getProductByIdentifier: (identifier) => get().getPublicProductByIdentifier(identifier),
+  fetchProductByIdentifier: async (identifier) => {
+    const decodedIdentifier = decodeCatalogIdentifier(identifier);
+    const existing = get().getPublicProductByIdentifier(decodedIdentifier);
+    if (existing) return existing;
+
+    try {
+      const res = isObjectIdLike(decodedIdentifier)
+        ? await apiService.products.getById(decodedIdentifier)
+        : await apiService.products.getBySlug(decodedIdentifier);
+      const product = res?.product ? mapProduct(res.product) : null;
+
+      if (product) {
+        set((state) => ({
+          publicProducts: upsertSortedProductList(state.publicProducts, product),
+        }));
+      }
+
+      return product;
+    } catch (error) {
+      if (error?.response?.status === 404) return null;
+      throw error;
+    }
+  },
   getFeaturedProducts: () => get().publicProducts.filter((p) => p.featured),
   getNonFeaturedProducts: () => get().publicProducts.filter((p) => !p.featured),
+  // Legacy aliases kept so older callers keep working while the app uses "standard".
+  getNormalProducts: () => get().getStandardProducts(),
+  getNormalProductsByRange: (rangeId) => get().getStandardProductsByRange(rangeId),
+  getNormalProductById: (id) => get().getStandardProductById(id),
 }));
 
 export default useCatalogStore;

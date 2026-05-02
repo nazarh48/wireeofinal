@@ -49,6 +49,19 @@ export function parsePositiveIntFromForm(v) {
   return Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
+export function parseNonNegativeIntFromForm(v) {
+  const x = firstFormValue(v);
+  if (x === undefined || x === null || x === "") return undefined;
+  if (typeof x === "number" && Number.isFinite(x)) {
+    const r = Math.trunc(x);
+    return r >= 0 ? r : undefined;
+  }
+  const s = String(x).trim().replace(/,/g, "");
+  if (!s) return undefined;
+  const n = Number.parseInt(s, 10);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
+}
+
 export function parseTrimmedString(v) {
   const x = firstFormValue(v);
   if (x === undefined || x === null) return undefined;
@@ -67,6 +80,8 @@ export function parseProductFormBody(body) {
     description: parseTrimmedString(b.description),
     technicalDetails: parseTrimmedString(b.technicalDetails),
     range: firstFormValue(b.range),
+    productType: parseTrimmedString(b.productType),
+    sortOrder: parseNonNegativeIntFromForm(b.sortOrder),
     baseImageUrl: parseTrimmedString(b.baseImageUrl),
     configuratorImageUrl: parseTrimmedString(b.configuratorImageUrl),
     baseDeviceImageUrl: parseTrimmedString(b.baseDeviceImageUrl),

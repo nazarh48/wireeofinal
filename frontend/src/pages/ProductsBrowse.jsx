@@ -1,29 +1,36 @@
-// src/pages/ProductsBrowse.jsx
-import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { useCatalog } from '../hooks/useCatalog';
-import { buildResponsiveImageProps } from '../utils/imageVariants';
-import { getPublicProductPath } from '../utils/catalogPaths';
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useCatalog } from "../hooks/useCatalog";
+import { buildResponsiveImageProps } from "../utils/imageVariants";
+import { getPublicProductPath } from "../utils/catalogPaths";
 
 const ProductsBrowse = () => {
-  const { ranges, normalProducts, getNormalProductsByRange, loadPublicCatalog, loading, loaded, error } = useCatalog();
-  const [rangeFilter, setRangeFilter] = useState('');
+  const {
+    ranges,
+    standardProducts,
+    getStandardProductsByRange,
+    loadPublicCatalog,
+    loading,
+    loaded,
+    error,
+  } = useCatalog();
+  const [rangeFilter, setRangeFilter] = useState("");
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
   }, [loadPublicCatalog, loaded, loading]);
 
   const filtered = useMemo(() => {
-    if (!rangeFilter) return normalProducts;
-    return getNormalProductsByRange(rangeFilter);
-  }, [normalProducts, rangeFilter, getNormalProductsByRange]);
+    if (!rangeFilter) return standardProducts;
+    return getStandardProductsByRange(rangeFilter);
+  }, [getStandardProductsByRange, rangeFilter, standardProducts]);
 
   if (loading && !loaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3" />
-          <p className="text-gray-600">Loading products…</p>
+          <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
+          <p className="text-gray-600">Loading products...</p>
         </div>
       </div>
     );
@@ -31,13 +38,14 @@ const ProductsBrowse = () => {
 
   if (error && !loaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-lg mx-auto p-6 bg-white rounded-xl shadow border border-gray-200">
-          <p className="text-gray-700 font-semibold mb-2">Failed to load products</p>
-          <p className="text-gray-500 mb-4">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="mx-auto max-w-lg rounded-xl border border-gray-200 bg-white p-6 text-center shadow">
+          <p className="mb-2 font-semibold text-gray-700">Failed to load products</p>
+          <p className="mb-4 text-gray-500">{error}</p>
           <button
+            type="button"
             onClick={() => loadPublicCatalog()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             Retry
           </button>
@@ -47,29 +55,35 @@ const ProductsBrowse = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-8">
           <Link
             to="/products"
-            className="text-blue-600 hover:text-blue-800 font-medium mb-4 inline-block"
+            className="mb-4 inline-block font-medium text-blue-600 hover:text-blue-800"
           >
-            ← Back to Products Menu
+            Back to Products Menu
           </Link>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Standard Products</h1>
-          <p className="text-xl text-gray-600 mb-4">Browse our complete catalog of normal (non-configurable) products</p>
+          <h1 className="mb-4 text-4xl font-bold text-gray-900">Standard Products</h1>
+          <p className="mb-4 text-xl text-gray-600">
+            Browse our complete catalog of standard products.
+          </p>
           {ranges.length > 0 && (
             <div className="flex items-center gap-2">
-              <label htmlFor="range-filter" className="text-sm font-medium text-gray-700">Filter by range:</label>
+              <label htmlFor="range-filter" className="text-sm font-medium text-gray-700">
+                Filter by range:
+              </label>
               <select
                 id="range-filter"
                 value={rangeFilter}
-                onChange={(e) => setRangeFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(event) => setRangeFilter(event.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All ranges</option>
-                {ranges.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
+                {ranges.map((range) => (
+                  <option key={range.id} value={range.id}>
+                    {range.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -77,49 +91,54 @@ const ProductsBrowse = () => {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl shadow border border-gray-200">
-            <p className="text-gray-500 text-lg">No standard products found.</p>
-            <Link to="/products" className="mt-4 inline-block text-blue-600 hover:text-blue-800 font-medium">
+          <div className="rounded-xl border border-gray-200 bg-white py-16 text-center shadow">
+            <p className="text-lg text-gray-500">No standard products found.</p>
+            <Link
+              to="/products"
+              className="mt-4 inline-block font-medium text-blue-600 hover:text-blue-800"
+            >
               Back to Products
             </Link>
           </div>
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filtered.map((product) => {
-            const { src, srcSet, sizes, loading, decoding } = buildResponsiveImageProps(
-              product.baseImagePath || product.baseImageUrl || '',
-            );
-            return (
-              <div
-                key={product.id}
-                className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <img
-                  src={src}
-                  srcSet={srcSet}
-                  sizes={sizes}
-                  loading={loading}
-                  decoding={decoding}
-                  alt={product.name}
-                  className="w-full h-48 object-cover"
-                />
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{product.name}</h3>
-                  <p className="text-gray-600 mb-4">{product.description}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">ID: {product.id}</span>
-                    <Link
-                      to={getPublicProductPath(product)}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      View Details →
-                    </Link>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((product) => {
+              const { src, srcSet, sizes, loading: imageLoading, decoding } =
+                buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || "");
+
+              return (
+                <div
+                  key={product.id}
+                  className="overflow-hidden rounded-lg bg-white shadow-md transition-shadow hover:shadow-lg"
+                >
+                  <img
+                    src={src}
+                    srcSet={srcSet}
+                    sizes={sizes}
+                    loading={imageLoading}
+                    decoding={decoding}
+                    alt={product.name}
+                    className="h-48 w-full object-cover"
+                  />
+                  <div className="p-6">
+                    <h3 className="mb-2 text-xl font-semibold text-gray-900">
+                      {product.name}
+                    </h3>
+                    <p className="mb-4 text-gray-600">{product.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">ID: {product.id}</span>
+                      <Link
+                        to={getPublicProductPath(product)}
+                        className="inline-flex items-center rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      >
+                        View Details
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

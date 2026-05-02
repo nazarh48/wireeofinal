@@ -8,6 +8,7 @@ import { productValidators } from "../utils/validators.js";
 const router = Router();
 
 router.get("/configurable", ctrl.listConfigurable);
+router.get("/standard", ctrl.listStandard);
 router.get("/normal", ctrl.listNormal);
 router.get("/featured", ctrl.listFeatured);
 router.get("/", ctrl.list);

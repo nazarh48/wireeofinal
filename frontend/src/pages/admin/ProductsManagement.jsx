@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { FixedSizeList as List } from "react-window";
 import { useCatalogStore } from "../../store/catalogStore";
 import { useAdminStore } from "../../store/adminStore";
@@ -13,15 +13,104 @@ const statusOptions = [
   { value: "draft", label: "Draft" },
 ];
 
-function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }) {
+const productTypeOptions = [
+  { value: "standard", label: "Standard" },
+  { value: "configurable", label: "Configurable" },
+];
+
+const REQUIRED_FIELD_MESSAGE = "This field is required.";
+const DUPLICATE_PRODUCT_NAME_MESSAGE =
+  "A product with this name already exists. Product names must be unique.";
+
+function normalizeProductName(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function revokePreviewUrl(value) {
+  if (typeof value === "string" && value.startsWith("blob:")) {
+    URL.revokeObjectURL(value);
+  }
+}
+
+function mapProductFormField(field) {
+  if (field === "range") return "rangeId";
+  return field;
+}
+
+function getApiFieldErrors(error) {
+  const apiErrors = error?.response?.data?.errors;
+  if (!Array.isArray(apiErrors)) return {};
+
+  return apiErrors.reduce((acc, entry) => {
+    const field = mapProductFormField(entry?.field);
+    const message = String(entry?.msg || "").trim();
+    if (field && message && !acc[field]) {
+      acc[field] = message;
+    }
+    return acc;
+  }, {});
+}
+
+function getApiErrorMessage(error, fallback) {
+  return error?.response?.data?.message || error?.message || fallback;
+}
+
+function hasConflictingProductName(productNameIndex, value, currentProductId) {
+  const normalizedName = normalizeProductName(value);
+  if (!normalizedName) return false;
+
+  const ids = productNameIndex?.get(normalizedName);
+  if (!ids) return false;
+
+  for (const id of ids) {
+    if (id !== currentProductId) return true;
+  }
+
+  return false;
+}
+
+function getProductTypeMeta(productType) {
+  switch (productType) {
+    case "configurable":
+      return {
+        label: "Configurable",
+        className: "bg-emerald-100 text-emerald-800",
+      };
+    default:
+      return {
+        label: "Standard",
+        className: "bg-slate-100 text-slate-600",
+      };
+  }
+}
+
+function ProductForm({
+  initial,
+  ranges,
+  resources,
+  productNameIndex,
+  onSubmit,
+  onCancel,
+  loading,
+}) {
   const [name, setName] = useState(initial?.name ?? "");
   const [productCode, setProductCode] = useState(initial?.productCode ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [technicalDetails, setTechnicalDetails] = useState(initial?.technicalDetails ?? "");
   const [rangeId, setRangeId] = useState(initial?.rangeId ?? (ranges[0]?.id ?? ""));
-  const [configurable, setConfigurable] = useState(!!initial?.configurable);
+  const [productType, setProductType] = useState(
+    initial?.productType === "configurable" || initial?.productType === "pro" || initial?.configurable
+      ? "configurable"
+      : "standard",
+  );
+  const [sortOrder, setSortOrder] = useState(() =>
+    initial?.sortOrder !== undefined && initial?.sortOrder !== null
+      ? String(initial.sortOrder)
+      : "",
+  );
   const [status, setStatus] = useState(initial?.status ?? "active");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [cropFieldErrorHeight, setCropFieldErrorHeight] = useState("");
   const [cropFieldErrorWidth, setCropFieldErrorWidth] = useState("");
   const [imagesFiles, setImagesFiles] = useState([]);
@@ -54,6 +143,13 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
   const [mode, setMode] = useState(
     initial?.laserEnabled === true && initial?.printingEnabled === false ? 'laser' : 'printing'
   );
+  const currentProductId =
+    initial?.id || initial?._id ? String(initial?.id || initial?._id) : "";
+  const galleryPreviewUrlsRef = useRef([]);
+  const configuratorPreviewRef = useRef(initial?.configuratorImageUrl ?? "");
+  const baseDevicePreviewRef = useRef(initial?.baseDeviceImageUrl ?? "");
+  const engravingMaskPreviewRef = useRef(initial?.engravingMaskImageUrl ?? "");
+  const printAreaBackgroundPreviewRef = useRef(initial?.printAreaBackgroundImageUrl ?? "");
 
   const [enableBackground, setEnableBackground] = useState(() => {
     if (!initial) return false; // new products: default unchecked
@@ -114,61 +210,126 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
   );
 
   useEffect(() => {
-    return () => {
-      newImagePreviews.forEach((u) => {
-        if (typeof u === "string" && u.startsWith("blob:")) URL.revokeObjectURL(u);
-      });
-      if (typeof configuratorPreview === "string" && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
-      if (typeof baseDevicePreview === "string" && baseDevicePreview.startsWith("blob:")) URL.revokeObjectURL(baseDevicePreview);
-      if (typeof engravingMaskPreview === "string" && engravingMaskPreview.startsWith("blob:")) URL.revokeObjectURL(engravingMaskPreview);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    galleryPreviewUrlsRef.current = newImagePreviews;
+  }, [newImagePreviews]);
+
+  useEffect(() => {
+    configuratorPreviewRef.current = configuratorPreview;
+  }, [configuratorPreview]);
+
+  useEffect(() => {
+    baseDevicePreviewRef.current = baseDevicePreview;
+  }, [baseDevicePreview]);
+
+  useEffect(() => {
+    engravingMaskPreviewRef.current = engravingMaskPreview;
+  }, [engravingMaskPreview]);
+
+  useEffect(() => {
+    printAreaBackgroundPreviewRef.current = printAreaBackgroundPreview;
+  }, [printAreaBackgroundPreview]);
 
   useEffect(() => {
     return () => {
-      if (typeof printAreaBackgroundPreview === "string" && printAreaBackgroundPreview.startsWith("blob:")) {
-        URL.revokeObjectURL(printAreaBackgroundPreview);
-      }
+      galleryPreviewUrlsRef.current.forEach(revokePreviewUrl);
+      revokePreviewUrl(configuratorPreviewRef.current);
+      revokePreviewUrl(baseDevicePreviewRef.current);
+      revokePreviewUrl(engravingMaskPreviewRef.current);
+      revokePreviewUrl(printAreaBackgroundPreviewRef.current);
     };
-  }, [printAreaBackgroundPreview]);
+  }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError("");
-    setCropFieldErrorHeight("");
-    setCropFieldErrorWidth("");
-    const t = name.trim();
-    if (!t) {
-      setError("Name is required.");
-      return;
-    }
-    if (!rangeId) {
-      setError("Please select a range.");
-      return;
-    }
-    const hasGallery = imagesFiles.length > 0 || (initial && Array.isArray(initial.images) && initial.images.length > 0);
-    const hasConfigurator = !!configuratorImageFile || !!(initial?.configuratorImageUrl);
-    if (!initial && !hasGallery && !hasConfigurator) {
-      setError("Please upload at least one gallery image or configurator image.");
-      return;
-    }
+  const clearFieldError = (field) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
 
+  const validateNameField = (value = name) => {
+    const trimmedValue = String(value || "").trim();
+    if (!trimmedValue) {
+      setFieldErrors((current) => ({ ...current, name: REQUIRED_FIELD_MESSAGE }));
+      return false;
+    }
+    if (hasConflictingProductName(productNameIndex, trimmedValue, currentProductId)) {
+      setFieldErrors((current) => ({
+        ...current,
+        name: DUPLICATE_PRODUCT_NAME_MESSAGE,
+      }));
+      return false;
+    }
+    clearFieldError("name");
+    return true;
+  };
+
+  const validateRangeField = (value = rangeId) => {
+    if (!value) {
+      setFieldErrors((current) => ({ ...current, rangeId: REQUIRED_FIELD_MESSAGE }));
+      return false;
+    }
+    clearFieldError("rangeId");
+    return true;
+  };
+
+  const validateSortOrderField = (value = sortOrder) => {
+    const trimmedValue = String(value ?? "").trim();
+    if (trimmedValue && !/^\d+$/.test(trimmedValue)) {
+      setFieldErrors((current) => ({
+        ...current,
+        sortOrder: "Sort order must be a non-negative integer.",
+      }));
+      return false;
+    }
+    clearFieldError("sortOrder");
+    return true;
+  };
+
+  const validateForm = () => {
+    const nextFieldErrors = {};
+    const trimmedName = name.trim();
+    const sortOrderValue = String(sortOrder ?? "").trim();
+    const hasGallery = imagesFiles.length > 0 || existingImages.length > 0;
+    const hasConfigurator = !!configuratorImageFile || !!configuratorPreview;
     const heightStr = String(photoCroppingHeightPx ?? "").trim();
     const widthStr = String(photoCroppingWidthPx ?? "").trim();
     const heightOk = /^[1-9]\d*$/.test(heightStr);
     const widthOk = /^[1-9]\d*$/.test(widthStr);
+    let nextFormError = "";
+    let nextHeightError = "";
+    let nextWidthError = "";
+
+    if (!trimmedName) {
+      nextFieldErrors.name = REQUIRED_FIELD_MESSAGE;
+    } else if (hasConflictingProductName(productNameIndex, trimmedName, currentProductId)) {
+      nextFieldErrors.name = DUPLICATE_PRODUCT_NAME_MESSAGE;
+    }
+
+    if (!rangeId) {
+      nextFieldErrors.rangeId = REQUIRED_FIELD_MESSAGE;
+    }
+
+    if (sortOrderValue && !/^\d+$/.test(sortOrderValue)) {
+      nextFieldErrors.sortOrder = "Sort order must be a non-negative integer.";
+    }
+
+    if (!initial && !hasGallery && !hasConfigurator) {
+      nextFieldErrors.images =
+        "At least one gallery image or configurator image is required.";
+    }
 
     if (mode === "printing" && enablePhotoCropping) {
       if (!heightOk) {
-        setCropFieldErrorHeight(heightStr ? "Height must be a positive integer." : "Height is required.");
-        setError("Please fix the photo cropping fields.");
-        return;
+        nextHeightError = heightStr
+          ? "Height must be a positive integer."
+          : REQUIRED_FIELD_MESSAGE;
       }
       if (!widthOk) {
-        setCropFieldErrorWidth(widthStr ? "Width must be a positive integer." : "Width is required.");
-        setError("Please fix the photo cropping fields.");
-        return;
+        nextWidthError = widthStr
+          ? "Width must be a positive integer."
+          : REQUIRED_FIELD_MESSAGE;
       }
     }
 
@@ -176,17 +337,54 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
       (resourceId) => !resourceOptions.some((resource) => resource.id === resourceId),
     );
     if (hasBrokenResourceReference) {
-      setError("One or more selected resources are no longer available. Refresh and try again.");
-      return;
+      nextFormError =
+        "One or more selected resources are no longer available. Refresh and try again.";
     }
 
-    onSubmit({
-      name: t,
+    if (
+      !nextFormError &&
+      (Object.keys(nextFieldErrors).length > 0 || nextHeightError || nextWidthError)
+    ) {
+      nextFormError = "Please fix the highlighted fields.";
+    }
+
+    setFieldErrors(nextFieldErrors);
+    setCropFieldErrorHeight(nextHeightError);
+    setCropFieldErrorWidth(nextWidthError);
+    setError(nextFormError);
+
+    return {
+      isValid:
+        !nextFormError &&
+        Object.keys(nextFieldErrors).length === 0 &&
+        !nextHeightError &&
+        !nextWidthError,
+      trimmedName,
+      sortOrderValue,
+      heightStr,
+      widthStr,
+      heightOk,
+      widthOk,
+    };
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validation = validateForm();
+    if (!validation.isValid) return;
+
+    const configurable = productType === "configurable";
+
+    try {
+      await onSubmit({
+      name: validation.trimmedName,
       productCode: productCode.trim(),
       description: description.trim(),
       technicalDetails: technicalDetails.trim(),
       rangeId,
+      productType,
       configurable,
+      sortOrder: validation.sortOrderValue === "" ? null : Number(validation.sortOrderValue),
       status,
       resourceIds: selectedResourceIds,
       imagesFiles,
@@ -203,8 +401,8 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
             backgroundEnabled: enableBackground,
             iconsTextEnabled: enableIconsAndText,
             photoCroppingEnabled: enablePhotoCropping,
-            photoCroppingHeightPx: heightOk ? Number(heightStr) : undefined,
-            photoCroppingWidthPx: widthOk ? Number(widthStr) : undefined,
+            photoCroppingHeightPx: validation.heightOk ? Number(validation.heightStr) : undefined,
+            photoCroppingWidthPx: validation.widthOk ? Number(validation.widthStr) : undefined,
             ...(enableBackground ? {
               printAreaBackgroundImageFile: printAreaBackgroundImageFile || undefined,
               printAreaBackgroundImageUrl: printAreaBackgroundImageUrl || "",
@@ -212,6 +410,21 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
           }
         : {}),
     });
+    } catch (submissionError) {
+      const apiFieldErrors = getApiFieldErrors(submissionError);
+      if (Object.keys(apiFieldErrors).length > 0) {
+        setFieldErrors((current) => ({ ...current, ...apiFieldErrors }));
+        setError("Please fix the highlighted fields.");
+        return;
+      }
+
+      setError(
+        getApiErrorMessage(
+          submissionError,
+          initial ? "Failed to update product." : "Failed to create product.",
+        ),
+      );
+    }
   };
 
   const handleAddResource = () => {
@@ -248,10 +461,20 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
         <input
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow"
+          onChange={(e) => {
+            setName(e.target.value);
+            clearFieldError("name");
+            setError("");
+          }}
+          onBlur={() => validateNameField()}
+          className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
+            fieldErrors.name ? "border-red-300 bg-red-50/30" : "border-slate-300"
+          }`}
           placeholder="e.g. Cable XYZ 2.5mm"
         />
+        {fieldErrors.name && (
+          <p className="mt-1 text-xs text-red-700">{fieldErrors.name}</p>
+        )}
       </div>
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Product code</label>
@@ -287,14 +510,68 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Range *</label>
         <select
           value={rangeId}
-          onChange={(e) => setRangeId(e.target.value)}
-          className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-shadow"
+          onChange={(e) => {
+            setRangeId(e.target.value);
+            clearFieldError("rangeId");
+            setError("");
+          }}
+          onBlur={() => validateRangeField()}
+          className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-shadow ${
+            fieldErrors.rangeId ? "border-red-300 bg-red-50/30" : "border-slate-300"
+          }`}
         >
           <option value="">Select range</option>
           {ranges.map((r) => (
             <option key={r.id} value={r.id}>{r.name}</option>
           ))}
         </select>
+        {fieldErrors.rangeId && (
+          <p className="mt-1 text-xs text-red-700">{fieldErrors.rangeId}</p>
+        )}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Product type *</label>
+          <select
+            value={productType}
+            onChange={(e) => setProductType(e.target.value)}
+            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white transition-shadow"
+          >
+            {productTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-slate-500">
+            Configurable products appear in the configurator. Standard products stay catalog-focused.
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-1.5">Sort order</label>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              clearFieldError("sortOrder");
+              setError("");
+            }}
+            onBlur={() => validateSortOrderField()}
+            className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
+              fieldErrors.sortOrder ? "border-red-300 bg-red-50/30" : "border-slate-300"
+            }`}
+            placeholder="Optional"
+          />
+          {fieldErrors.sortOrder && (
+            <p className="mt-1 text-xs text-red-700">{fieldErrors.sortOrder}</p>
+          )}
+          <p className="mt-2 text-xs text-slate-500">
+            Lower values appear first in the public catalog. Leave blank to fall back to date and name.
+          </p>
+        </div>
       </div>
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (for configurator)</label>
@@ -306,9 +583,11 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (configuratorPreview && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
+              revokePreviewUrl(configuratorPreview);
               setConfiguratorImageFile(file || null);
               setConfiguratorPreview(file ? URL.createObjectURL(file) : (initial?.configuratorImageUrl ?? ""));
+              clearFieldError("images");
+              setError("");
             }}
           />
         </label>
@@ -320,7 +599,7 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
             <button
               type="button"
               onClick={() => {
-                if (configuratorPreview && configuratorPreview.startsWith("blob:")) URL.revokeObjectURL(configuratorPreview);
+                revokePreviewUrl(configuratorPreview);
                 setConfiguratorImageFile(null);
                 setConfiguratorPreview(initial?.configuratorImageUrl ?? "");
               }}
@@ -334,7 +613,13 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
       </div>
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Foto (for gallery)</label>
-        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-teal-400 hover:bg-teal-50/50 transition-colors">
+        <label
+          className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
+            fieldErrors.images
+              ? "border-red-300 bg-red-50/30 hover:border-red-400"
+              : "border-slate-300 hover:border-teal-400 hover:bg-teal-50/50"
+          }`}
+        >
           <span className="text-sm text-slate-500 mt-1">Click to upload or drag and drop (adds to existing)</span>
           <input
             type="file"
@@ -347,6 +632,8 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
               const newPreviews = files.map((f) => URL.createObjectURL(f));
               setImagesFiles((prev) => [...prev, ...files]);
               setNewImagePreviews((prev) => [...prev, ...newPreviews]);
+              clearFieldError("images");
+              setError("");
               e.target.value = "";
             }}
           />
@@ -389,19 +676,17 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
             ))}
           </div>
         )}
+        {fieldErrors.images && (
+          <p className="mt-2 text-xs text-red-700">{fieldErrors.images}</p>
+        )}
         <p className="mt-2 text-xs text-slate-500">Up to 10 images for gallery. New uploads are added on top of existing images. Hover any image to remove it.</p>
       </div>
-      <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-        <input
-          type="checkbox"
-          id="configurable"
-          checked={configurable}
-          onChange={(e) => setConfigurable(e.target.checked)}
-          className="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500"
-        />
-        <label htmlFor="configurable" className="text-sm font-medium text-slate-700">
-          Configurable (use in configurator, collections, projects, PDF)
-        </label>
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <p className="text-sm font-medium text-slate-700">
+          {productType === "configurable"
+            ? "This product will be available in the configurator, collections, projects, and PDF flows."
+            : "This product will be listed as a Standard catalog product."}
+        </p>
       </div>
       <div className="space-y-2">
         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Processing type *</label>
@@ -598,7 +883,11 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
                       min={1}
                       step={1}
                       value={photoCroppingHeightPx}
-                      onChange={(e) => setPhotoCroppingHeightPx(e.target.value)}
+                      onChange={(e) => {
+                        setPhotoCroppingHeightPx(e.target.value);
+                        setCropFieldErrorHeight("");
+                        setError("");
+                      }}
                       className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
                         cropFieldErrorHeight ? "border-red-300 bg-red-50/30" : "border-slate-300 bg-white"
                       }`}
@@ -619,7 +908,11 @@ function ProductForm({ initial, ranges, resources, onSubmit, onCancel, loading }
                       min={1}
                       step={1}
                       value={photoCroppingWidthPx}
-                      onChange={(e) => setPhotoCroppingWidthPx(e.target.value)}
+                      onChange={(e) => {
+                        setPhotoCroppingWidthPx(e.target.value);
+                        setCropFieldErrorWidth("");
+                        setError("");
+                      }}
                       className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-shadow ${
                         cropFieldErrorWidth ? "border-red-300 bg-red-50/30" : "border-slate-300 bg-white"
                       }`}
@@ -882,6 +1175,19 @@ export default function ProductsManagement() {
   }, [loadAdminCatalog, loadResources]);
 
   const activeRanges = (ranges || []).filter((r) => r.status === "active");
+  const productNameIndex = useMemo(() => {
+    const index = new Map();
+    (products || []).forEach((product) => {
+      const productId = product?.id || product?._id;
+      const normalizedName = normalizeProductName(product?.name);
+      if (!productId || !normalizedName) return;
+
+      const ids = index.get(normalizedName) || new Set();
+      ids.add(String(productId));
+      index.set(normalizedName, ids);
+    });
+    return index;
+  }, [products]);
 
   const productRows = useMemo(
     () =>
@@ -904,8 +1210,9 @@ export default function ProductsManagement() {
       const p = await createProduct(payload);
       if (p) logActivity({ type: "product_created", label: `Product "${p.name}" created`, meta: { id: p._id || p.id } });
       setShowCreate(false);
+      return p;
     } catch (e) {
-      setError(e?.message || "Failed to create product");
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -916,11 +1223,12 @@ export default function ProductsManagement() {
     setLoading(true);
     setError("");
     try {
-      await updateProduct(editing.id, payload);
+      const updatedProduct = await updateProduct(editing.id, payload);
       logActivity({ type: "product_updated", label: `Product "${payload.name}" updated`, meta: { id: editing.id } });
       setEditing(null);
+      return updatedProduct;
     } catch (e) {
-      setError(e?.message || "Failed to update product");
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -987,7 +1295,9 @@ export default function ProductsManagement() {
           <>
             {productRows.length <= 40 ? (
               <ul className="divide-y divide-slate-200">
-                {productRows.map((p) => (
+                {productRows.map((p) => {
+                  const typeMeta = getProductTypeMeta(p.productType);
+                  return (
                   <li
                     key={p.id}
                     className="flex items-center justify-between px-6 py-4 hover:bg-slate-50"
@@ -1022,14 +1332,15 @@ export default function ProductsManagement() {
                             {p.resourceCount} resources
                           </span>
                           <span
-                            className={`text-xs px-2 py-0.5 rounded ${
-                              p.configurable
-                                ? "bg-teal-100 text-teal-800"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
+                            className={`text-xs px-2 py-0.5 rounded ${typeMeta.className}`}
                           >
-                            {p.configurable ? "Configurable" : "Normal"}
+                            {typeMeta.label}
                           </span>
+                          {p.sortOrder !== undefined && p.sortOrder !== null && (
+                            <span className="text-xs text-slate-400">
+                              Sort {p.sortOrder}
+                            </span>
+                          )}
                           <span
                             className={`text-xs px-2 py-0.5 rounded ${
                               p.status === "active"
@@ -1061,7 +1372,8 @@ export default function ProductsManagement() {
                       </button>
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             ) : (
               <List
@@ -1072,6 +1384,7 @@ export default function ProductsManagement() {
               >
                 {({ index, style }) => {
                   const p = productRows[index];
+                  const typeMeta = getProductTypeMeta(p.productType);
                   return (
                     <div
                       style={style}
@@ -1108,14 +1421,15 @@ export default function ProductsManagement() {
                               {p.resourceCount} resources
                             </span>
                             <span
-                              className={`text-xs px-2 py-0.5 rounded ${
-                                p.configurable
-                                  ? "bg-teal-100 text-teal-800"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
+                              className={`text-xs px-2 py-0.5 rounded ${typeMeta.className}`}
                             >
-                              {p.configurable ? "Configurable" : "Normal"}
+                              {typeMeta.label}
                             </span>
+                            {p.sortOrder !== undefined && p.sortOrder !== null && (
+                              <span className="text-xs text-slate-400">
+                                Sort {p.sortOrder}
+                              </span>
+                            )}
                             <span
                               className={`text-xs px-2 py-0.5 rounded ${
                                 p.status === "active"
@@ -1161,6 +1475,7 @@ export default function ProductsManagement() {
         <ProductForm
           ranges={activeRanges}
           resources={resources}
+          productNameIndex={productNameIndex}
           onSubmit={handleCreate}
           onCancel={() => setShowCreate(false)}
           loading={loading}
@@ -1175,6 +1490,7 @@ export default function ProductsManagement() {
             initial={editing}
             ranges={ranges || []}
             resources={resources}
+            productNameIndex={productNameIndex}
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}
             loading={loading}

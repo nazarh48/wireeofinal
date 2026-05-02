@@ -181,23 +181,29 @@ export const apiService = {
   ranges: {
     list: async (params) => unwrap(await publicApi.get("/ranges", { params })),
     getById: async (id) => unwrap(await publicApi.get(`/ranges/${id}`)),
+    getBySlug: async (slug) =>
+      unwrap(await publicApi.get(`/ranges/slug/${slug}`)),
     create: async (payload) => unwrap(await adminApi.post("/ranges", payload)),
     update: async (id, payload) =>
       unwrap(await adminApi.patch(`/ranges/${id}`, payload)),
     remove: async (id) => unwrap(await adminApi.delete(`/ranges/${id}`)),
   },
 
-  products: {
-    list: async (params) =>
-      unwrap(await publicApi.get("/products", { params })),
-    listConfigurable: async (params) =>
-      unwrap(await publicApi.get("/products/configurable", { params })),
-    listNormal: async (params) =>
-      unwrap(await publicApi.get("/products/normal", { params })),
-    listFeatured: async () => unwrap(await publicApi.get("/products/featured")),
-    getById: async (id) => unwrap(await publicApi.get(`/products/${id}`)),
-    create: async (payload, config) =>
-      unwrap(await adminApi.post("/products", payload, config)),
+    products: {
+      list: async (params) =>
+        unwrap(await publicApi.get("/products", { params })),
+      listConfigurable: async (params) =>
+        unwrap(await publicApi.get("/products/configurable", { params })),
+      listStandard: async (params) =>
+        unwrap(await publicApi.get("/products/standard", { params })),
+      listNormal: async (params) =>
+        unwrap(await publicApi.get("/products/standard", { params })),
+      listFeatured: async () => unwrap(await publicApi.get("/products/featured")),
+      getById: async (id) => unwrap(await publicApi.get(`/products/${id}`)),
+      getBySlug: async (slug) =>
+        unwrap(await publicApi.get(`/products/slug/${slug}`)),
+      create: async (payload, config) =>
+        unwrap(await adminApi.post("/products", payload, config)),
     update: async (id, payload, config) =>
       unwrap(await adminApi.patch(`/products/${id}`, payload, config)),
     remove: async (id) => unwrap(await adminApi.delete(`/products/${id}`)),

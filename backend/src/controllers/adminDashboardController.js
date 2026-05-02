@@ -11,11 +11,17 @@ export async function getStats(req, res, next) {
       return res.status(200).json(cached);
     }
 
-    const [totalRanges, totalProducts, configurableCount, normalCount, totalUsers] = await Promise.all([
+    const [
+      totalRanges,
+      totalProducts,
+      configurableCount,
+      standardCount,
+      totalUsers,
+    ] = await Promise.all([
       Range.countDocuments(),
       Product.countDocuments(),
-      Product.countDocuments({ productType: "configurable" }),
-      Product.countDocuments({ productType: "normal" }),
+      Product.countDocuments({ productType: { $in: ["configurable", "pro"] } }),
+      Product.countDocuments({ productType: { $in: ["standard", "normal"] } }),
       User.countDocuments(),
     ]);
 
@@ -46,7 +52,8 @@ export async function getStats(req, res, next) {
         totalRanges,
         totalProducts,
         configurableCount,
-        normalCount,
+        standardCount,
+        normalCount: standardCount,
         totalUsers,
         recentProducts,
         recentRanges,

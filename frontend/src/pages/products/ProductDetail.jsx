@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCatalog } from "../../hooks/useCatalog";
 import { getImageUrl } from "../../services/api";
 import {
@@ -9,6 +9,7 @@ import {
 
 const ProductDetail = () => {
   const { id, productSlug } = useParams();
+  const navigate = useNavigate();
   const identifier = productSlug || id || "";
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const {
@@ -17,7 +18,13 @@ const ProductDetail = () => {
     loadPublicCatalog,
     loading,
     loaded,
+    error,
+    fetchProductByIdentifier,
   } = useCatalog();
+  const [directProduct, setDirectProduct] = useState(null);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [directError, setDirectError] = useState("");
+  const [directAttempted, setDirectAttempted] = useState(false);
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
@@ -27,12 +34,64 @@ const ProductDetail = () => {
     setSelectedImageIndex(0);
   }, [identifier]);
 
-  const product = useMemo(
+  const catalogProduct = useMemo(
     () => (identifier ? getProductByIdentifier(identifier) : null),
     [getProductByIdentifier, identifier],
   );
+  const product = catalogProduct || directProduct;
+
+  useEffect(() => {
+    if (product?.id && id !== product.id) {
+      navigate(`/products/detail/${encodeURIComponent(product.id)}`, {
+        replace: true,
+      });
+    }
+  }, [id, navigate, product?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setDirectProduct(null);
+    setDirectError("");
+    setDirectAttempted(false);
+
+    if (!identifier || catalogProduct || (!loaded && !error)) {
+      setDirectLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDirectLoading(true);
+    fetchProductByIdentifier(identifier)
+      .then((nextProduct) => {
+        if (!cancelled) setDirectProduct(nextProduct || null);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDirectError(err?.message || "Failed to load product details");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDirectLoading(false);
+          setDirectAttempted(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    catalogProduct,
+    error,
+    fetchProductByIdentifier,
+    identifier,
+    loaded,
+  ]);
+
   const range = useMemo(
-    () => (product ? getRangeByIdentifier(product.rangeId) : null),
+    () => (product ? getRangeByIdentifier(product.rangeId) || product.range || null : null),
     [getRangeByIdentifier, product],
   );
 
@@ -60,12 +119,42 @@ const ProductDetail = () => {
     "";
   const resources = Array.isArray(product?.resources) ? product.resources : [];
 
-  if (loading && !loaded) {
+  const waitingForCatalog = !product && !loaded && !error;
+  const waitingForDirectLookup =
+    !product &&
+    !!identifier &&
+    !catalogProduct &&
+    (loaded || !!error) &&
+    (!directAttempted || directLoading);
+
+  if (waitingForCatalog || waitingForDirectLookup) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-20">
         <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" />
           <p className="mt-4 text-slate-500">Loading product details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!product && directError) {
+    return (
+      <div className="min-h-screen bg-slate-50 px-4 py-20">
+        <div className="mx-auto max-w-3xl rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center shadow-sm">
+          <h1 className="text-3xl font-bold text-slate-900">Unable to load product</h1>
+          <p className="mt-4 text-slate-500">{directError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setDirectAttempted(false);
+              setDirectError("");
+              loadPublicCatalog();
+            }}
+            className="mt-8 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -95,6 +184,10 @@ const ProductDetail = () => {
     product.configuratorImageUrl ||
     product.baseImageUrl ||
     "";
+  const productTypeLabel =
+    product.productType === "configurable"
+      ? "Configurable Product"
+      : "Standard Product";
 
   return (
     <div className="min-h-screen bg-white">
@@ -135,7 +228,7 @@ const ProductDetail = () => {
           <div className="mt-8 max-w-4xl">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-teal-100 backdrop-blur">
-                {product.configurable ? "Configurable Product" : "Standard Product"}
+                {productTypeLabel}
               </span>
               {product.productCode ? (
                 <span className="inline-flex items-center rounded-full border border-teal-300/20 bg-teal-400/10 px-4 py-2 text-sm font-semibold text-teal-100">
@@ -237,13 +330,7 @@ const ProductDetail = () => {
       <section className="border-t border-slate-200 bg-slate-50 py-14 md:py-16">
         <div className="container mx-auto px-6">
           <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900">Documentation</h2>
-              <p className="mt-3 max-w-2xl text-slate-600">
-                Shared resources linked from the central Resources area. Files are managed once
-                and reused across products.
-              </p>
-            </div>
+            
             {resources.length > 0 ? (
               <Link
                 to="/resources"

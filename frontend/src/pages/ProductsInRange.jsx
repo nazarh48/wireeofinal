@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCatalog } from "../hooks/useCatalog";
 import { buildResponsiveImageProps } from "../utils/imageVariants";
 import {
@@ -16,30 +16,89 @@ const FILTERS = [
 
 const ProductsInRange = () => {
   const { rangeSlug, rangeId } = useParams();
+  const navigate = useNavigate();
   const identifier = rangeSlug || rangeId || "";
   const {
     getRangeByIdentifier,
+    fetchRangeByIdentifier,
     getProductsByRangeIdentifier,
     loadPublicCatalog,
     loading,
     loaded,
+    error,
   } = useCatalog();
   const [filter, setFilter] = useState("all");
+  const [directRange, setDirectRange] = useState(null);
+  const [directLoading, setDirectLoading] = useState(false);
+  const [directError, setDirectError] = useState("");
+  const [directAttempted, setDirectAttempted] = useState(false);
 
   useEffect(() => {
     if (!loaded && !loading) loadPublicCatalog();
   }, [loaded, loading, loadPublicCatalog]);
 
-  const range = getRangeByIdentifier(identifier);
+  const catalogRange = getRangeByIdentifier(identifier);
+  const range = catalogRange || directRange;
+
+  useEffect(() => {
+    if (range?.id && rangeId !== range.id) {
+      navigate(`/products/range/${encodeURIComponent(range.id)}`, {
+        replace: true,
+      });
+    }
+  }, [navigate, range?.id, rangeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setDirectRange(null);
+    setDirectError("");
+    setDirectAttempted(false);
+
+    if (!identifier || catalogRange || (!loaded && !error)) {
+      setDirectLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDirectLoading(true);
+    fetchRangeByIdentifier(identifier)
+      .then((nextRange) => {
+        if (!cancelled) setDirectRange(nextRange || null);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDirectError(err?.message || "Failed to load product range");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setDirectLoading(false);
+          setDirectAttempted(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    catalogRange,
+    error,
+    fetchRangeByIdentifier,
+    identifier,
+    loaded,
+  ]);
+
   const allProducts = useMemo(
-    () => (identifier ? getProductsByRangeIdentifier(identifier) : []),
-    [getProductsByRangeIdentifier, identifier],
+    () => (range?.id ? getProductsByRangeIdentifier(range.id) : []),
+    [getProductsByRangeIdentifier, range?.id],
   );
 
   const counts = useMemo(
     () => ({
       all: allProducts.length,
-      standard: allProducts.filter((product) => !product.configurable).length,
+      standard: allProducts.filter((product) => product.productType === "standard").length,
       configurable: allProducts.filter((product) => product.configurable).length,
     }),
     [allProducts],
@@ -48,7 +107,7 @@ const ProductsInRange = () => {
   const filteredProducts = useMemo(() => {
     switch (filter) {
       case "standard":
-        return allProducts.filter((product) => !product.configurable);
+        return allProducts.filter((product) => product.productType === "standard");
       case "configurable":
         return allProducts.filter((product) => product.configurable);
       default:
@@ -56,12 +115,42 @@ const ProductsInRange = () => {
     }
   }, [allProducts, filter]);
 
-  if (loading && !loaded) {
+  const waitingForCatalog = !range && !loaded && !error;
+  const waitingForDirectLookup =
+    !range &&
+    !!identifier &&
+    !catalogRange &&
+    (loaded || !!error) &&
+    (!directAttempted || directLoading);
+
+  if (waitingForCatalog || waitingForDirectLookup) {
     return (
       <div className="min-h-screen bg-slate-50 px-4 py-20">
         <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 bg-white px-6 py-20 text-center shadow-sm">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600" />
           <p className="mt-4 text-slate-500">Loading products in this range...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!range && directError) {
+    return (
+      <div className="min-h-screen bg-slate-50 px-4 py-20">
+        <div className="mx-auto max-w-3xl rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center shadow-sm">
+          <h1 className="text-3xl font-bold text-slate-900">Unable to load range</h1>
+          <p className="mt-4 text-slate-500">{directError}</p>
+          <button
+            type="button"
+            onClick={() => {
+              setDirectAttempted(false);
+              setDirectError("");
+              loadPublicCatalog();
+            }}
+            className="mt-8 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -185,6 +274,10 @@ const ProductsInRange = () => {
               {filteredProducts.map((product) => {
                 const { src, srcSet, sizes, loading: imageLoading, decoding } =
                   buildResponsiveImageProps(product.baseImagePath || product.baseImageUrl || "");
+                const productTypeLabel =
+                  product.productType === "configurable"
+                    ? "Configurable"
+                    : "Standard";
 
                 return (
                   <article
@@ -204,7 +297,7 @@ const ProductsInRange = () => {
                         />
                       ) : null}
                       <div className="absolute left-4 top-4 rounded-full border border-white/30 bg-white/90 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-sm">
-                        {product.configurable ? "Configurable" : "Standard"}
+                        {productTypeLabel}
                       </div>
                     </div>
 

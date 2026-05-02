@@ -1,9 +1,33 @@
 import { body, param, query } from "express-validator";
 import mongoose from "mongoose";
+import { Product } from "../models/Product.js";
 
 const objectId = (value) => {
   if (!mongoose.Types.ObjectId.isValid(value)) throw new Error("Invalid ID");
   return value;
+};
+
+const escapeRegExp = (value) =>
+  String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const ensureUniqueProductName = async (value, excludeId) => {
+  const trimmedName = String(value || "").trim();
+  if (!trimmedName) return true;
+
+  const query = {
+    name: { $regex: new RegExp(`^${escapeRegExp(trimmedName)}$`, "i") },
+  };
+
+  if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+    query._id = { $ne: excludeId };
+  }
+
+  const duplicateProduct = await Product.exists(query);
+  if (duplicateProduct) {
+    throw new Error("A product with this name already exists.");
+  }
+
+  return true;
 };
 
 export const authValidators = {
@@ -64,11 +88,29 @@ export const rangeValidators = {
 
 export const productValidators = {
   create: [
-    body("name").trim().notEmpty().withMessage("Name required"),
+    body("name")
+      .trim()
+      .notEmpty()
+      .withMessage("This field is required.")
+      .bail()
+      .custom((value) => ensureUniqueProductName(value)),
     body("productCode").optional().trim(),
     body("description").optional().trim(),
     body("technicalDetails").optional().trim(),
-    body("range").custom(objectId).withMessage("Valid range ID required"),
+    body("range")
+      .notEmpty()
+      .withMessage("This field is required.")
+      .bail()
+      .custom(objectId)
+      .withMessage("Valid range ID required"),
+    body("productType")
+      .optional()
+      .isIn(["standard", "configurable", "normal"])
+      .withMessage("Invalid product type"),
+    body("sortOrder")
+      .optional({ values: "null" })
+      .isInt({ min: 0 })
+      .withMessage("sortOrder must be a non-negative integer"),
     body("baseImageUrl").optional().trim(),
     body("configuratorImageUrl").optional().trim(),
     body("isConfigurable")
@@ -83,11 +125,25 @@ export const productValidators = {
   ],
   update: [
     param("id").custom(objectId),
-    body("name").optional().trim().notEmpty(),
+    body("name")
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage("This field is required.")
+      .bail()
+      .custom((value, { req }) => ensureUniqueProductName(value, req.params?.id)),
     body("productCode").optional().trim(),
     body("description").optional().trim(),
     body("technicalDetails").optional().trim(),
     body("range").optional().custom(objectId),
+    body("productType")
+      .optional()
+      .isIn(["standard", "configurable", "normal"])
+      .withMessage("Invalid product type"),
+    body("sortOrder")
+      .optional({ values: "null" })
+      .isInt({ min: 0 })
+      .withMessage("sortOrder must be a non-negative integer"),
     body("baseImageUrl").optional().trim(),
     body("configuratorImageUrl").optional().trim(),
     body("isConfigurable")

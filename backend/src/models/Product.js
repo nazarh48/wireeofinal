@@ -27,6 +27,7 @@ const productSchema = new mongoose.Schema(
     description: { type: String, default: "", trim: true },
     technicalDetails: { type: String, default: "", trim: true },
     range: { type: mongoose.Schema.Types.ObjectId, ref: "Range", required: true },
+    sortOrder: { type: Number, min: 0, default: null },
     baseImageUrl: { type: String, default: "", trim: true },
     // Optional image used specifically inside the Graphic Configurator
     // (personalised canvas) instead of the marketing/base image.
@@ -75,7 +76,11 @@ const productSchema = new mongoose.Schema(
       },
     ],
     isConfigurable: { type: Boolean, default: false },
-    productType: { type: String, enum: ["configurable", "normal"], required: true },
+    productType: {
+      type: String,
+      enum: ["configurable", "standard", "normal"],
+      required: true,
+    },
     status: { type: String, enum: ["active", "inactive", "draft"], default: "active" },
     featured: { type: Boolean, default: false },
     resourceIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Resource" }],
@@ -88,5 +93,6 @@ productSchema.index({ range: 1 });
 productSchema.index({ slug: 1 }, { unique: true, sparse: true });
 productSchema.index({ productType: 1, status: 1 });
 productSchema.index({ featured: 1, status: 1 });
+productSchema.index({ status: 1, sortOrder: 1, createdAt: -1 });
 
 export const Product = mongoose.model("Product", productSchema);

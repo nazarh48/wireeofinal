@@ -30,8 +30,8 @@ async function main() {
   await connectDB();
 
   await logExplain(
-    "Product list (normal, active, newest first)",
-    Product.find({ productType: "normal", status: "active" }).sort({
+    "Product list (standard, active, newest first)",
+    Product.find({ productType: { $in: ["standard", "normal"] }, status: "active" }).sort({
       createdAt: -1,
     }),
   );
@@ -66,4 +66,3 @@ main()
     console.error("[PERF][db-explain] Script failed:", err?.message || err);
     process.exit(1);
   });
-

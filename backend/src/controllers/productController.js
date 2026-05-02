@@ -5,7 +5,7 @@ import { Range } from "../models/Range.js";
 import { Resource } from "../models/Resource.js";
 import { optimizeImageAtUrl } from "../services/imageService.js";
 import { parseProductFormBody, firstFormValue } from "../utils/productBodyParser.js";
-import { createUniqueSlug } from "../utils/slug.js";
+import { createUniqueSlug, slugify } from "../utils/slug.js";
 
 const RANGE_POPULATE_FIELDS = "name slug description status image order";
 const RESOURCE_POPULATE_FIELDS =
@@ -26,12 +26,76 @@ function parseNumber(value, fallback = null) {
   return Number.isNaN(n) ? fallback : n;
 }
 
+function normalizeSortOrder(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function normalizeStoredProductType(value, fallbackConfigurable = false) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "configurable" || raw === "pro") return "configurable";
+  if (raw === "standard" || raw === "normal") return "standard";
+  return fallbackConfigurable ? "configurable" : "standard";
+}
+
+function resolveProductType(productTypeRaw, isConfigurableRaw, fallbackType) {
+  const fallbackNormalized = normalizeStoredProductType(fallbackType, fallbackType === "configurable");
+  const hasProductType =
+    productTypeRaw !== undefined && productTypeRaw !== null && productTypeRaw !== "";
+  const hasConfigurable = isConfigurableRaw !== undefined;
+
+  if (hasProductType) {
+    const requestedType = normalizeStoredProductType(productTypeRaw, false);
+    if (parseBool(isConfigurableRaw, false)) return "configurable";
+    return requestedType;
+  }
+
+  if (hasConfigurable) {
+    if (parseBool(isConfigurableRaw, false)) return "configurable";
+    return "standard";
+  }
+
+  return fallbackNormalized;
+}
+
+function buildProductTypeFilter(productType) {
+  if (!productType) return undefined;
+  const normalizedType = normalizeStoredProductType(productType, false);
+  if (normalizedType === "standard") {
+    return { $in: ["standard", "normal"] };
+  }
+  if (normalizedType === "configurable") {
+    return { $in: ["configurable", "pro"] };
+  }
+  return normalizedType;
+}
+
+function compareProductsByCatalogOrder(a, b) {
+  const orderA = normalizeSortOrder(a?.sortOrder);
+  const orderB = normalizeSortOrder(b?.sortOrder);
+
+  if (orderA !== null && orderB !== null && orderA !== orderB) {
+    return orderA - orderB;
+  }
+  if (orderA !== null && orderB === null) return -1;
+  if (orderA === null && orderB !== null) return 1;
+
+  const createdAtA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const createdAtB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+  if (createdAtA !== createdAtB) {
+    return createdAtB - createdAtA;
+  }
+
+  return String(a?.name || "").localeCompare(String(b?.name || ""));
+}
+
 function buildProductListFilter(req, enforcedFilter = {}) {
   const filter = {};
 
   if (req.query.range) filter.range = req.query.range;
   if (req.query.status) filter.status = req.query.status;
-  if (req.query.productType) filter.productType = req.query.productType;
+  if (req.query.productType) filter.productType = buildProductTypeFilter(req.query.productType);
   if (req.query.featured !== undefined) filter.featured = parseBool(req.query.featured);
 
   return { ...filter, ...enforcedFilter };
@@ -215,6 +279,9 @@ function serializeProduct(product) {
   out.resources = populatedResources;
   out.resourceIds = resourceIds;
   out.downloadableFiles = mergeDownloadables(resourceDownloads, legacyDownloadables);
+  out.sortOrder = normalizeSortOrder(out.sortOrder);
+  out.productType = normalizeStoredProductType(out.productType, out.isConfigurable === true);
+  out.isConfigurable = out.productType === "configurable";
 
   return out;
 }
@@ -250,10 +317,13 @@ async function sendProductList(req, res, next, enforcedFilter = {}) {
     const filter = buildProductListFilter(req, enforcedFilter);
     const query = Product.find(filter).sort({ createdAt: -1 }).lean();
     const products = await populateProductQuery(query);
+    const serializedProducts = products
+      .map(serializeProduct)
+      .sort(compareProductsByCatalogOrder);
 
     return res.status(200).json({
       success: true,
-      products: products.map(serializeProduct),
+      products: serializedProducts,
     });
   } catch (err) {
     next(err);
@@ -321,6 +391,7 @@ export async function create(req, res, next) {
     const printAreaBackgroundUrl = printAreaBackgroundFile
       ? toProductFile(printAreaBackgroundFile, "products").url
       : normalizeStoredUploadUrl(p.printAreaBackgroundImageUrl);
+    const productType = resolveProductType(p.productType, p.isConfigurable);
     const primaryUrl =
       images[0]?.url ||
       normalizeStoredUploadUrl(p.baseImageUrl) ||
@@ -335,6 +406,7 @@ export async function create(req, res, next) {
       description: p.description ?? "",
       technicalDetails: p.technicalDetails ?? "",
       range: p.range,
+      sortOrder: normalizeSortOrder(p.sortOrder),
       baseImageUrl: primaryUrl,
       configuratorImageUrl: configuratorUrl,
       baseDeviceImageUrl: baseDeviceUrl,
@@ -349,8 +421,8 @@ export async function create(req, res, next) {
       photoCroppingHeightPx: parseNumber(p.photoCroppingHeightPx),
       photoCroppingWidthPx: parseNumber(p.photoCroppingWidthPx),
       images,
-      isConfigurable: parseBool(p.isConfigurable, false),
-      productType: parseBool(p.isConfigurable, false) ? "configurable" : "normal",
+      isConfigurable: productType === "configurable",
+      productType,
       status: p.status || "active",
       featured: parseBool(p.featured, false),
       resourceIds: resourceIds || [],
@@ -406,11 +478,18 @@ export async function update(req, res, next) {
     if (p.technicalDetails !== undefined) updates.technicalDetails = p.technicalDetails;
     if (p.status !== undefined) updates.status = p.status;
     if (p.featured !== undefined) updates.featured = parseBool(p.featured, false);
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, "sortOrder")) {
+      updates.sortOrder = normalizeSortOrder(firstFormValue(req.body.sortOrder));
+    }
 
-    if (p.isConfigurable !== undefined) {
-      const isConfigurable = parseBool(p.isConfigurable, false);
-      updates.isConfigurable = isConfigurable;
-      updates.productType = isConfigurable ? "configurable" : "normal";
+    if (p.productType !== undefined || p.isConfigurable !== undefined) {
+      const productType = resolveProductType(
+        p.productType,
+        p.isConfigurable,
+        existingProduct.productType,
+      );
+      updates.productType = productType;
+      updates.isConfigurable = productType === "configurable";
     }
 
     if (p.range) {
@@ -542,12 +621,14 @@ export async function listConfigurable(req, res, next) {
   });
 }
 
-export async function listNormal(req, res, next) {
+export async function listStandard(req, res, next) {
   return sendProductList(req, res, next, {
-    productType: "normal",
+    productType: buildProductTypeFilter("standard"),
     status: "active",
   });
 }
+
+export const listNormal = listStandard;
 
 export async function listFeatured(req, res, next) {
   return sendProductList(req, res, next, {
@@ -575,9 +656,18 @@ export async function getById(req, res, next) {
 
 export async function getBySlug(req, res, next) {
   try {
-    const product = await populateProductQuery(
+    let product = await populateProductQuery(
       Product.findOne({ slug: req.params.slug }).lean(),
     );
+
+    if (!product) {
+      const requestedSlug = slugify(req.params.slug, "");
+      const products = await populateProductQuery(Product.find({}).lean());
+      product = products.find(
+        (item) => slugify(item?.name, item?._id?.toString?.() || "") === requestedSlug,
+      );
+    }
+
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }

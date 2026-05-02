@@ -143,7 +143,7 @@ function DashboardOverviewInner() {
   const totalRanges = stats?.totalRanges ?? 0;
   const totalProducts = stats?.totalProducts ?? 0;
   const configurableCount = stats?.configurableCount ?? 0;
-  const normalCount = stats?.normalCount ?? 0;
+  const standardCount = stats?.standardCount ?? stats?.normalCount ?? 0;
   const totalUsers = stats?.totalUsers ?? 0;
 
   const productsPerRange = useMemo(
@@ -153,11 +153,11 @@ function DashboardOverviewInner() {
   const typeChartData = useMemo(
     () => [
       { label: "Configurable", value: configurableCount },
-      { label: "Normal", value: normalCount },
+      { label: "Standard", value: standardCount },
     ],
-    [configurableCount, normalCount]
+    [configurableCount, standardCount]
   );
-  const maxType = Math.max(configurableCount + normalCount, 1);
+  const maxType = Math.max(configurableCount + standardCount, 1);
   const recentProducts = useMemo(
     () => (stats?.recentProducts || []).map(mapProduct).slice(0, 5),
     [stats?.recentProducts]
@@ -214,7 +214,7 @@ function DashboardOverviewInner() {
           <MetricCard icon={IconRanges} label="Total Ranges" value={totalRanges} to="/admin/ranges" gradient={GRADIENT_MAP.emerald} delay={0} />
           <MetricCard icon={IconProducts} label="Total Products" value={totalProducts} to="/admin/products" gradient={GRADIENT_MAP.blue} delay={0.05} />
           <MetricCard icon={IconChart} label="Configurable" value={configurableCount} gradient={GRADIENT_MAP.violet} delay={0.1} />
-          <MetricCard icon={IconChart} label="Normal" value={normalCount} gradient={GRADIENT_MAP.amber} delay={0.15} />
+          <MetricCard icon={IconChart} label="Standard" value={standardCount} gradient={GRADIENT_MAP.amber} delay={0.15} />
           <MetricCard icon={IconUsers} label="Total Users" value={totalUsers} to="/admin/users" gradient={GRADIENT_MAP.blue} delay={0.2} />
         </div>
       </section>
@@ -243,7 +243,7 @@ function DashboardOverviewInner() {
           <AnalyticsCard 
             icon={IconChart} 
             title="Product types" 
-            subtitle="Configurable vs standard"
+            subtitle="Configurable and standard"
             iconBg="bg-violet-50"
             iconColor="text-violet-600"
             delay={0.3}

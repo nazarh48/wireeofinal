@@ -2,7 +2,7 @@ import { Range } from "../models/Range.js";
 import { Product } from "../models/Product.js";
 import { optimizeImageAtUrl } from "../services/imageService.js";
 import { getFromCache, invalidatePrefix, setInCache } from "../utils/simpleCache.js";
-import { createUniqueSlug } from "../utils/slug.js";
+import { createUniqueSlug, slugify } from "../utils/slug.js";
 
 function toImageUrl(filename) {
   if (!filename) return "";
@@ -113,7 +113,16 @@ export async function getById(req, res, next) {
 
 export async function getBySlug(req, res, next) {
   try {
-    const range = await Range.findOne({ slug: req.params.slug }).lean();
+    let range = await Range.findOne({ slug: req.params.slug }).lean();
+
+    if (!range) {
+      const requestedSlug = slugify(req.params.slug, "");
+      const ranges = await Range.find({}).lean();
+      range = ranges.find(
+        (item) => slugify(item?.name, item?._id?.toString?.() || "") === requestedSlug,
+      );
+    }
+
     if (!range) {
       return res.status(404).json({ success: false, message: "Range not found" });
     }
