@@ -208,9 +208,6 @@ const ProductsInRange = () => {
                 {counts.all} products in this range
               </span>
               <h1 className="mt-5 text-4xl font-extrabold md:text-5xl">{range.name}</h1>
-              <p className="mt-5 text-lg text-slate-200">
-                {range.description || "Browse the products available in this Wireeo range."}
-              </p>
             </div>
             <Link
               to={getConfiguratorHubPath({ tab: "selection", rangeId: range.id })}

@@ -2,10 +2,40 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCatalog } from "../../hooks/useCatalog";
 import { getImageUrl } from "../../services/api";
+import { buildResponsiveImageProps } from "../../utils/imageVariants";
 import {
+  getPublicProductPath,
   getPublicRangePath,
   getPublicRangesPath,
 } from "../../utils/catalogPaths";
+
+const toImageUrl = (src) => {
+  if (!src || typeof src !== "string") return "";
+  return src.startsWith("http") || src.startsWith("data:") ? src : getImageUrl(src);
+};
+
+const uniqueImageUrls = (sources) => {
+  const seen = new Set();
+  return sources
+    .map((src) => (typeof src === "string" ? src : src?.url || ""))
+    .map(toImageUrl)
+    .filter(Boolean)
+    .filter((src) => {
+      if (seen.has(src)) return false;
+      seen.add(src);
+      return true;
+    });
+};
+
+const getProductThumbnailSource = (product) =>
+  product?.baseImageUrl ||
+  product?.configuratorImageUrl ||
+  product?.baseDeviceImageUrl ||
+  product?.baseImagePath ||
+  product?.imagePaths?.[0] ||
+  product?.configuratorImagePath ||
+  product?.baseDeviceImagePath ||
+  "";
 
 const ProductDetail = () => {
   const { id, productSlug } = useParams();
@@ -20,6 +50,7 @@ const ProductDetail = () => {
     loaded,
     error,
     fetchProductByIdentifier,
+    products: publicProducts = [],
   } = useCatalog();
   const [directProduct, setDirectProduct] = useState(null);
   const [directLoading, setDirectLoading] = useState(false);
@@ -98,17 +129,16 @@ const ProductDetail = () => {
   const galleryImages = useMemo(() => {
     if (!product) return [];
 
-    const sourceImages =
-      Array.isArray(product.images) && product.images.length > 0
-        ? product.images
-        : product.baseImageUrl
-          ? [product.baseImageUrl]
-          : [];
-
-    return sourceImages
-      .map((src) => (typeof src === "string" ? src : src?.url || ""))
-      .filter(Boolean)
-      .map((src) => (src.startsWith("http") ? src : getImageUrl(src)));
+    return uniqueImageUrls([
+      ...(Array.isArray(product.imagePaths) ? product.imagePaths : []),
+      ...(Array.isArray(product.images) ? product.images : []),
+      product.baseImagePath,
+      product.baseImageUrl,
+      product.configuratorImagePath,
+      product.configuratorImageUrl,
+      product.baseDeviceImagePath,
+      product.baseDeviceImageUrl,
+    ]);
   }, [product]);
 
   const heroImage =
@@ -118,6 +148,20 @@ const ProductDetail = () => {
     galleryImages[0] ||
     "";
   const resources = Array.isArray(product?.resources) ? product.resources : [];
+
+  const sameRangeProducts = useMemo(() => {
+    if (!product?.rangeId) return product ? [product] : [];
+
+    const matches = (publicProducts || []).filter(
+      (item) => item?.rangeId === product.rangeId,
+    );
+
+    if (matches.some((item) => item?.id === product.id)) {
+      return matches;
+    }
+
+    return [...matches, product];
+  }, [product, publicProducts]);
 
   const waitingForCatalog = !product && !loaded && !error;
   const waitingForDirectLookup =
@@ -240,9 +284,6 @@ const ProductDetail = () => {
             <h1 className="mt-6 text-4xl font-extrabold leading-tight md:text-5xl lg:text-6xl">
               {product.name}
             </h1>
-            <p className="mt-5 max-w-2xl text-lg text-slate-200">
-              {product.description || "Open technical details, visuals, and shared documentation for this product."}
-            </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               {product.configurable ? (
@@ -253,6 +294,12 @@ const ProductDetail = () => {
                   Configure Product
                 </Link>
               ) : null}
+              <Link
+                to="/products"
+                className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Back to Products
+              </Link>
               <Link
                 to={range ? getPublicRangePath(range) : getPublicRangesPath()}
                 className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/5 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
@@ -307,11 +354,32 @@ const ProductDetail = () => {
           <div>
             <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_-40px_rgba(15,23,42,0.35)]">
               <h2 className="text-3xl font-bold text-slate-900">Overview</h2>
-              {range ? (
-                <p className="mt-3 text-sm font-semibold uppercase tracking-[0.22em] text-teal-700">
-                  {range.name}
-                </p>
-              ) : null}
+              <div className="mt-6 grid divide-y divide-slate-200 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                <div className="py-4 sm:pr-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Product Name
+                  </p>
+                  <p className="mt-2 text-base font-bold text-slate-900">
+                    {product.name}
+                  </p>
+                </div>
+                <div className="py-4 sm:px-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Product Code
+                  </p>
+                  <p className="mt-2 text-base font-bold text-slate-900">
+                    {product.productCode || "Not assigned"}
+                  </p>
+                </div>
+                <div className="py-4 sm:pl-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Product Range
+                  </p>
+                  <p className="mt-2 text-base font-bold text-slate-900">
+                    {range?.name || "Unassigned"}
+                  </p>
+                </div>
+              </div>
               <p className="mt-5 text-base leading-7 text-slate-600">
                 {product.description || "No overview has been added for this product yet."}
               </p>
@@ -402,6 +470,93 @@ const ProductDetail = () => {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="border-t border-slate-200 bg-white py-14 md:py-16">
+        <div className="container mx-auto px-6">
+          <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-teal-700">
+                {range?.name || "Product Range"}
+              </p>
+              <h2 className="mt-3 text-3xl font-bold text-slate-900">
+                Products in This Range
+              </h2>
+            </div>
+            <Link
+              to={range ? getPublicRangePath(range) : getPublicRangesPath()}
+              className="inline-flex items-center text-sm font-semibold text-teal-700 transition-colors hover:text-teal-800"
+            >
+              View range
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {sameRangeProducts.map((rangeProduct) => {
+              const imageProps = buildResponsiveImageProps(
+                getProductThumbnailSource(rangeProduct),
+              );
+              const isCurrentProduct = rangeProduct.id === product.id;
+              const productRangeName = rangeProduct.range?.name || range?.name || "Product";
+
+              return (
+                <article
+                  key={rangeProduct.id}
+                  className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_45px_-35px_rgba(15,23,42,0.32)] transition-all duration-300 hover:-translate-y-1 hover:border-teal-300 hover:shadow-[0_28px_65px_-38px_rgba(15,118,110,0.28)]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-50">
+                    {imageProps.src ? (
+                      <img
+                        src={imageProps.src}
+                        srcSet={imageProps.srcSet}
+                        sizes={imageProps.sizes}
+                        loading={imageProps.loading}
+                        decoding={imageProps.decoding}
+                        alt={rangeProduct.name}
+                        className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal-50 via-white to-slate-100">
+                        <span className="text-4xl font-bold text-teal-700/70">
+                          {rangeProduct.name?.charAt(0) || "P"}
+                        </span>
+                      </div>
+                    )}
+                    {isCurrentProduct ? (
+                      <span className="absolute left-4 top-4 rounded-full border border-teal-200 bg-white/95 px-3 py-1.5 text-xs font-bold text-teal-700 shadow-sm">
+                        Current Product
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="p-6">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-teal-700">
+                      {productRangeName}
+                    </p>
+                    <h3 className="mt-3 line-clamp-2 text-xl font-bold text-slate-900">
+                      {rangeProduct.name}
+                    </h3>
+                    {rangeProduct.productCode ? (
+                      <p className="mt-2 text-sm font-semibold text-slate-500">
+                        {rangeProduct.productCode}
+                      </p>
+                    ) : null}
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
+                      {rangeProduct.description ||
+                        "Open this product to explore specifications, visuals, and documentation."}
+                    </p>
+                    <Link
+                      to={getPublicProductPath(rangeProduct)}
+                      className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+                    >
+                      {isCurrentProduct ? "Viewing Product" : "View Product"}
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
       </section>
     </div>

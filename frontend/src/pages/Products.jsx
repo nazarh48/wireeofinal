@@ -58,6 +58,19 @@ function compareTypePriority(a, b, weights) {
   return 0;
 }
 
+function getProductThumbnailSource(product) {
+  return (
+    product?.baseImageUrl ||
+    product?.configuratorImageUrl ||
+    product?.baseDeviceImageUrl ||
+    product?.baseImagePath ||
+    product?.imagePaths?.[0] ||
+    product?.configuratorImagePath ||
+    product?.baseDeviceImagePath ||
+    ""
+  );
+}
+
 const Products = () => {
   const [selectedRangeId, setSelectedRangeId] = useState(null);
   const [productTypeFilter, setProductTypeFilter] = useState("all");
@@ -618,9 +631,7 @@ const Products = () => {
                               sizes,
                               loading,
                               decoding,
-                            } = buildResponsiveImageProps(
-                              product.baseImagePath || product.baseImageUrl || "",
-                            );
+                            } = buildResponsiveImageProps(getProductThumbnailSource(product));
                             const detailUrl = getPublicProductPath(product);
                             const typeMeta = getProductTypeMeta(product.productType);
 
@@ -638,7 +649,7 @@ const Products = () => {
                                       loading={loading}
                                       decoding={decoding}
                                       alt={product.name}
-                                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                      className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105"
                                     />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-100 via-white to-teal-100">

@@ -408,7 +408,14 @@ function ProductForm({
               printAreaBackgroundImageUrl: printAreaBackgroundImageUrl || "",
             } : {}),
           }
-        : {}),
+        : {
+            backgroundEnabled: false,
+            iconsTextEnabled: true,
+            photoCroppingEnabled: false,
+            photoCroppingHeightPx: null,
+            photoCroppingWidthPx: null,
+            printAreaBackgroundImageUrl: "",
+          }),
     });
     } catch (submissionError) {
       const apiFieldErrors = getApiFieldErrors(submissionError);

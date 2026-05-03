@@ -109,7 +109,7 @@ export const productValidators = {
       .withMessage("Invalid product type"),
     body("sortOrder")
       .optional({ values: "null" })
-      .isInt({ min: 0 })
+      .custom((value) => value === "" || /^\d+$/.test(String(value)))
       .withMessage("sortOrder must be a non-negative integer"),
     body("baseImageUrl").optional().trim(),
     body("configuratorImageUrl").optional().trim(),
@@ -142,7 +142,7 @@ export const productValidators = {
       .withMessage("Invalid product type"),
     body("sortOrder")
       .optional({ values: "null" })
-      .isInt({ min: 0 })
+      .custom((value) => value === "" || /^\d+$/.test(String(value)))
       .withMessage("sortOrder must be a non-negative integer"),
     body("baseImageUrl").optional().trim(),
     body("configuratorImageUrl").optional().trim(),

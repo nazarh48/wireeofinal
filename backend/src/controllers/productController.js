@@ -340,6 +340,10 @@ function resolveModes(printingEnabledRaw, laserEnabledRaw) {
   return { printingEnabled, laserEnabled, backgroundCustomizable };
 }
 
+function resolvePrintingOption(value, printingEnabled, fallback = false) {
+  return printingEnabled ? parseBool(value, fallback) : false;
+}
+
 function ensureProductResourcesAreCentralized(req) {
   const directFiles = Array.isArray(req.files?.files) ? req.files.files : [];
   if (directFiles.length === 0) return null;
@@ -415,11 +419,11 @@ export async function create(req, res, next) {
       printingEnabled,
       laserEnabled,
       backgroundCustomizable,
-      backgroundEnabled: parseBool(p.backgroundEnabled, true),
-      iconsTextEnabled: parseBool(p.iconsTextEnabled, true),
-      photoCroppingEnabled: parseBool(p.photoCroppingEnabled, true),
-      photoCroppingHeightPx: parseNumber(p.photoCroppingHeightPx),
-      photoCroppingWidthPx: parseNumber(p.photoCroppingWidthPx),
+      backgroundEnabled: resolvePrintingOption(p.backgroundEnabled, printingEnabled, false),
+      iconsTextEnabled: printingEnabled ? parseBool(p.iconsTextEnabled, false) : true,
+      photoCroppingEnabled: resolvePrintingOption(p.photoCroppingEnabled, printingEnabled, false),
+      photoCroppingHeightPx: printingEnabled ? parseNumber(p.photoCroppingHeightPx) : null,
+      photoCroppingWidthPx: printingEnabled ? parseNumber(p.photoCroppingWidthPx) : null,
       images,
       isConfigurable: productType === "configurable",
       productType,
@@ -508,6 +512,12 @@ export async function update(req, res, next) {
       updates.printingEnabled = printingEnabled;
       updates.laserEnabled = laserEnabled;
       updates.backgroundCustomizable = backgroundCustomizable;
+      if (!printingEnabled) {
+        updates.backgroundEnabled = false;
+        updates.photoCroppingEnabled = false;
+        updates.photoCroppingHeightPx = null;
+        updates.photoCroppingWidthPx = null;
+      }
     }
 
     if (p.backgroundEnabled !== undefined) {
@@ -559,6 +569,10 @@ export async function update(req, res, next) {
         "";
     }
 
+    if (p.baseImageUrl !== undefined) {
+      updates.baseImageUrl = normalizeStoredUploadUrl(p.baseImageUrl);
+    }
+
     if (configuratorFile) {
       updates.configuratorImageUrl = toProductFile(configuratorFile, "products").url;
     } else if (p.configuratorImageUrl !== undefined) {
@@ -586,6 +600,34 @@ export async function update(req, res, next) {
       updates.printAreaBackgroundImageUrl = normalizeStoredUploadUrl(
         p.printAreaBackgroundImageUrl,
       );
+    }
+
+    const imageFieldsChanged =
+      hasExistingImagesField ||
+      imageFiles.length > 0 ||
+      configuratorFile ||
+      baseDeviceFile ||
+      p.configuratorImageUrl !== undefined ||
+      p.baseDeviceImageUrl !== undefined ||
+      p.baseImageUrl !== undefined;
+
+    if (
+      imageFieldsChanged &&
+      !Object.prototype.hasOwnProperty.call(updates, "baseImageUrl") &&
+      !existingProduct.baseImageUrl
+    ) {
+      const nextImages = Array.isArray(updates.images)
+        ? updates.images
+        : Array.isArray(existingProduct.images)
+          ? existingProduct.images
+          : [];
+      updates.baseImageUrl =
+        nextImages[0]?.url ||
+        updates.configuratorImageUrl ||
+        existingProduct.configuratorImageUrl ||
+        updates.baseDeviceImageUrl ||
+        existingProduct.baseDeviceImageUrl ||
+        "";
     }
 
     const product = await Product.findByIdAndUpdate(

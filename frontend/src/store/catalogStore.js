@@ -162,8 +162,23 @@ const mapProduct = (p) => {
     .map((img) => (typeof img === "string" ? img : img?.url))
     .filter(Boolean);
   const images = imagePaths.map(toAbsoluteImageUrl);
+  const configuratorImagePath =
+    typeof p?.configuratorImageUrl === "string" ? p.configuratorImageUrl : "";
+  const baseDeviceImagePath =
+    typeof p?.baseDeviceImageUrl === "string" ? p.baseDeviceImageUrl : "";
+  const engravingMaskImagePath =
+    typeof p?.engravingMaskImageUrl === "string" ? p.engravingMaskImageUrl : "";
+  const printAreaBackgroundImagePath =
+    typeof p?.printAreaBackgroundImageUrl === "string"
+      ? p.printAreaBackgroundImageUrl
+      : "";
   const baseImagePath = typeof p?.baseImageUrl === "string" ? p.baseImageUrl : "";
-  const baseImageUrlRaw = baseImagePath || images[0] || "";
+  const baseImageUrlRaw =
+    baseImagePath ||
+    imagePaths[0] ||
+    configuratorImagePath ||
+    baseDeviceImagePath ||
+    "";
   const baseImageUrl = toAbsoluteImageUrl(baseImageUrlRaw) || images[0] || "";
 
   // Get range name for SEO-friendly alt text
@@ -227,10 +242,14 @@ const mapProduct = (p) => {
     sortOrder: normalizeProductSortOrder(p?.sortOrder),
     baseImageUrl,
     baseImagePath,
-    configuratorImageUrl: p?.configuratorImageUrl ? toAbsoluteImageUrl(p.configuratorImageUrl) : "",
-    baseDeviceImageUrl: p?.baseDeviceImageUrl ? toAbsoluteImageUrl(p.baseDeviceImageUrl) : "",
-    engravingMaskImageUrl: p?.engravingMaskImageUrl ? toAbsoluteImageUrl(p.engravingMaskImageUrl) : "",
-    printAreaBackgroundImageUrl: p?.printAreaBackgroundImageUrl ? toAbsoluteImageUrl(p.printAreaBackgroundImageUrl) : "",
+    configuratorImagePath,
+    configuratorImageUrl: configuratorImagePath ? toAbsoluteImageUrl(configuratorImagePath) : "",
+    baseDeviceImagePath,
+    baseDeviceImageUrl: baseDeviceImagePath ? toAbsoluteImageUrl(baseDeviceImagePath) : "",
+    engravingMaskImagePath,
+    engravingMaskImageUrl: engravingMaskImagePath ? toAbsoluteImageUrl(engravingMaskImagePath) : "",
+    printAreaBackgroundImagePath,
+    printAreaBackgroundImageUrl: printAreaBackgroundImagePath ? toAbsoluteImageUrl(printAreaBackgroundImagePath) : "",
     images,
     imagePaths,
     imageAlt,
