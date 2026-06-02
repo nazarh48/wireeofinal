@@ -25,7 +25,7 @@ const nav = [
   { to: "/admin/categories", label: "Categories", icon: IconCategories },
   { to: "/admin/solutions", label: "Solutions", icon: IconSolutions },
   { to: "/admin/solution-details", label: "Solution details", icon: IconSolutions },
-  { to: "/admin/solution-why-choose", label: "Solution – Why Choose", icon: IconSolutions },
+  { to: "/admin/solution-why-choose", label: "Solution - Why Choose", icon: IconSolutions },
   { to: "/admin/ranges", label: "Ranges Management", icon: IconRanges },
   { to: "/admin/products", label: "Products Management", icon: IconProducts },
   { to: "/admin/icon-library", label: "Icon Library", icon: IconLibrary },
@@ -39,6 +39,23 @@ const nav = [
   { to: "/admin/settings", label: "Settings", icon: IconSettings },
 ];
 
+function SidebarLink({ to, label, icon: Icon, collapsed }) {
+  return (
+    <NavLink
+      key={to}
+      to={to}
+      className={({ isActive }) =>
+        `admin-nav-link flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${isActive ? "is-active" : ""} ${collapsed ? "justify-center" : ""}`
+      }
+    >
+      <span className="admin-nav-icon">
+        <Icon className="h-4 w-4" />
+      </span>
+      {!collapsed && <span className="truncate">{label}</span>}
+    </NavLink>
+  );
+}
+
 export default function AdminSidebar({ collapsed, onToggle }) {
   const navigate = useNavigate();
   const logoutAdmin = useAuthStore((s) => s.logoutAdmin);
@@ -51,92 +68,67 @@ export default function AdminSidebar({ collapsed, onToggle }) {
 
   return (
     <aside
-      className={`${collapsed ? "w-[72px]" : "w-64"} flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out shrink-0 border-r border-slate-800/50 shadow-xl`}
+      className={`${collapsed ? "w-[88px]" : "w-[270px]"} admin-sidebar flex flex-col transition-all duration-300 ease-in-out shrink-0`}
     >
-      <div className="flex items-center justify-between h-16 px-3 border-b border-slate-800/50 shrink-0">
-        {!collapsed ? (
-          <Link
-            to="/"
-            className="flex items-center gap-2 min-w-0 flex-1 rounded-lg hover:opacity-90 transition-opacity duration-200"
-            title="Wireeo – Home"
-          >
-            <img
-              src="/assets/Logowireeo.png"
-              alt="Wireeo"
-              className="h-9 w-auto object-contain flex-shrink-0"
-            />
-          </Link>
-        ) : (
-          <Link
-            to="/"
-            className="flex items-center justify-center w-full rounded-lg hover:opacity-90 transition-opacity"
-            title="Go to home page"
-          >
-            <img
-              src="/assets/Logowireeo.png"
-              alt="Wireeo"
-              className="h-8 w-8 object-contain"
-            />
-          </Link>
-        )}
+      <div className="flex items-center justify-between px-6 pt-8 pb-7">
+        <Link to="/" className="flex min-w-0 items-center gap-3" title="Wireeo - Home">
+          <span className="admin-logo-card">
+            <img src="/assets/Logowireeo.png" alt="Wireeo" />
+          </span>
+          {!collapsed && (
+            <span className="leading-tight">
+              <span className="block text-base font-black">Wireeo</span>
+              <span className="block text-xs font-bold text-slate-500">Admin Panel</span>
+            </span>
+          )}
+        </Link>
         <motion.button
           onClick={onToggle}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors shrink-0"
+          className="admin-collapse-button"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {collapsed ? (
-            <IconChevronRight className="w-5 h-5" />
-          ) : (
-            <IconChevronLeft className="w-5 h-5" />
-          )}
+          {collapsed ? <IconChevronRight className="h-4 w-4" /> : <IconChevronLeft className="h-4 w-4" />}
         </motion.button>
       </div>
 
-      <div className="px-2 pt-2 pb-1 border-b border-slate-800/50">
+      <div className="px-5 pb-4">
         <Link
           to="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-slate-800/70 hover:text-white transition-all duration-200 group"
+          className={`admin-nav-link flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${collapsed ? "justify-center" : ""}`}
         >
-          <IconHome className="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:scale-110 transition-transform" />
-          {!collapsed && <span className="truncate font-medium text-sm">Go to home page</span>}
+          <span className="admin-nav-icon">
+            <IconHome className="h-4 w-4" />
+          </span>
+          {!collapsed && <span>Go to home page</span>}
         </Link>
       </div>
 
-      <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-        {nav.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2.5 mx-2 mb-1 rounded-xl transition-all duration-200 ${isActive
-                ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-900/30"
-                : "text-slate-300 hover:bg-slate-800/70 hover:text-white hover:translate-x-1"
-              } ${collapsed ? "justify-center" : ""}`
-            }
-          >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="truncate text-sm font-medium">{label}</span>}
-          </NavLink>
-        ))}
+      <nav className="flex-1 overflow-y-auto px-5 pb-5">
+        {!collapsed && <p className="admin-sidebar-label">Menu</p>}
+        <div className="mt-3 space-y-2">
+          {nav.map((item) => (
+            <SidebarLink key={item.to} {...item} collapsed={collapsed} />
+          ))}
+        </div>
       </nav>
 
-      <div className="p-2 border-t border-slate-800/50">
+      <div className="px-5 pb-6">
         {!collapsed && admin && (
-          <div className="px-3 py-2 mb-2 text-xs text-slate-400 truncate bg-slate-800/30 rounded-lg">
+          <div className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3 text-xs font-bold text-slate-600">
             {admin.name || admin.email}
           </div>
         )}
-        <motion.button
+        <button
           onClick={handleLogout}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-slate-300 hover:bg-red-600/20 hover:text-red-400 transition-all duration-200 ${collapsed ? "justify-center" : ""}`}
+          className={`admin-nav-link flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${collapsed ? "justify-center" : ""}`}
         >
-          <IconLogout className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Logout</span>}
-        </motion.button>
+          <span className="admin-nav-icon">
+            <IconLogout className="h-4 w-4" />
+          </span>
+          {!collapsed && <span>Logout</span>}
+        </button>
       </div>
     </aside>
   );

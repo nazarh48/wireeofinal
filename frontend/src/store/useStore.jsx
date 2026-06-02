@@ -6,6 +6,44 @@ import { generateInstanceId } from "../utils/instanceUtils";
 const EDITOR_CANVAS_WIDTH = 800;
 const EDITOR_CANVAS_HEIGHT = 600;
 
+const asBool = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  return value === true || value === "true" || value === 1 || value === "1";
+};
+
+const getDefaultProcessingType = (product) => {
+  const laserEnabled = asBool(product?.laserEnabled, false);
+  const printingEnabled = asBool(product?.printingEnabled, true);
+
+  if (laserEnabled && !printingEnabled) return "Laser engraving";
+  return "Colour printing";
+};
+
+const resolveProcessingType = (product, value) => {
+  const laserEnabled = asBool(product?.laserEnabled, false);
+  const printingEnabled = asBool(product?.printingEnabled, true);
+  const configured = typeof value === "string" ? value.trim() : "";
+
+  if (laserEnabled && !printingEnabled) return "Laser engraving";
+  if (printingEnabled && !laserEnabled) return "Colour printing";
+  return configured || getDefaultProcessingType(product);
+};
+
+const normalizeEditsForProduct = (product, edits = null) => {
+  if (!edits) return null;
+  const configuration = edits.configuration && typeof edits.configuration === "object"
+    ? edits.configuration
+    : {};
+  return {
+    ...edits,
+    elements: Array.isArray(edits.elements) ? edits.elements : [],
+    configuration: {
+      ...configuration,
+      processingType: resolveProcessingType(product, configuration.processingType),
+    },
+  };
+};
+
 const normalizeImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
@@ -43,8 +81,9 @@ const normalizeProduct = (product, edits = null) => {
     ),
     configurable: isConfigurableProduct(product),
   };
-  if (edits) {
-    normalized.edits = edits;
+  const normalizedEdits = normalizeEditsForProduct(product, edits);
+  if (normalizedEdits) {
+    normalized.edits = normalizedEdits;
   }
   return normalized;
 };
@@ -171,10 +210,11 @@ const useStore = create((set, get) => ({
         : product.edits || null;
       const editedImage = instanceEdits?.editedImage || product.editedImage || null;
       const normalized = normalizeProduct(product, edits);
+      const normalizedEdits = normalizeEditsForProduct(normalized, edits);
       return {
         ...normalized,
         instanceId: instanceId || product.instanceId,
-        edits: edits ? { elements: edits.elements || [], configuration: edits.configuration || {} } : null,
+        edits: normalizedEdits,
         editedImage: editedImage || null,
       };
     });
@@ -263,12 +303,13 @@ const useStore = create((set, get) => ({
           const instanceId = product.instanceId;
           const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
           if (instanceEdits) {
+            const normalizedEdits = normalizeEditsForProduct(product, {
+              elements: instanceEdits.elements || [],
+              configuration: instanceEdits.configuration || {},
+            });
             return {
               ...product,
-              edits: {
-                elements: instanceEdits.elements || [],
-                configuration: instanceEdits.configuration || {},
-              },
+              edits: normalizedEdits,
               editedImage: instanceEdits.editedImage || null,
             };
           }
@@ -278,12 +319,13 @@ const useStore = create((set, get) => ({
                 const instanceRes = await apiService.canvas.getByInstance(instanceId);
                 const instanceEdit = instanceRes?.edit || instanceRes?.instanceEdit || null;
                 if (instanceEdit?.canvasData || instanceEdit?.editedImage || instanceEdit?.layoutConfig) {
+                  const normalizedEdits = normalizeEditsForProduct(product, {
+                    elements: instanceEdit.canvasData || [],
+                    configuration: instanceEdit.layoutConfig || {},
+                  });
                   return {
                     ...product,
-                    edits: {
-                      elements: instanceEdit.canvasData || [],
-                      configuration: instanceEdit.layoutConfig || {},
-                    },
+                    edits: normalizedEdits,
                     editedImage: instanceEdit.editedImage || null,
                   };
                 }
@@ -295,12 +337,13 @@ const useStore = create((set, get) => ({
             }
             const editRes = await apiService.canvas.getByProduct(product.id);
             if (editRes?.edit?.canvasData || editRes?.edit?.layoutConfig || editRes?.edit?.editedImage) {
+              const normalizedEdits = normalizeEditsForProduct(product, {
+                elements: editRes.edit.canvasData || [],
+                configuration: editRes.edit.layoutConfig || {},
+              });
               return {
                 ...product,
-                edits: {
-                  elements: editRes.edit.canvasData || [],
-                  configuration: editRes.edit.layoutConfig || {},
-                },
+                edits: normalizedEdits,
                 editedImage: editRes.edit.editedImage || null,
               };
             }
@@ -397,10 +440,10 @@ const useStore = create((set, get) => ({
               const instanceId = item.instanceId;
               const entryId = (item._id != null ? String(item._id) : null);
               const normalized = normalizeProduct(p, item.edits || {});
-              const safeEdits = {
+              const safeEdits = normalizeEditsForProduct(p, {
                 elements: Array.isArray(item.edits?.elements) ? item.edits.elements : [],
                 configuration: item.edits?.configuration && typeof item.edits.configuration === "object" ? item.edits.configuration : {},
-              };
+              });
               // Ensure configurator image is always set so project shows the same base as configurator/edited view
               const configuratorImageUrl = normalized?.configuratorImageUrl || normalized?.baseImageUrl || "";
               const baseImageUrl = normalized?.baseImageUrl || normalized?.configuratorImageUrl || "";
@@ -465,12 +508,17 @@ const useStore = create((set, get) => ({
       for (const item of pendingItems) {
         const instId = item.instanceId;
         const edits = state.editsByInstanceId[instId] || state.pendingEdits?.[instId];
-        if (edits && edits.elements && edits.elements.length > 0) {
+        const hasElements = Array.isArray(edits?.elements) && edits.elements.length > 0;
+        const hasConfiguration =
+          edits?.configuration &&
+          typeof edits.configuration === "object" &&
+          Object.keys(edits.configuration).length > 0;
+        if (edits && (hasElements || hasConfiguration)) {
           await apiService.canvas.saveInstance({
             instanceId: instId,
             productId: item.id,
-            canvasData: edits.elements,
-            textOverlays: edits.elements.filter((el) => el.type === "text"),
+            canvasData: edits.elements || [],
+            textOverlays: (edits.elements || []).filter((el) => el.type === "text"),
             layoutConfig: edits.configuration || {},
           });
         }
@@ -934,9 +982,8 @@ const useStore = create((set, get) => ({
       const elements = normalizeElements(rawElements);
       const existingCfg = existingEdits?.configuration || {};
 
-      const asBool = (v) => v === true || v === "true" || v === 1 || v === "1";
       const isPrintingProduct =
-        product?.printingEnabled === true || product?.printingEnabled === "true";
+        asBool(product?.printingEnabled, true);
       const backgroundEnabledResolved = isPrintingProduct
         ? (product?.backgroundEnabled !== undefined ? asBool(product.backgroundEnabled) : asBool(product.backgroundCustomizable))
         : false;
@@ -954,7 +1001,7 @@ const useStore = create((set, get) => ({
         isValid: existingCfg.isValid || false,
         lastModified: existingCfg.lastModified || null,
         // Ensure editor form fields are reset per product/instance unless persisted.
-        processingType: existingCfg.processingType || "Colour printing",
+        processingType: resolveProcessingType(product, existingCfg.processingType),
         individualLabeling: existingCfg.individualLabeling || "",
         room: existingCfg.room || "",
         floor: String(existingCfg.floor ?? "1"),
@@ -1001,12 +1048,12 @@ const useStore = create((set, get) => ({
   saveProductEdits: async (productId, instanceId = null, editedImageDataURL = null) => {
     const state = get();
     if (!productId || !state.configurator.product) return false;
+    const product = state.configurator.product || {};
     const existingInstanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
     const existingProductEdits = !instanceId ? state.productEdits[productId] : null;
 
     const buildExportConfig = () => {
       const cfg = state.configurator;
-      const product = cfg.product || {};
       const elements = cfg.elements || [];
       const icons = elements
         .filter((el) => (el.type === "icon" || el.type === "image" || el.type === "mdiIcon") && el.iconId)
@@ -1038,17 +1085,11 @@ const useStore = create((set, get) => ({
         }));
       return {
         productId,
-        printingEnabled:
-          product.printingEnabled !== undefined
-            ? !!product.printingEnabled
-            : true,
-        laserEnabled:
-          product.laserEnabled !== undefined
-            ? !!product.laserEnabled
-            : true,
+        printingEnabled: asBool(product.printingEnabled, true),
+        laserEnabled: asBool(product.laserEnabled, true),
         backgroundCustomizable:
           product.backgroundCustomizable !== undefined
-            ? !!product.backgroundCustomizable
+            ? asBool(product.backgroundCustomizable, true)
             : true,
         backgroundImage: cfg.backgroundImage || cfg.configuration?.backgroundImage || null,
         icons,
@@ -1056,7 +1097,7 @@ const useStore = create((set, get) => ({
       };
     };
 
-    const edits = {
+    const edits = normalizeEditsForProduct(product, {
       elements: [...state.configurator.elements],
       configuration: {
         ...state.configurator.configuration,
@@ -1064,7 +1105,7 @@ const useStore = create((set, get) => ({
       },
       lastSaved: new Date().toISOString(),
       exportConfig: buildExportConfig(),
-    };
+    });
     if (editedImageDataURL && editedImageDataURL.length <= 1_500_000) {
       edits.editedImage = {
         type: "base64",
@@ -1129,12 +1170,12 @@ const useStore = create((set, get) => ({
         }
         const persisted = saveRes?.edit || null;
         if (persisted) {
-          const normalizedPersisted = {
+          const normalizedPersisted = normalizeEditsForProduct(product, {
             elements: persisted.canvasData || edits.elements || [],
             configuration: persisted.layoutConfig || edits.configuration || {},
             editedImage: persisted.editedImage || edits.editedImage || null,
             lastSaved: persisted.updatedAt || new Date().toISOString(),
-          };
+          });
           set((s) => ({
             editsByInstanceId: {
               ...s.editsByInstanceId,
@@ -1154,15 +1195,16 @@ const useStore = create((set, get) => ({
       });
       const persisted = saveRes?.edit || null;
       if (persisted) {
+        const normalizedPersisted = normalizeEditsForProduct(product, {
+          elements: persisted.canvasData || edits.elements || [],
+          configuration: persisted.layoutConfig || edits.configuration || {},
+          editedImage: persisted.editedImage || edits.editedImage || null,
+          lastSaved: persisted.updatedAt || new Date().toISOString(),
+        });
         set((s) => ({
           productEdits: {
             ...s.productEdits,
-            [productId]: {
-              elements: persisted.canvasData || edits.elements || [],
-              configuration: persisted.layoutConfig || edits.configuration || {},
-              editedImage: persisted.editedImage || edits.editedImage || null,
-              lastSaved: persisted.updatedAt || new Date().toISOString(),
-            },
+            [productId]: normalizedPersisted,
           },
         }));
       }
@@ -1255,16 +1297,68 @@ const useStore = create((set, get) => ({
     })),
   updateConfiguratorConfiguration: (updates) =>
     set((state) => {
+      const currentProduct = state.configurator.product || {};
       const nextConfig = {
         ...state.configurator.configuration,
         ...(updates || {}),
         lastModified: new Date().toISOString(),
       };
+      nextConfig.processingType = resolveProcessingType(currentProduct, nextConfig.processingType);
       // Keep top-level backgroundImage in sync so save/load and "Clear background" persist correctly.
       const backgroundImage =
         typeof (updates || {}).backgroundImage !== 'undefined'
           ? (updates.backgroundImage || null)
           : state.configurator.backgroundImage;
+      const currentProductId = state.configurator.product?.id;
+      const editingInstanceId = state.configurator.editingInstanceId;
+      const draftEdits = normalizeEditsForProduct(currentProduct, {
+        elements: Array.isArray(state.configurator.elements) ? state.configurator.elements : [],
+        configuration: {
+          ...nextConfig,
+          backgroundImage,
+        },
+      });
+
+      if (editingInstanceId) {
+        const existingDraft = state.editsByInstanceId[editingInstanceId] || {};
+        return {
+          configurator: {
+            ...state.configurator,
+            backgroundImage,
+            configuration: nextConfig,
+          },
+          editsByInstanceId: {
+            ...state.editsByInstanceId,
+            [editingInstanceId]: {
+              ...existingDraft,
+              ...draftEdits,
+              editedImage: existingDraft.editedImage || null,
+              lastSaved: existingDraft.lastSaved || nextConfig.lastModified,
+            },
+          },
+        };
+      }
+
+      if (currentProductId) {
+        const existingDraft = state.productEdits[currentProductId] || {};
+        return {
+          configurator: {
+            ...state.configurator,
+            backgroundImage,
+            configuration: nextConfig,
+          },
+          productEdits: {
+            ...state.productEdits,
+            [currentProductId]: {
+              ...existingDraft,
+              ...draftEdits,
+              editedImage: existingDraft.editedImage || null,
+              lastSaved: existingDraft.lastSaved || nextConfig.lastModified,
+            },
+          },
+        };
+      }
+
       return {
         configurator: {
           ...state.configurator,
@@ -1759,11 +1853,12 @@ const useStore = create((set, get) => ({
     const eligible = list
       .filter((product) => isConfigurableProduct(product))
       .map((product) => {
-        // Prefer product's own snapshot (e.g. from project) so project products stay independent of collection.
+        // Project exports should use the project snapshot; collection exports should use the latest instance edit.
         const hasSnapshot = product.edits && ((Array.isArray(product.edits.elements) && product.edits.elements.length > 0) || (product.edits.configuration && Object.keys(product.edits.configuration).length > 0));
         const instanceId = product.instanceId;
         const instanceEdits = instanceId ? state.editsByInstanceId[instanceId] : null;
-        const edits = hasSnapshot
+        const preferSnapshot = Boolean(projectId) && hasSnapshot;
+        const edits = preferSnapshot
           ? { elements: product.edits.elements || [], configuration: product.edits.configuration || {} }
           : (instanceEdits
             ? { elements: instanceEdits.elements || [], configuration: instanceEdits.configuration || {} }
@@ -1949,11 +2044,11 @@ const useStore = create((set, get) => ({
     })),
   markProductAsEdited: (productId) =>
     set((state) => {
-      const edits = {
+      const edits = normalizeEditsForProduct(state.configurator.product, {
         elements: [...state.configurator.elements],
         configuration: { ...state.configurator.configuration },
         lastSaved: new Date().toISOString(),
-      };
+      });
 
       // Prefer instance-level storage when an editingInstanceId is active.
       // Fall back to legacy productEdits map only when no instance context exists

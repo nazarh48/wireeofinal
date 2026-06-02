@@ -17,6 +17,22 @@ import {
 const FALLBACK_CANVAS_WIDTH = 200;
 const FALLBACK_CANVAS_HEIGHT = 150;
 
+const asBool = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  return value === true || value === "true" || value === 1 || value === "1";
+};
+
+const resolveProcessingType = (product = {}) => {
+  const cfg = product?.edits?.configuration || {};
+  const configured = typeof cfg.processingType === "string" ? cfg.processingType.trim() : "";
+  const laserEnabled = asBool(product?.laserEnabled, false);
+  const printingEnabled = asBool(product?.printingEnabled, true);
+
+  if (laserEnabled && !printingEnabled) return "Laser engraving";
+  if (printingEnabled && !laserEnabled) return "Colour printing";
+  return configured || (laserEnabled ? "Laser engraving" : "Colour printing");
+};
+
 // Helper function to load image; throws clear error with path if image is missing/fails.
 // Fallback placeholder uses a canvas with guaranteed non-zero dimensions to avoid createPattern errors.
 const loadImage = (src) => {
@@ -1060,7 +1076,7 @@ export const generateProductPDF = async (products, options = {}) => {
           `Individual labelling: ${cfg.individualLabeling || cfg.individualLabel || "—"}`,
           `Floor: ${cfg.floor || "—"}`,
           `Room: ${cfg.room || "—"}`,
-          `Processing: ${cfg.processingType || "Print"}`,
+          `Processing: ${resolveProcessingType(product)}`,
           "1x incl. Processing fee",
           "1x",
           "Item",

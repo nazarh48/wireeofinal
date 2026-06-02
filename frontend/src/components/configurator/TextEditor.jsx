@@ -2,15 +2,16 @@ import { useState } from 'react';
 import useStore from '../../store/useStore';
 
 const TextEditor = () => {
-  const { configurator, updateConfiguration } = useStore();
+  const { configurator, updateConfiguratorConfiguration } = useStore();
   const [selectedTextElement, setSelectedTextElement] = useState(null);
 
   const handleTextChange = (textId, field, value) => {
-    updateConfiguration({
+    const textElements = configurator.configuration?.textElements || {};
+    updateConfiguratorConfiguration({
       textElements: {
-        ...configurator.configuration.textElements,
+        ...textElements,
         [textId]: {
-          ...configurator.configuration.textElements[textId],
+          ...(textElements[textId] || {}),
           [field]: value
         }
       }

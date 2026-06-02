@@ -37,6 +37,11 @@ const DEFAULT_LIBRARY_ICON_SIZE = 96;
 const MIN_LIBRARY_ICON_SIZE = 32;
 const DEFAULT_LIBRARY_ICON_COLOR = '#111827';
 
+const asBool = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  return value === true || value === 'true' || value === 1 || value === '1';
+};
+
 const loadImageAsset = (src) =>
   new Promise((resolve, reject) => {
     if (!src) {
@@ -68,10 +73,10 @@ const getProcessingOptionsForProduct = (product) => {
   const options = [];
 
   // Tie options to per‑product capabilities from the admin form
-  if (product.printingEnabled !== false) {
+  if (asBool(product.printingEnabled, true)) {
     options.push('Colour printing');
   }
-  if (product.laserEnabled) {
+  if (asBool(product.laserEnabled, false)) {
     options.push('Laser engraving');
   }
 
@@ -113,11 +118,10 @@ const ConfiguratorToolRail = () => {
 
   // For laser-only products, hide image upload (no background/own picture allowed)
   const isLaserOnly =
-    configurator.product?.laserEnabled === true &&
-    configurator.product?.printingEnabled === false;
+    asBool(configurator.product?.laserEnabled, false) &&
+    !asBool(configurator.product?.printingEnabled, true);
 
-  const asBool = (v) => v === true || v === 'true' || v === 1 || v === '1';
-  const isPrintingProduct = configurator.product?.printingEnabled === true || configurator.product?.printingEnabled === 'true';
+  const isPrintingProduct = asBool(configurator.product?.printingEnabled, true);
 
   // Icons/Text are controlled only for printing-enabled products.
   // For legacy products (iconsTextEnabled missing), default to enabled for printing.
@@ -142,9 +146,12 @@ const ConfiguratorToolRail = () => {
   }, [loadCategories]);
 
   const activeIcons = getActiveIcons();
+  const currentProcessingType = configurator.configuration?.processingType;
+  const currentIndividualLabeling = configurator.configuration?.individualLabeling;
+  const currentRoom = configurator.configuration?.room;
+  const currentFloor = configurator.configuration?.floor;
 
   useEffect(() => {
-    const cfg = configurator.configuration || {};
     setTextValue('');
     setActiveAction((prev) => {
       const isAllowed = quickActions.some((a) => a.id === prev);
@@ -152,20 +159,24 @@ const ConfiguratorToolRail = () => {
       return quickActions[0]?.id || 'icons';
     });
     const nextProcessing =
-      (cfg.processingType && processingOptions.includes(cfg.processingType))
-        ? cfg.processingType
+      (currentProcessingType && processingOptions.includes(currentProcessingType))
+        ? currentProcessingType
         : (processingOptions[0] || 'Colour printing');
     setPrintMode(nextProcessing);
-    setIndividualLabeling(cfg.individualLabeling || '');
-    setRoomValue(cfg.room || '');
-    setFloorValue(String(cfg.floor ?? '1'));
+    if (nextProcessing && currentProcessingType !== nextProcessing) {
+      updateConfiguratorConfiguration({ processingType: nextProcessing });
+    }
+    setIndividualLabeling(currentIndividualLabeling || '');
+    setRoomValue(currentRoom || '');
+    setFloorValue(String(currentFloor ?? '1'));
   }, [
     configurator.editingInstanceId,
     configurator.product?.id,
-    configurator.configuration?.processingType,
-    configurator.configuration?.individualLabeling,
-    configurator.configuration?.room,
-    configurator.configuration?.floor,
+    currentProcessingType,
+    currentIndividualLabeling,
+    currentRoom,
+    currentFloor,
+    updateConfiguratorConfiguration,
     processingOptions,
     quickActions,
   ]);

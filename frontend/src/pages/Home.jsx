@@ -91,7 +91,7 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="min-h-screen -mt-20">
+    <div className="min-h-screen -mt-20 overflow-x-hidden">
       {/* ── Hero Carousel ──────────────────────────────────────────────────────
            HEIGHT IS FIXED — driven by the container style, never by content.
            All slides live in the DOM simultaneously (absolute-stacked).
@@ -201,7 +201,7 @@ const Home = () => {
                 zIndex: 10,
               }}
             >
-              <div className="w-full px-4 sm:px-6 lg:px-10" style={{ maxWidth: '80rem', margin: '0 auto' }}>
+              <div className="w-full px-4 sm:px-6 lg:px-10 mx-auto" style={{ maxWidth: '80rem' }}>
 
                 {/* ── Mobile / tablet: stacked layout (text + compact image strip) ── */}
                 <div className="flex flex-col gap-5 lg:hidden">
@@ -378,15 +378,18 @@ const Home = () => {
           aria-hidden="true"
           className="hidden lg:flex"
           style={{
-            position: 'absolute', top: 0, bottom: 0, right: 0,
-            width: '48%', zIndex: 8,
+            position: 'absolute', top: 0, bottom: 0,
+            left: '50%', right: 'auto',
+            width: 'min(50vw, 40rem)', zIndex: 8,
             alignItems: 'center',
-            paddingRight: '2.5rem', paddingLeft: '0.5rem',
+            paddingRight: '2.5rem', paddingLeft: '1.75rem',
+            boxSizing: 'border-box',
+            overflow: 'hidden',
           }}
         >
           <div
             style={{
-              position: 'relative', width: '100%', height: '420px',
+              position: 'relative', width: '100%', maxWidth: '100%', height: '420px',
               borderRadius: '1.5rem', overflow: 'hidden',
               border: '3px solid rgba(255,255,255,0.2)',
               boxShadow: '0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.15) inset, 0 0 60px rgba(16,185,129,0.2)',
@@ -462,7 +465,7 @@ const Home = () => {
         <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-teal-200/20 rounded-full blur-2xl" aria-hidden="true" style={{ animation: 'pulse 6s ease-in-out infinite' }} />
         <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-cyan-200/20 rounded-full blur-2xl" aria-hidden="true" style={{ animation: 'pulse 7s ease-in-out infinite reverse' }} />
 
-        <div className="container mx-auto px-4 relative z-10">
+        <div className="w-full mx-auto px-4 relative z-10" style={{ maxWidth: '80rem' }}>
           <div className="max-w-6xl mx-auto">
             {/* Title with stagger animation */}
             <div className={`text-center mb-20 transition-all duration-1000 ${visibleSections.has('complexity') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}>
@@ -587,7 +590,7 @@ const Home = () => {
       {/* Product Categories — BLACK SECTION */}
       <section id="categories" data-animate className="py-24 bg-gradient-to-br from-gray-900 via-gray-900 to-black relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent" aria-hidden="true" />
-        <div className="container mx-auto px-4 relative z-10">
+        <div className="w-full mx-auto px-4 relative z-10" style={{ maxWidth: '80rem' }}>
           <div className="text-center mb-16">
             <h2 className="text-5xl md:text-6xl font-bold text-white mb-6">Product <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-400">Categories</span></h2>
             <div className="w-24 h-1 bg-gradient-to-r from-teal-500 to-cyan-500 mx-auto mb-6 rounded-full" />

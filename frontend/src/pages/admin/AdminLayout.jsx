@@ -20,6 +20,10 @@ export default function AdminLayout() {
   const logoutAdmin = useAuthStore((s) => s.logoutAdmin);
   const userToken = useAuthStore((s) => s.userToken);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [adminTheme, setAdminTheme] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    return localStorage.getItem("wireeo_admin_theme") || "light";
+  });
 
   const tokenExpired = isTokenExpired(adminToken);
   const isAdmin = !!adminToken && !tokenExpired;
@@ -40,19 +44,31 @@ export default function AdminLayout() {
     }
   }, [isAdmin, isRegularUser, tokenExpired, adminToken, logoutAdmin, navigate, location.pathname]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    localStorage.setItem("wireeo_admin_theme", adminTheme);
+    const handleThemeToggle = () => {
+      setAdminTheme((theme) => (theme === "dark" ? "light" : "dark"));
+    };
+    window.addEventListener("admin-theme-toggle", handleThemeToggle);
+    return () => window.removeEventListener("admin-theme-toggle", handleThemeToggle);
+  }, [adminTheme]);
+
   if (!isAdmin || isRegularUser) {
     return null;
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100">
-      <AdminSidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
-      />
-      <main className="flex-1 min-w-0 overflow-auto">
-        <Outlet />
-      </main>
+    <div className={`admin-artboard admin-theme-${adminTheme} min-h-screen`}>
+      <div className="admin-frame">
+        <AdminSidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((c) => !c)}
+        />
+        <main className="admin-content flex-1 min-w-0 overflow-auto">
+          <Outlet context={{ adminTheme }} />
+        </main>
+      </div>
     </div>
   );
 }

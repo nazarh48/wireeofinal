@@ -1,120 +1,267 @@
-import { useMemo, useEffect, useState, Profiler } from "react";
+import { useEffect, useMemo, useState, Profiler } from "react";
 import { Link } from "react-router-dom";
 import { useAdminStore } from "../../store/adminStore";
 import { apiService } from "../../services/api";
-import { IconChart, IconRanges, IconProducts, IconUsers } from "../../components/admin/AdminIcons";
-import MetricCard from "../../components/admin/MetricCard";
-import AnalyticsCard from "../../components/admin/AnalyticsCard";
-import RecentItemsCard from "../../components/admin/RecentItemsCard";
-import ActivityTimeline from "../../components/admin/ActivityTimeline";
+import {
+  IconCategories,
+  IconChart,
+  IconLibrary,
+  IconMail,
+  IconPdf,
+  IconProducts,
+  IconProjects,
+  IconRanges,
+  IconSolutions,
+  IconUsers,
+} from "../../components/admin/AdminIcons";
 import DashboardHeader from "../../components/admin/DashboardHeader";
 
-const GRADIENT_MAP = {
-  emerald: "from-emerald-500 to-emerald-600",
-  blue: "from-blue-500 to-blue-600",
-  violet: "from-violet-500 to-violet-600",
-  amber: "from-amber-500 to-amber-600",
-};
+const numberFormat = new Intl.NumberFormat("en-US");
 
-function DonutChart({ data, labelKey, valueKey, colors = ["#10b981", "#8b5cf6"], size = 160 }) {
-  const total = data.reduce((s, d) => s + (d[valueKey] || 0), 0) || 1;
-  const strokeWidth = size * 0.22;
-  const r = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * r;
-  let offset = 0;
-  const segments = data.map((d, i) => {
-    const value = d[valueKey] || 0;
-    const ratio = value / total;
-    const dash = ratio * circumference;
-    const seg = { ...d, dash, offset, ratio: (ratio * 100).toFixed(1), color: colors[i % colors.length] };
-    offset += dash;
-    return seg;
-  });
+function formatNumber(value) {
+  return numberFormat.format(Number(value || 0));
+}
+
+function formatDate(value) {
+  if (!value) return "No date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No date";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function percent(value, total) {
+  if (!total) return "0%";
+  return `${Math.round((value / total) * 100)}%`;
+}
+
+function KpiCard({ icon: Icon, title, value, detail, to, tone = "green", delay = 0 }) {
+  const content = (
+    <div className="admin-kpi-card" style={{ animationDelay: `${delay}s` }}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="mb-4 flex items-center gap-2">
+            <span className={`admin-kpi-icon ${tone}`}>
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            <p className="text-xs font-bold text-slate-700">{title}</p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <p className="text-3xl font-black tracking-tight text-slate-950">{formatNumber(value)}</p>
+            {detail && <span className={`admin-kpi-badge ${tone}`}>{detail}</span>}
+          </div>
+        </div>
+        <span className="admin-more-button">...</span>
+      </div>
+    </div>
+  );
+
+  return to ? <Link to={to}>{content}</Link> : content;
+}
+
+function buildLinePoints(data, key, width = 620, height = 210) {
+  const values = data.map((item) => Number(item[key] || 0));
+  const max = Math.max(...values, 1);
+  const step = data.length > 1 ? width / (data.length - 1) : width;
+
+  return data
+    .map((item, index) => {
+      const value = Number(item[key] || 0);
+      const x = 15 + index * step;
+      const y = 20 + (height - (value / max) * (height - 35));
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function ProductsPerRangeChart({ productsPerRange }) {
+  const hasData = productsPerRange.some((item) => item.count > 0);
+  const data = productsPerRange.length ? productsPerRange.slice(0, 8) : [];
+  const productPoints = buildLinePoints(data, "count");
+  const average = data.length
+    ? Math.round(data.reduce((sum, item) => sum + item.count, 0) / data.length)
+    : 0;
+  const averageData = data.map((item) => ({ ...item, average }));
+  const averagePoints = buildLinePoints(averageData, "average");
+
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
-          {segments.map((seg, i) => (
-            <circle
-              key={i}
-              cx={size / 2}
-              cy={size / 2}
-              r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${seg.dash} ${circumference}`}
-              strokeDashoffset={-seg.offset}
-              strokeLinecap="round"
-              className="transition-all duration-700 ease-out"
-            />
-          ))}
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl font-bold text-slate-800">{total}</span>
+    <section className="admin-panel admin-orders-panel">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-xl font-bold text-slate-950">Products Per Range</h2>
+        <div className="flex items-center gap-5 text-xs font-semibold text-slate-600">
+          <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-emerald-500" /> Products</span>
+          <span className="flex items-center gap-2"><i className="h-2 w-2 rounded-full bg-orange-400" /> Average</span>
         </div>
       </div>
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-        {data.map((d, i) => (
-          <div key={d[labelKey]} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: colors[i % colors.length] }} />
-            <span className="text-sm text-slate-600">{d[labelKey]}</span>
-            <span className="text-sm font-semibold text-slate-800">({d[valueKey]})</span>
+
+      {hasData ? (
+        <div className="admin-line-chart">
+          <svg viewBox="0 0 660 250" role="img" aria-label="Products per range chart">
+            {[35, 75, 115, 155, 195].map((y) => (
+              <line key={y} x1="0" x2="660" y1={y} y2={y} className="chart-grid" />
+            ))}
+            {data.map((item, index) => (
+              <line key={item.id || item.name} x1={30 + index * 84} x2={30 + index * 84} y1="18" y2="218" className="chart-grid vertical" />
+            ))}
+            <path d={`M${productPoints}`} className="chart-line green" />
+            <path d={`M${averagePoints}`} className="chart-line orange" />
+            {data.map((item, index) => (
+              <text key={item.id || item.name} x={28 + index * 84} y="242" className="chart-month">
+                {(item.name || "Range").slice(0, 8)}
+              </text>
+            ))}
+          </svg>
+        </div>
+      ) : (
+        <div className="flex min-h-[17rem] items-center justify-center rounded-2xl bg-slate-50 text-sm font-semibold text-slate-500">
+          No product range data yet.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function WebsiteVisitorsPanel({ websiteVisitors, recentItems }) {
+  return (
+    <section className="admin-panel admin-visitors-panel">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">Website Visitors</h2>
+          <p className="mt-1 text-xs font-semibold text-slate-400">Registered website users</p>
+        </div>
+        <span className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-white">Live</span>
+      </div>
+
+      <div className="admin-visitor-ring">
+        <span>{formatNumber(websiteVisitors)}</span>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-base font-black text-slate-900">Recent Admin Data</h3>
+        <p className="mt-2 text-sm font-bold text-emerald-500">{formatNumber(recentItems.length)} <span className="font-medium text-slate-400">latest records</span></p>
+        <div className="mt-6 space-y-5">
+          {recentItems.length ? recentItems.slice(0, 5).map((item) => (
+            <div key={`${item.type}-${item.id}`} className="flex gap-3">
+              <span className={`admin-sale-icon ${item.tone}`}>{item.short}</span>
+              <div>
+                <p className="text-sm font-black text-slate-900">{item.name}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-400">{item.type} - {formatDate(item.date)}</p>
+              </div>
+            </div>
+          )) : (
+            <p className="text-sm font-semibold text-slate-500">No recent records yet.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ActiveDataPanel({ totalUsers, totalNewsletterSubscribers, totalPdfExports }) {
+  const items = [
+    ["Users", totalUsers, "orange"],
+    ["Newsletter", totalNewsletterSubscribers, "green"],
+    ["PDF Exports", totalPdfExports, "orange"],
+  ];
+  const max = Math.max(...items.map(([, value]) => value), 1);
+
+  return (
+    <section className="admin-panel">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-950">Active Records</h2>
+          <p className="mt-2 text-sm font-semibold text-slate-400">Live counts from admin collections</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {items.map(([label, value, tone]) => (
+          <div key={label} className="admin-active-user">
+            <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-400">
+              <span className={`admin-mini-icon ${tone}`}>{label.charAt(0)}</span>
+              {label}
+            </p>
+            <p className="text-lg font-black text-slate-950">{formatNumber(value)}</p>
+            <span className={`admin-user-meter ${tone}`} style={{ background: `linear-gradient(90deg, currentColor ${(value / max) * 100}%, #dbe5f2 ${(value / max) * 100}%)` }} />
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-function BarChart({ data, max, labelKey, valueKey, color = "emerald", showPercent = false }) {
-  const cap = Math.max(max, 1);
-  const colors = color === "emerald" ? ["#34d399", "#059669"] : color === "violet" ? ["#a78bfa", "#7c3aed"] : ["#60a5fa", "#2563eb"];
+function ProductMixPanel({ configurableCount, standardCount, totalProducts }) {
   return (
-    <div className="space-y-4">
-      {data.map((d, i) => {
-        const pct = (d[valueKey] / cap) * 100;
-        return (
-          <div key={d[labelKey]} className="group">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-medium text-slate-700 truncate max-w-[40%]">{d[labelKey]}</span>
-              <span className="text-sm font-semibold text-slate-800 tabular-nums flex items-center gap-1">
-                {d[valueKey]}
-                {showPercent && <span className="text-slate-400 font-normal">({pct.toFixed(0)}%)</span>}
-              </span>
-            </div>
-            <div className="h-8 bg-slate-100 rounded-xl overflow-hidden">
-              <div
-                className="h-full rounded-xl transition-all duration-700 ease-out flex items-center justify-end pr-2"
-                style={{
-                  width: `${pct}%`,
-                  background: `linear-gradient(90deg, ${colors[0]}, ${colors[1]})`,
-                  minWidth: d[valueKey] > 0 ? "24px" : 0,
-                }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+    <section className="admin-panel">
+      <h2 className="text-lg font-bold text-slate-950">Product Analytics</h2>
+      <div className="mt-7 grid grid-cols-[1fr_1.2fr] gap-4">
+        <div>
+          <p className="text-3xl font-black text-slate-950">{formatNumber(configurableCount)}</p>
+          <p className="mt-2 text-xl font-black text-emerald-500">{percent(configurableCount, totalProducts)} configurable</p>
+          <p className="mt-8 text-3xl font-black text-slate-950">{formatNumber(standardCount)}</p>
+          <p className="mt-2 text-xl font-black text-orange-400">{percent(standardCount, totalProducts)} standard</p>
+        </div>
+        <div className="admin-product-mix-ring" style={{ "--config-ratio": `${totalProducts ? (configurableCount / totalProducts) * 100 : 0}%` }}>
+          <span>{formatNumber(totalProducts)}</span>
+          <small>Total</small>
+        </div>
+      </div>
+    </section>
   );
 }
 
-const mapProduct = (p) => {
-  const range = p?.range;
-  return {
-    id: p?._id || p?.id,
-    name: p?.name || "",
-    rangeId: range?._id || range?.id || p?.range,
-    range: range ? { id: range._id || range.id, name: range.name } : null,
-    configurable: p?.productType === "configurable" || p?.isConfigurable === true,
-    createdAt: p?.createdAt,
-  };
-};
+function ManagementTotalsPanel({ stats }) {
+  const items = [
+    ["Categories", stats.totalCategories, IconCategories, "/admin/categories"],
+    ["Solutions", stats.totalSolutions, IconSolutions, "/admin/solutions"],
+    ["Ranges", stats.totalRanges, IconRanges, "/admin/ranges"],
+    ["Icons", stats.totalIcons, IconLibrary, "/admin/icon-library"],
+    ["Resources", stats.totalResources, IconPdf, "/admin/resources"],
+    ["Canvas Edits", stats.totalCanvasEdits, IconChart, "/admin/projects"],
+  ];
+
+  return (
+    <section className="admin-panel">
+      <h2 className="text-lg font-bold text-slate-950">Management Totals</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map(([label, value, Icon, to]) => (
+          <Link key={label} to={to} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+            <span className="admin-nav-icon">
+              <Icon className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{label}</span>
+            <span>{formatNumber(value)}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const mapProduct = (p) => ({
+  id: p?._id || p?.id,
+  name: p?.name || "Unnamed product",
+  date: p?.createdAt,
+  type: "Product",
+  short: "P",
+  tone: "orange",
+});
+
 const mapRange = (r) => ({
   id: r?._id || r?.id,
-  name: r?.name || "",
-  createdAt: r?.createdAt,
+  name: r?.name || "Unnamed range",
+  date: r?.createdAt,
+  type: "Range",
+  short: "R",
+  tone: "green",
+});
+
+const mapProject = (p) => ({
+  id: p?._id || p?.id,
+  name: p?.name || p?.projectName || "Untitled project",
+  date: p?.updatedAt || p?.createdAt,
+  type: "Configurator",
+  short: "C",
+  tone: "green",
 });
 
 function DashboardOverviewInner() {
@@ -140,41 +287,45 @@ function DashboardOverviewInner() {
     return () => { cancelled = true; };
   }, []);
 
-  const totalRanges = stats?.totalRanges ?? 0;
-  const totalProducts = stats?.totalProducts ?? 0;
-  const configurableCount = stats?.configurableCount ?? 0;
-  const standardCount = stats?.standardCount ?? stats?.normalCount ?? 0;
-  const totalUsers = stats?.totalUsers ?? 0;
+  const dashboardStats = {
+    totalRanges: stats?.totalRanges ?? 0,
+    totalProducts: stats?.totalProducts ?? 0,
+    configurableCount: stats?.configurableCount ?? 0,
+    standardCount: stats?.standardCount ?? stats?.normalCount ?? 0,
+    totalUsers: stats?.totalUsers ?? 0,
+    totalProjects: stats?.totalProjects ?? 0,
+    totalCategories: stats?.totalCategories ?? 0,
+    totalSolutions: stats?.totalSolutions ?? 0,
+    totalResources: stats?.totalResources ?? 0,
+    totalIcons: stats?.totalIcons ?? 0,
+    totalNewsletterSubscribers: stats?.totalNewsletterSubscribers ?? 0,
+    totalPdfExports: stats?.totalPdfExports ?? 0,
+    totalCanvasEdits: stats?.totalCanvasEdits ?? 0,
+    websiteVisitors: stats?.websiteVisitors ?? stats?.totalUsers ?? 0,
+  };
 
   const productsPerRange = useMemo(
-    () => (stats?.productsPerRange || []).map((r) => ({ name: r.name, count: r.count || 0 })),
+    () => (stats?.productsPerRange || []).map((r) => ({ id: r.id, name: r.name, count: r.count || 0 })),
     [stats?.productsPerRange]
   );
-  const typeChartData = useMemo(
-    () => [
-      { label: "Configurable", value: configurableCount },
-      { label: "Standard", value: standardCount },
-    ],
-    [configurableCount, standardCount]
-  );
-  const maxType = Math.max(configurableCount + standardCount, 1);
-  const recentProducts = useMemo(
-    () => (stats?.recentProducts || []).map(mapProduct).slice(0, 5),
-    [stats?.recentProducts]
-  );
-  const recentRanges = useMemo(
-    () => (stats?.recentRanges || []).map(mapRange).slice(0, 5),
-    [stats?.recentRanges]
-  );
-  const recentActivity = useMemo(() => activityLog.slice(0, 8), [activityLog]);
-  const maxPerRange = Math.max(...productsPerRange.map((d) => d.count), 1);
+
+  const recentItems = useMemo(() => {
+    const merged = [
+      ...(stats?.recentProducts || []).map(mapProduct),
+      ...(stats?.recentRanges || []).map(mapRange),
+      ...(stats?.recentProjects || []).map(mapProject),
+    ];
+    return merged
+      .filter((item) => item.id)
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  }, [stats?.recentProducts, stats?.recentProjects, stats?.recentRanges]);
 
   if (loading && !stats) {
     return (
-      <div className="p-6 md:p-8 flex items-center justify-center min-h-[40vh]">
+      <div className="flex min-h-[40vh] items-center justify-center p-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-3" />
-          <p className="text-slate-600">Loading dashboard…</p>
+          <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-500" />
+          <p className="text-slate-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -183,13 +334,10 @@ function DashboardOverviewInner() {
   if (error && !stats) {
     return (
       <div className="p-6 md:p-8">
-        <div className="rounded-xl bg-red-50 border border-red-200 p-6 text-center">
-          <p className="text-red-700 font-medium mb-2">Failed to load dashboard</p>
-          <p className="text-red-600 text-sm mb-4">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
+        <div className="admin-panel p-8 text-center">
+          <p className="mb-2 font-bold text-red-600">Failed to load dashboard</p>
+          <p className="mb-4 text-sm text-red-500">{error}</p>
+          <button onClick={() => window.location.reload()} className="rounded-xl bg-red-600 px-4 py-2 text-white">
             Retry
           </button>
         </div>
@@ -198,111 +346,53 @@ function DashboardOverviewInner() {
   }
 
   return (
-    <div className="p-6 md:p-8 min-h-full bg-slate-50">
-      <DashboardHeader 
-        title="Dashboard" 
-        subtitle="Overview of your catalog and activity"
-        showHomeButton={true}
-      />
+    <div className="min-h-full bg-slate-50 p-6 md:p-8">
+      <DashboardHeader title="Welcome To Admin Analytics Dashboard" />
 
-      <section className="mb-10">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-slate-800 mb-1">Key metrics</h2>
-          <p className="text-sm text-slate-500">Catalog and user counts at a glance</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-          <MetricCard icon={IconRanges} label="Total Ranges" value={totalRanges} to="/admin/ranges" gradient={GRADIENT_MAP.emerald} delay={0} />
-          <MetricCard icon={IconProducts} label="Total Products" value={totalProducts} to="/admin/products" gradient={GRADIENT_MAP.blue} delay={0.05} />
-          <MetricCard icon={IconChart} label="Configurable" value={configurableCount} gradient={GRADIENT_MAP.violet} delay={0.1} />
-          <MetricCard icon={IconChart} label="Standard" value={standardCount} gradient={GRADIENT_MAP.amber} delay={0.15} />
-          <MetricCard icon={IconUsers} label="Total Users" value={totalUsers} to="/admin/users" gradient={GRADIENT_MAP.blue} delay={0.2} />
-        </div>
+      <section className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard icon={IconProducts} title="Products Management" value={dashboardStats.totalProducts} detail={`${formatNumber(dashboardStats.configurableCount)} configurable`} to="/admin/products" tone="green" delay={0} />
+        <KpiCard icon={IconProjects} title="Graphic Configurator" value={dashboardStats.totalProjects} detail={`${formatNumber(dashboardStats.totalCanvasEdits)} canvas edits`} to="/admin/projects" tone="orange" delay={0.04} />
+        <KpiCard icon={IconPdf} title="Resources / Docs" value={dashboardStats.totalResources} detail={`${formatNumber(dashboardStats.totalPdfExports)} PDF exports`} to="/admin/resources" tone="orange" delay={0.08} />
+        <KpiCard icon={IconUsers} title="Website Visitors" value={dashboardStats.websiteVisitors} detail="registered users" to="/admin/users" tone="green" delay={0.12} />
       </section>
 
-      <section className="mb-10">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-slate-800 mb-1">Analytics</h2>
-          <p className="text-sm text-slate-500">Product and range distribution</p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <AnalyticsCard 
-            icon={IconRanges} 
-            title="Products per range" 
-            subtitle="Distribution across ranges"
-            iconBg="bg-emerald-50"
-            iconColor="text-emerald-600"
-            delay={0.25}
-          >
-            {productsPerRange.length ? (
-              <BarChart data={productsPerRange} max={maxPerRange} labelKey="name" valueKey="count" color="emerald" showPercent />
-            ) : (
-              <p className="text-slate-500 text-sm py-4 text-center">No ranges yet</p>
-            )}
-          </AnalyticsCard>
-          
-          <AnalyticsCard 
-            icon={IconChart} 
-            title="Product types" 
-            subtitle="Configurable and standard"
-            iconBg="bg-violet-50"
-            iconColor="text-violet-600"
-            delay={0.3}
-          >
-            {typeChartData.some((d) => d.value > 0) ? (
-              <DonutChart data={typeChartData} labelKey="label" valueKey="value" colors={["#8b5cf6", "#f59e0b"]} size={180} />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-500 text-sm">
-                <IconChart className="w-12 h-12 text-slate-300 mb-2" />
-                No product types yet
+      <section className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_310px]">
+        <div className="space-y-8">
+          <ProductsPerRangeChart productsPerRange={productsPerRange} />
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.35fr_0.85fr]">
+            <ActiveDataPanel
+              totalUsers={dashboardStats.totalUsers}
+              totalNewsletterSubscribers={dashboardStats.totalNewsletterSubscribers}
+              totalPdfExports={dashboardStats.totalPdfExports}
+            />
+            <ProductMixPanel
+              configurableCount={dashboardStats.configurableCount}
+              standardCount={dashboardStats.standardCount}
+              totalProducts={dashboardStats.totalProducts}
+            />
+          </div>
+
+          <ManagementTotalsPanel stats={dashboardStats} />
+
+          {activityLog.length > 0 && (
+            <section className="admin-panel">
+              <h2 className="text-lg font-bold text-slate-950">Local Activity Log</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {activityLog.slice(0, 8).map((activity) => (
+                  <div key={activity.id} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">
+                    {activity.label}
+                  </div>
+                ))}
               </div>
-            )}
-          </AnalyticsCard>
+            </section>
+          )}
         </div>
-      </section>
 
-      <section>
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-slate-800 mb-1">Recent activity & items</h2>
-          <p className="text-sm text-slate-500">Latest updates and quick links</p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <RecentItemsCard
-            icon={IconProducts}
-            title="Recently added products"
-            subtitle="Last 5 products"
-            items={recentProducts.map(p => ({ id: p.id, name: p.name, subtitle: p.range?.name }))}
-            linkTo="/admin/products"
-            iconBg="bg-blue-50"
-            iconColor="text-blue-600"
-            accentColor="bg-emerald-400"
-            delay={0.35}
-            emptyMessage="No products yet"
-          />
-          
-          <RecentItemsCard
-            icon={IconRanges}
-            title="Recently added ranges"
-            subtitle="Last 5 ranges"
-            items={recentRanges.map(r => ({ id: r.id, name: r.name }))}
-            linkTo="/admin/ranges"
-            iconBg="bg-emerald-50"
-            iconColor="text-emerald-600"
-            accentColor="bg-blue-400"
-            delay={0.4}
-            emptyMessage="No ranges yet"
-          />
-          
-          <AnalyticsCard
-            icon={IconChart}
-            title="Activity log"
-            subtitle="Latest 8 events"
-            iconBg="bg-violet-50"
-            iconColor="text-violet-600"
-            delay={0.45}
-          >
-            <ActivityTimeline activities={recentActivity} emptyMessage="No recent activity" />
-          </AnalyticsCard>
-        </div>
+        <WebsiteVisitorsPanel
+          websiteVisitors={dashboardStats.websiteVisitors}
+          recentItems={recentItems}
+        />
       </section>
     </div>
   );
